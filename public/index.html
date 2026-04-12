@@ -2,16 +2,17 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Интерактивная доска</title>
+    <title>Совместная доска с комнатами</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
-        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; }
+        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-wrap: wrap; }
+        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #bdc3c7; }
         button.active { background: #3498db; color: white; }
         #canvas-container { flex-grow: 1; position: relative; background: #fff; overflow: hidden; }
         canvas { display: block; background: white; }
-        .status-bar { position: absolute; bottom: 10px; right: 20px; background: rgba(0,0,0,0.6); color: white; padding: 5px 12px; border-radius: 20px; font-size: 12px; pointer-events: none; }
+        .status-bar { position: absolute; bottom: 10px; left: 20px; background: rgba(0,0,0,0.6); color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; pointer-events: none; z-index: 20; }
     </style>
 </head>
 <body>
@@ -23,69 +24,95 @@
     <button onclick="setTool('text')" id="textBtn">Текст</button>
     <button onclick="setTool('rect')" id="rectBtn">⬜ Прямоугольник</button>
     <button onclick="setTool('hand')" id="handBtn">✋ Рука</button>
-    <input type="color" id="colorPicker" value="#000000">
-    <button onclick="clearBoard()" style="background:#e74c3c; color:white; margin-left: auto;">Очистить всё</button>
+    <input type="color" id="colorPicker" value="#000000" title="Цвет">
+    
+    <div style="flex-grow: 1;"></div>
+    
+    <button onclick="createNewBoard()" style="background:#27ae60; color:white;">➕ Новая доска</button>
+    <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистить всё</button>
 </div>
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
-    <div class="status-bar" id="zoomInfo">Масштаб: 100% | Скролл: Зум | Ctrl+V: Вставка</div>
+    <div class="status-bar" id="infoBar">Доска: main | Масштаб: 100% | Ctrl+V для вставки</div>
 </div>
 
 <script>
-    const socket = io();
+    // 1. ОПРЕДЕЛЕНИЕ КОМНАТЫ
+    const boardId = window.location.pathname.split('/').pop() || 'main';
+    const socket = io({ query: { boardId: boardId } });
+    
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
-    const zoomInfo = document.getElementById('zoomInfo');
+    const infoBar = document.getElementById('infoBar');
     
     let tool = 'pen', isDrawing = false, objects = [], currentObj = null;
     let scale = 1, offsetX = 0, offsetY = 0;
 
     function resize() {
         canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight - 50;
+        canvas.height = window.innerHeight - document.querySelector('.toolbar').offsetHeight;
         render();
     }
     window.onresize = resize;
     resize();
 
+    function updateInfo() {
+        infoBar.innerText = `Доска: ${boardId} | Масштаб: ${Math.round(scale * 100)}% | Ctrl+V для вставки`;
+    }
+    updateInfo();
+
     function setTool(t) {
         tool = t;
         document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
-        if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
+        const btn = document.getElementById(t + 'Btn');
+        if(btn) btn.classList.add('active');
         canvas.style.cursor = t === 'hand' ? 'grab' : 'crosshair';
     }
 
-    // ВСТАВКА КАРТИНКИ
+    function createNewBoard() {
+        const name = prompt("Введите ID новой доски (только буквы и цифры):");
+        if (name) window.location.href = `/board/${name.trim()}`;
+    }
+
+    // 2. ВСТАВКА ИЗОБРАЖЕНИЯ (Ctrl+V)
     window.addEventListener('paste', (e) => {
         const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
         if (item) {
             const reader = new FileReader();
             reader.onload = (event) => {
-                const x = (canvas.width/2 - offsetX) / scale;
-                const y = (canvas.height/2 - offsetY) / scale;
-                const obj = { type: 'image', src: event.target.result, x, y, w: 300, h: 200 };
-                objects.push(obj);
-                socket.emit('new-object', obj);
-                render();
+                const img = new Image();
+                img.onload = () => {
+                    const x = (canvas.width/2 - offsetX) / scale - (img.width/4);
+                    const y = (canvas.height/2 - offsetY) / scale - (img.height/4);
+                    const obj = { type: 'image', src: event.target.result, x, y, w: img.width/2, h: img.height/2 };
+                    objects.push(obj);
+                    socket.emit('new-object', obj);
+                    render();
+                };
+                img.src = event.target.result;
             };
             reader.readAsDataURL(item.getAsFile());
         }
     });
 
-    // ЗУМ
+    // 3. МАСШТАБИРОВАНИЕ
     window.addEventListener('wheel', (e) => {
         e.preventDefault();
         const oldScale = scale;
-        scale = Math.min(Math.max(0.1, scale + (e.deltaY > 0 ? -0.1 : 0.1)), 4);
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        scale = Math.min(Math.max(0.1, scale + delta), 4);
+        
         const mX = e.clientX, mY = e.clientY - 50;
         offsetX -= (mX - offsetX) * (scale / oldScale - 1);
         offsetY -= (mY - offsetY) * (scale / oldScale - 1);
-        zoomInfo.innerText = `Масштаб: ${Math.round(scale * 100)}% | Скролл: Зум | Ctrl+V: Вставка`;
+        
+        updateInfo();
         render();
     }, { passive: false });
 
+    // 4. СЕТЕВЫЕ СОБЫТИЯ
     socket.on('init-history', (history) => { objects = history; render(); });
     socket.on('new-object', (obj) => { objects.push(obj); render(); });
     socket.on('clear-board', () => { objects = []; render(); });
@@ -93,20 +120,7 @@
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // РИСУЕМ СЕТКУ (вне трансформации для производительности)
-        drawGrid();
-
-        ctx.save();
-        ctx.translate(offsetX, offsetY);
-        ctx.scale(scale, scale);
-
-        objects.forEach(draw);
-        if (currentObj) draw(currentObj);
-        
-        ctx.restore();
-    }
-
-    function drawGrid() {
+        // Сетка (Клеточки)
         const gridSize = 30 * scale;
         ctx.beginPath();
         ctx.strokeStyle = '#e8e8e8';
@@ -118,20 +132,26 @@
             ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
         }
         ctx.stroke();
+
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+        objects.forEach(draw);
+        if (currentObj) draw(currentObj);
+        ctx.restore();
     }
 
     function draw(obj) {
         ctx.save();
         ctx.strokeStyle = obj.color;
         ctx.fillStyle = obj.color;
-        ctx.lineWidth = obj.width || 3;
+        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        // Эффект ластика
         if (obj.type === 'eraser') {
             ctx.globalCompositeOperation = 'destination-out';
-            ctx.lineWidth = 20; // Ластик шире ручки
+            ctx.lineWidth = 20;
         }
 
         if (obj.type === 'pen' || obj.type === 'eraser') {
@@ -158,16 +178,21 @@
         isDrawing = true;
 
         if (tool === 'hand') { canvas.style.cursor = 'grabbing'; return; }
-        if (tool === 'text') { addText(mX, mY); isDrawing = false; return; }
+        if (tool === 'text') { 
+            const content = prompt("Введите текст:");
+            if (content) {
+                const textObj = { type: 'text', content, x: mX, y: mY, color: colorPicker.value };
+                objects.push(textObj);
+                socket.emit('new-object', textObj);
+                render();
+            }
+            isDrawing = false; return;
+        }
 
         const common = { color: colorPicker.value, x: mX, y: mY };
-        if (tool === 'pen' || tool === 'eraser') {
-            currentObj = { type: tool, ...common, points: [{x: mX, y: mY}] };
-        } else if (tool === 'rect') {
-            currentObj = { type: 'rect', ...common, w: 0, h: 0 };
-        } else if (tool === 'line') {
-            currentObj = { type: 'line', ...common, x1: mX, y1: mY, x2: mX, y2: mY };
-        }
+        if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [{x: mX, y: mY}] };
+        else if (tool === 'rect') currentObj = { type: 'rect', ...common, w: 0, h: 0 };
+        else if (tool === 'line') currentObj = { type: 'line', ...common, x1: mX, y1: mY, x2: mX, y2: mY };
     };
 
     window.onmousemove = (e) => {
@@ -195,17 +220,8 @@
         render();
     };
 
-    function addText(x, y) {
-        const content = prompt("Введите текст:");
-        if (!content) return;
-        const textObj = { type: 'text', content, x, y, color: colorPicker.value };
-        objects.push(textObj);
-        socket.emit('new-object', textObj);
-        render();
-    }
-
     function clearBoard() {
-        if(confirm("Очистить всё?")) { objects = []; socket.emit('clear-board'); render(); }
+        if(confirm("Очистить текущую доску?")) { objects = []; socket.emit('clear-board'); render(); }
     }
 </script>
 </body>
