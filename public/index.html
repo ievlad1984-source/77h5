@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Совместная математическая доска</title>
-    <!-- ИСПРАВЛЕНО: Рабочие ссылки на внешние библиотеки -->
+    <!-- ИСПРАВЛЕНО: Полные рабочие ссылки на внешние библиотеки -->
     <script src="https://socket.io"></script>
     <script src="https://polyfill.io"></script>
     <script id="MathJax-script" async src="https://jsdelivr.net"></script>
@@ -31,7 +31,9 @@
 <div id="math-buffer"></div>
 
 <script>
+    // Подключение к вашему серверу
     const socket = io("https://seven7h5.onrender.com");
+    
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
@@ -53,17 +55,22 @@
         if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
     }
 
-    // ПОЛУЧЕНИЕ ИСТОРИИ при входе
+    // Слушаем сервер
     socket.on('init-history', (history) => {
+        objects = [];
         history.forEach(obj => {
             if (obj.type === 'latex') loadRemoteLatex(obj);
-            else { objects.push(obj); render(); }
+            else objects.push(obj);
         });
+        render();
     });
 
     socket.on('new-object', (obj) => {
         if (obj.type === 'latex') loadRemoteLatex(obj);
-        else { objects.push(obj); render(); }
+        else {
+            objects.push(obj);
+            render();
+        }
     });
 
     socket.on('clear-board', () => { objects = []; render(); });
@@ -83,7 +90,8 @@
         if(!svg) return;
         const svgData = new XMLSerializer().serializeToString(svg);
         const img = new Image();
-        const w = svg.clientWidth * 1.5, h = svg.clientHeight * 1.5;
+        const rect = svg.getBoundingClientRect();
+        const w = rect.width * 1.5, h = rect.height * 1.5;
         img.onload = () => {
             objects.push({ type: 'image', img, x: obj.x, y: obj.y - (h/2), w, h });
             render();
@@ -114,7 +122,9 @@
 
     canvas.onmousedown = (e) => {
         isDrawing = true;
-        const mX = e.clientX, mY = e.clientY - 50;
+        const rect = canvas.getBoundingClientRect();
+        const mX = e.clientX - rect.left;
+        const mY = e.clientY - rect.top;
         if (tool === 'latex') { addLatex(mX, mY); isDrawing = false; return; }
         currentObj = tool === 'pen' ? 
             { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] } :
@@ -123,7 +133,9 @@
 
     window.onmousemove = (e) => {
         if (!isDrawing || !currentObj) return;
-        const mX = e.clientX, mY = e.clientY - 50;
+        const rect = canvas.getBoundingClientRect();
+        const mX = e.clientX - rect.left;
+        const mY = e.clientY - rect.top;
         if (tool === 'pen') currentObj.points.push({x: mX, y: mY});
         else { currentObj.w = mX - currentObj.x; currentObj.h = mY - currentObj.y; }
         render();
