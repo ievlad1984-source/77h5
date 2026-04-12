@@ -2,39 +2,63 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Интерактивная Дошка</title>
+    <title>Интерактивная Доска — Коллаборация</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #f0f0f0; }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f0f0; }
+        
         #toolbar {
             position: absolute; top: 10px; left: 10px; background: white; padding: 10px;
-            display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100; align-items: center;
+            display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.15); z-index: 100; align-items: center;
         }
-        .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 4px; transition: 0.2s; }
+        
+        #sidebar {
+            position: absolute; right: 10px; top: 10px; width: 220px;
+            background: white; padding: 15px; border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.15); z-index: 100;
+        }
+
+        .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ddd; background: #fff; border-radius: 4px; transition: 0.2s; font-size: 13px; }
+        .tool-btn:hover { background: #f8f8f8; }
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
-        #canvas-container { width: 100vw; height: 100vh; background: white; position: relative; overflow: hidden; }
+        
+        #canvas-container { width: 100vw; height: 100vh; background: white; position: relative; overflow: hidden; cursor: crosshair; }
         canvas { display: block; }
+        
         #zoom-display { position: absolute; bottom: 20px; right: 20px; background: white; padding: 8px 15px; border-radius: 8px; font-size: 14px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; }
+
+        .board-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 5px; border-bottom: 1px solid #eee;
+        }
+        .board-link { color: #007bff; text-decoration: none; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+        .board-link:hover { text-decoration: underline; }
+        .del-btn { color: #ff4d4d; cursor: pointer; border: none; background: none; font-size: 18px; line-height: 1; padding: 0 5px; }
+        
         .text-input-div {
             position: absolute; border: 1px dashed #007bff; min-width: 50px; outline: none;
-            background: transparent; white-space: pre-wrap; font-family: Arial, sans-serif;
-            padding: 2px; line-height: 1.2; z-index: 200;
+            background: transparent; white-space: pre-wrap; padding: 2px; line-height: 1.2; z-index: 200;
         }
     </style>
 </head>
 <body>
 
 <div id="toolbar">
-    <button class="tool-btn" data-tool="select">Выделение</button>
     <button class="tool-btn" data-tool="hand">Рука</button>
     <button class="tool-btn active" data-tool="pen">Ручка</button>
     <button class="tool-btn" data-tool="line">Линия</button>
     <button class="tool-btn" data-tool="rect">Прямоугольник</button>
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <button class="tool-btn" data-tool="text">Текст</button>
-    <input type="color" id="colorPicker" value="#000000">
-    <input type="range" id="lineWidth" min="1" max="20" value="3">
-    <button class="tool-btn" onclick="window.location.href='/'">Новая доска</button>
-    <button class="tool-btn" id="clearBtn">Удалить всё</button>
+    <input type="color" id="colorPicker" value="#000000" title="Цвет">
+    <input type="range" id="lineWidth" min="1" max="20" value="3" title="Толщина">
+    <div style="width:1px; height:20px; background:#ddd; margin:0 5px;"></div>
+    <button class="tool-btn" id="clearBtn" style="color:red">Очистить всё</button>
+</div>
+
+<div id="sidebar">
+    <h4 style="margin: 0 0 12px 0; font-size: 16px;">Ваши доски</h4>
+    <div id="boards-list"></div>
+    <button class="tool-btn" style="width: 100%; margin-top: 15px; background: #28a745; color: white;" onclick="createNewBoard()">+ Создать новую</button>
 </div>
 
 <div id="zoom-display">100%</div>
@@ -50,8 +74,9 @@ const zoomDisplay = document.getElementById('zoom-display');
 const colorPicker = document.getElementById('colorPicker');
 const lineWidthInput = document.getElementById('lineWidth');
 
-// Подключение к сокетам
-const boardId = window.location.pathname.split('/').pop() || 'default';
+const boardId = window.location.pathname.split('/').pop() || null;
+if (!boardId) window.location.href = '/board/main';
+
 const socket = io({ query: { boardId } });
 
 let scale = 1.0, offsetX = 0, offsetY = 0;
@@ -75,10 +100,11 @@ function draw() {
     for (let y = offsetY % gridSize; y < canvas.height; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
     ctx.stroke();
 
-    // Объекты
+    // Отрисовка объектов
     objects.concat(currentObj ? [currentObj] : []).forEach(obj => {
         ctx.lineWidth = obj.width * scale;
-        ctx.lineCap = 'round'; ctx.strokeStyle = obj.color;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         const sX = obj.x * scale + offsetX;
         const sY = obj.y * scale + offsetY;
 
@@ -90,10 +116,12 @@ function draw() {
             ctx.stroke();
         } else if (obj.type === 'line') {
             ctx.beginPath();
+            ctx.strokeStyle = obj.color;
             ctx.moveTo(sX, sY);
             ctx.lineTo(obj.ex * scale + offsetX, obj.ey * scale + offsetY);
             ctx.stroke();
         } else if (obj.type === 'rect') {
+            ctx.strokeStyle = obj.color;
             ctx.strokeRect(sX, sY, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
         } else if (obj.type === 'text') {
             ctx.fillStyle = obj.color;
@@ -105,34 +133,64 @@ function draw() {
 }
 
 function getCoords(e) {
-    return { x: (e.clientX - offsetX) / scale, y: (e.clientY - offsetY) / scale };
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - offsetX) / scale, y: (clientY - offsetY) / scale };
 }
 
-// События сокетов
+// Сокеты
 socket.on('init-history', (history) => { objects = history; draw(); });
 socket.on('new-object', (obj) => { objects.push(obj); draw(); });
 socket.on('clear-board', () => { objects = []; draw(); });
+socket.on('board-deleted', () => { alert("Доска удалена"); window.location.href = '/'; });
+
+socket.on('update-boards-list', (list) => {
+    const container = document.getElementById('boards-list');
+    container.innerHTML = list.map(id => `
+        <div class="board-item">
+            <a href="/board/${id}" class="board-link" title="${id}">${id}</a>
+            <button class="del-btn" onclick="deleteBoard('${id}')" title="Удалить">×</button>
+        </div>
+    `).join('');
+});
+
+// Управление досками
+function createNewBoard() {
+    const name = prompt("Название новой доски:");
+    if (name) window.location.href = `/board/${name.trim().replace(/\s+/g, '-')}`;
+}
+
+function deleteBoard(id) {
+    if (confirm(`Удалить доску "${id}" для всех пользователей?`)) {
+        socket.emit('delete-board', id);
+    }
+}
 
 // Инструменты
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
     btn.onclick = () => {
-        document.querySelector('.tool-btn.active').classList.remove('active');
+        const active = document.querySelector('.tool-btn.active');
+        if (active) active.classList.remove('active');
         btn.classList.add('active');
         currentTool = btn.dataset.tool;
     };
 });
 
 document.getElementById('clearBtn').onclick = () => {
-    objects = [];
-    socket.emit('clear-board');
-    draw();
+    if (confirm("Очистить текущую доску?")) {
+        objects = [];
+        socket.emit('clear-board');
+        draw();
+    }
 };
 
-canvas.onmousedown = (e) => {
+// События мыши и касаний
+const startDrawing = (e) => {
+    if (e.target !== canvas) return;
     const coords = getCoords(e);
     isDrawing = true;
     if (currentTool === 'hand') return;
-    if (currentTool === 'text') { createText(e.clientX, e.clientY); isDrawing = false; return; }
+    if (currentTool === 'text') { createText(e); isDrawing = false; return; }
 
     currentObj = {
         type: currentTool, color: colorPicker.value, width: lineWidthInput.value,
@@ -141,16 +199,23 @@ canvas.onmousedown = (e) => {
     };
 };
 
-window.onmousemove = (e) => {
+const moveDrawing = (e) => {
     if (!isDrawing) return;
     const coords = getCoords(e);
-    if (currentTool === 'hand') { offsetX += e.movementX; offsetY += e.movementY; }
-    else if (currentTool === 'pen' || currentTool === 'eraser') currentObj.points.push(coords);
-    else if (currentTool === 'line' || currentTool === 'rect') { currentObj.ex = coords.x; currentObj.ey = coords.y; }
+    
+    if (currentTool === 'hand') {
+        const movementX = e.movementX || (e.touches ? e.touches[0].clientX - lastX : 0);
+        const movementY = e.movementY || (e.touches ? e.touches[0].clientY - lastY : 0);
+        offsetX += movementX; offsetY += movementY;
+    } else if (currentTool === 'pen' || currentTool === 'eraser') {
+        currentObj.points.push(coords);
+    } else if (currentTool === 'line' || currentTool === 'rect') {
+        currentObj.ex = coords.x; currentObj.ey = coords.y;
+    }
     draw();
 };
 
-window.onmouseup = () => {
+const endDrawing = () => {
     if (isDrawing && currentObj) {
         objects.push(currentObj);
         socket.emit('new-object', currentObj);
@@ -158,6 +223,11 @@ window.onmouseup = () => {
     isDrawing = false; currentObj = null; draw();
 };
 
+canvas.addEventListener('mousedown', startDrawing);
+window.addEventListener('mousemove', moveDrawing);
+window.addEventListener('mouseup', endDrawing);
+
+// Зум
 window.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -169,14 +239,19 @@ window.addEventListener('wheel', (e) => {
     draw();
 }, { passive: false });
 
-function createText(clientX, clientY) {
-    const coords = getCoords({ clientX, clientY });
+// Текст
+function createText(e) {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const coords = getCoords(e);
+    
     const div = document.createElement('div');
     div.className = 'text-input-div';
     div.contentEditable = true;
     div.style.left = clientX + 'px'; div.style.top = clientY + 'px';
     div.style.color = colorPicker.value;
     div.style.fontSize = (20 * scale) + 'px';
+    
     document.body.appendChild(div);
     setTimeout(() => div.focus(), 10);
 
@@ -190,6 +265,12 @@ function createText(clientX, clientY) {
         draw();
     };
 }
+
+// Загрузка списка досок при старте
+fetch('/api/boards').then(res => res.json()).then(list => {
+    socket.emit('update-boards-list-trigger'); 
+});
+
 </script>
 </body>
 </html>
