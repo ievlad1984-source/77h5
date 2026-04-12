@@ -1,20 +1,28 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-app.use(express.static('public'));
+const path = require('path'); // Добавили для работы с путями
 
-const app = express();
+const app = express(); // 1. Сначала создаем app
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "*" } // Разрешаем подключения со всех адресов
+    cors: { origin: "*" } 
 });
 
-io.on('connection', (socket) => {
-    console.log('Пользователь подключился');
+// 2. Затем настраиваем статику
+// Если index.html лежит в корне, используйте это:
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
-    // Когда получаем новый объект от одного клиента
+// Если index.html лежит в папке public, раскомментируйте это:
+// app.use(express.static('public'));
+
+io.on('connection', (socket) => {
+    console.log('Пользователь подключился:', socket.id);
+
     socket.on('new-object', (obj) => {
-        // Рассылаем его всем ОСТАЛЬНЫМ
+        // Пересылаем объект всем, кроме отправителя
         socket.broadcast.emit('new-object', obj);
     });
 
