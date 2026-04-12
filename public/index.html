@@ -2,163 +2,282 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Совместная доска</title>
-    <!-- Подключаем библиотеку через локальный путь сервера -->
+    <title>Shared Whiteboard Pro</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
-        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; }
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f0f0f0; }
+        
+        /* Панель инструментов */
+        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); flex-wrap: wrap; }
+        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; font-size: 13px; display: flex; align-items: center; gap: 5px; }
         button:hover { background: #bdc3c7; }
         button.active { background: #3498db; color: white; }
-        #canvas-container { flex-grow: 1; position: relative; background: #fff; }
-        canvas { display: block; cursor: crosshair; background-color: #ffffff; }
+        
+        #canvas-container { flex-grow: 1; position: relative; background: #fff; overflow: hidden; }
+        canvas { display: block; background: white; }
+
+        /* Сетка (клетка) */
+        .grid-bg {
+            background-image: radial-gradient(#d1d1d1 1px, transparent 1px), radial-gradient(#d1d1d1 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+
+        /* Статус-бар и масштаб */
+        .status-bar { position: absolute; bottom: 15px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 6px 18px; border-radius: 20px; font-size: 12px; pointer-events: none; z-index: 20; }
+        .zoom-info { position: absolute; bottom: 15px; right: 20px; background: #34495e; color: white; padding: 6px 15px; border-radius: 4px; font-weight: bold; z-index: 20; }
+        
+        /* Ввод текста */
+        .text-editor { position: absolute; background: transparent; border: 1px dashed #3498db; outline: none; padding: 0; margin: 0; z-index: 100; white-space: nowrap; }
     </style>
 </head>
 <body>
 
 <div class="toolbar">
+    <button onclick="setTool('select')" id="selectBtn" title="Ctrl+A выделить всё">🔦 Выделение</button>
+    <button onclick="setTool('hand')" id="handBtn">✋ Рука</button>
     <button onclick="setTool('pen')" id="penBtn" class="active">✏️ Ручка</button>
-    <button onclick="setTool('text')" id="textBtn">Текст</button>
+    <button onclick="setTool('eraser')" id="eraserBtn">🧽 Ластик</button>
+    <button onclick="setTool('line')" id="lineBtn">📏 Линия</button>
     <button onclick="setTool('rect')" id="rectBtn">⬜ Прямоугольник</button>
+    <button onclick="setTool('text')" id="textBtn">Текст</button>
+    
     <input type="color" id="colorPicker" value="#000000">
-    <button onclick="clearBoard()" style="background:#e74c3c; color:white; margin-left: auto;">Очистить всё</button>
+    <input type="range" id="sizePicker" min="1" max="50" value="3" title="Толщина">
+
+    <div style="flex-grow: 1;"></div>
+    
+    <button onclick="createNewBoard()" style="background:#27ae60; color:white;">➕ Новая доска</button>
+    <button onclick="deleteBoard()" style="background:#c0392b; color:white;">🗑️ Удалить доску</button>
+    <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистить всё</button>
 </div>
 
-<div id="canvas-container"><canvas id="canvas"></canvas></div>
+<div id="canvas-container" class="grid-bg">
+    <canvas id="canvas"></canvas>
+    <div class="status-bar" id="infoBar">Доска: main | Ctrl+Z: отмена | Del: удалить</div>
+    <div class="zoom-info" id="zoomDisplay">100%</div>
+</div>
 
 <script>
-    // Подключение к серверу
-    const socket = io(); // Автоматически подключается к текущему домену
-    
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const colorPicker = document.getElementById('colorPicker');
+    const boardId = window.location.pathname.split('/').pop() || 'main';
+    const socket = io({ query: { boardId } });
+    const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-container');
+    const zoomDisplay = document.getElementById('zoomDisplay');
     
     let tool = 'pen', isDrawing = false, objects = [], currentObj = null;
+    let scale = 1, offsetX = 0, offsetY = 0;
+    let selectedObjects = [], lastPos = {x:0, y:0};
 
     function resize() {
         canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight - 50;
+        canvas.height = window.innerHeight - document.querySelector('.toolbar').offsetHeight;
         render();
     }
-    window.onresize = resize;
-    resize();
+    window.onresize = resize; resize();
 
     function setTool(t) {
         tool = t;
         document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
-        if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
+        document.getElementById(t + 'Btn').classList.add('active');
+        if(t !== 'select') selectedObjects = [];
+        render();
     }
 
-    // --- СИНХРОНИЗАЦИЯ ---
+    function getCoords(e) {
+        const r = canvas.getBoundingClientRect();
+        return { x: (e.clientX - r.left - offsetX) / scale, y: (e.clientY - r.top - offsetY) / scale };
+    }
 
-    // 1. Получаем всю историю при входе
-    socket.on('init-history', (history) => {
-        objects = history;
+    // --- ФУНКЦИИ УПРАВЛЕНИЯ ---
+    function createNewBoard() {
+        const name = prompt("Введите имя новой доски:");
+        if (name) window.location.href = `/board/${name.trim()}`;
+    }
+
+    function deleteBoard() {
+        if (confirm("Удалить текущую доску для всех?")) {
+            socket.emit('delete-board', boardId);
+            window.location.href = '/';
+        }
+    }
+
+    function undo() {
+        objects.pop();
+        socket.emit('undo');
         render();
+    }
+
+    // --- ГОРЯЧИЕ КЛАВИШИ (Ctrl+V, Ctrl+A, Ctrl+Z, Del) ---
+    window.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.code === 'KeyV') { /* Обработка в paste */ }
+        if (e.ctrlKey && e.code === 'KeyA') {
+            e.preventDefault();
+            selectedObjects = [...objects];
+            setTool('select');
+            render();
+        }
+        if (e.ctrlKey && e.code === 'KeyZ') {
+            e.preventDefault();
+            undo();
+        }
+        if (e.code === 'Delete' || e.code === 'Backspace') {
+            if (selectedObjects.length > 0) {
+                objects = objects.filter(o => !selectedObjects.includes(o));
+                selectedObjects = [];
+                socket.emit('full-update', objects);
+                render();
+            }
+        }
     });
 
-    // 2. Получаем новые объекты от других в реальном времени
-    socket.on('new-object', (obj) => {
-        objects.push(obj);
-        render();
+    window.addEventListener('paste', (e) => {
+        const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
+        if (item) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    const coords = { x: (canvas.width/2 - offsetX)/scale - img.width/4, y: (canvas.height/2 - offsetY)/scale - img.height/4 };
+                    const obj = { type: 'image', src: ev.target.result, ...coords, w: img.width/2, h: img.height/2 };
+                    objects.push(obj); socket.emit('new-object', obj); render();
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(item.getAsFile());
+        }
     });
 
-    // 3. Слушаем очистку доски
-    socket.on('clear-board', () => {
-        objects = [];
+    // --- МАСШТАБ (10% - 400%) ---
+    window.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const oldS = scale;
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        scale = Math.min(Math.max(0.1, scale + delta), 4);
+        
+        const mX = e.clientX, mY = e.clientY - 50;
+        offsetX -= (mX - offsetX) * (scale / oldS - 1);
+        offsetY -= (mY - offsetY) * (scale / oldS - 1);
+        
+        zoomDisplay.innerText = `${Math.round(scale * 100)}%`;
         render();
-    });
+    }, { passive: false });
 
     // --- ЛОГИКА РИСОВАНИЯ ---
-
-    function addText(x, y) {
-        const content = prompt("Введите текст:");
-        if (!content) return;
-        const textObj = { type: 'text', content, x, y, color: colorPicker.value };
-        
-        objects.push(textObj);
-        socket.emit('new-object', textObj); // Отправляем на сервер
-        render();
-    }
-
-    function render() {
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        objects.forEach(draw);
-        if (currentObj) draw(currentObj);
-    }
-
-    function draw(obj) {
-        ctx.strokeStyle = obj.color;
-        ctx.fillStyle = obj.color;
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        if (obj.type === 'pen') {
-            ctx.beginPath();
-            obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-            ctx.stroke();
-        } else if (obj.type === 'rect') {
-            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
-        } else if (obj.type === 'text') {
-            ctx.font = "20px Arial";
-            ctx.fillText(obj.content, obj.x, obj.y);
-        }
-    }
-
     canvas.onmousedown = (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mX = e.clientX - rect.left;
-        const mY = e.clientY - rect.top;
-
-        if (tool === 'text') {
-            addText(mX, mY);
-            return;
+        const p = getCoords(e); lastPos = p; isDrawing = true;
+        
+        if (tool === 'hand') { canvas.style.cursor = 'grabbing'; return; }
+        if (tool === 'select') {
+            const clicked = objects.slice().reverse().find(o => p.x >= o.x && p.x <= o.x+o.w && p.y >= o.y && p.y <= o.y+o.h);
+            if (clicked && !selectedObjects.includes(clicked)) selectedObjects = [clicked];
+            else if (!clicked) {
+                selectedObjects = [];
+                currentObj = { type: 'select_area', x: p.x, y: p.y, w: 0, h: 0 };
+            }
+            render(); return;
         }
 
-        isDrawing = true;
-        if (tool === 'pen') {
-            currentObj = { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] };
-        } else if (tool === 'rect') {
-            currentObj = { type: 'rect', color: colorPicker.value, x: mX, y: mY, w: 0, h: 0 };
+        const common = { color: document.getElementById('colorPicker').value, lineWidth: document.getElementById('sizePicker').value, x: p.x, y: p.y };
+        if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [p] };
+        else if (tool === 'rect') currentObj = { type: 'rect', ...common, w: 0, h: 0 };
+        else if (tool === 'line') currentObj = { type: 'line', ...common, x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+        else if (tool === 'text') {
+            handleTextInput(e, p);
+            isDrawing = false;
         }
     };
 
     window.onmousemove = (e) => {
-        if (!isDrawing || !currentObj) return;
-        const rect = canvas.getBoundingClientRect();
-        const mX = e.clientX - rect.left;
-        const mY = e.clientY - rect.top;
-
-        if (tool === 'pen') {
-            currentObj.points.push({x: mX, y: mY});
-        } else if (tool === 'rect') {
-            currentObj.w = mX - currentObj.x;
-            currentObj.h = mY - currentObj.y;
+        if (!isDrawing) return;
+        const p = getCoords(e);
+        if (tool === 'hand') { offsetX += e.movementX; offsetY += e.movementY; render(); return; }
+        
+        if (currentObj) {
+            if (currentObj.type === 'pen' || currentObj.type === 'eraser') currentObj.points.push(p);
+            else if (currentObj.type === 'rect' || currentObj.type === 'select_area') { currentObj.w = p.x - currentObj.x; currentObj.h = p.y - currentObj.y; }
+            else if (currentObj.type === 'line') { currentObj.x2 = p.x; currentObj.y2 = p.y; }
+            render();
         }
-        render();
     };
 
     window.onmouseup = () => {
         if (isDrawing && currentObj) {
-            objects.push(currentObj);
-            socket.emit('new-object', currentObj); // Синхронизируем с сервером
+            if (currentObj.type === 'select_area') {
+                const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w), x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
+                const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h), y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
+                selectedObjects = objects.filter(o => (o.x >= x1 && o.x <= x2 && o.y >= y1 && o.y <= y2));
+            } else {
+                objects.push(currentObj);
+                socket.emit('new-object', currentObj);
+            }
         }
-        isDrawing = false;
-        currentObj = null;
-        render();
+        isDrawing = false; currentObj = null; canvas.style.cursor = ''; render();
     };
 
-    function clearBoard() {
-        if(confirm("Очистить доску для всех пользователей?")) {
-            objects = [];
-            render();
-            socket.emit('clear-board');
-        }
+    function handleTextInput(e, coords) {
+        const input = document.createElement('input');
+        input.className = 'text-editor';
+        input.style.left = e.clientX + 'px'; input.style.top = e.clientY + 'px';
+        input.style.fontSize = (document.getElementById('sizePicker').value * 5 * scale) + 'px';
+        input.style.color = document.getElementById('colorPicker').value;
+        container.appendChild(input);
+        setTimeout(() => input.focus(), 10);
+        input.onblur = () => {
+            if (input.value) {
+                const obj = { type: 'text', content: input.value, x: coords.x, y: coords.y, color: input.style.color, lineWidth: document.getElementById('sizePicker').value };
+                objects.push(obj); socket.emit('new-object', obj); render();
+            }
+            input.remove();
+        };
+        input.onkeydown = (ev) => { if(ev.key === 'Enter') input.blur(); };
     }
+
+    function draw(obj) {
+        ctx.save();
+        ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color; ctx.lineWidth = obj.lineWidth || 3;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        if (obj.type === 'eraser') ctx.globalCompositeOperation = 'destination-out';
+
+        if (obj.type === 'pen' || obj.type === 'eraser') {
+            ctx.beginPath(); obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)); ctx.stroke();
+        } else if (obj.type === 'rect') ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        else if (obj.type === 'line') { ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke(); }
+        else if (obj.type === 'text') { ctx.font = `${obj.lineWidth * 5}px Arial`; ctx.fillText(obj.content, obj.x, obj.y); }
+        else if (obj.type === 'image') {
+            const i = new Image(); i.src = obj.src;
+            if(i.complete) ctx.drawImage(i, obj.x, obj.y, obj.w, obj.h); else i.onload = render;
+        }
+
+        if (selectedObjects.includes(obj)) {
+            ctx.setLineDash([5, 5]); ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2/scale;
+            ctx.strokeRect(obj.x-5, obj.y-5, (obj.w||50)+10, (obj.h||50)+10);
+        }
+        ctx.restore();
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Сетка в клетку
+        container.style.backgroundPosition = `${offsetX}px ${offsetY}px`;
+        container.style.backgroundSize = `${40 * scale}px ${40 * scale}px`;
+
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+        objects.forEach(draw);
+        if (currentObj) {
+            if(currentObj.type === 'select_area') { ctx.strokeStyle='#3498db'; ctx.setLineDash([5,5]); ctx.strokeRect(currentObj.x, currentObj.y, currentObj.w, currentObj.h); }
+            else draw(currentObj);
+        }
+        ctx.restore();
+    }
+
+    socket.on('init-history', h => { objects = h; render(); });
+    socket.on('new-object', o => { objects.push(o); render(); });
+    socket.on('undo', () => { objects.pop(); render(); });
+    socket.on('clear-board', () => { objects = []; render(); });
+    function clearBoard() { if(confirm("Очистить?")) { objects = []; socket.emit('clear-board'); render(); } }
 </script>
 </body>
 </html>
