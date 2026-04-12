@@ -5,7 +5,6 @@
     <title>Математическая доска</title>
     <!-- Подключаем MathJax для обработки LaTeX -->
     <script src="https://polyfill.io"></script>
-    <script src="https://socket.io"></script>
     <script id="MathJax-script" async src="https://jsdelivr.net"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; }
@@ -44,8 +43,7 @@
     const container = document.getElementById('canvas-container');
     const colorPicker = document.getElementById('colorPicker');
     const mathBuffer = document.getElementById('math-buffer');
-    const socket = io("https://seven7h5.onrender.com");
-
+    
     let tool = 'pen';
     let isDrawing = false;
     let offsetX = 0, offsetY = 0; 
