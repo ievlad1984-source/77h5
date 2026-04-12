@@ -18,6 +18,7 @@
 <body>
 
 <div class="toolbar">
+    <button onclick="setTool('select')" id="selectBtn">🔦 Виділення</button>
     <button onclick="setTool('pen')" id="penBtn" class="active">✏️ Ручка</button>
     <button onclick="setTool('eraser')" id="eraserBtn">🧽 Ластик</button>
     <button onclick="setTool('line')" id="lineBtn">📏 Линия</button>
@@ -49,6 +50,7 @@
     
     let tool = 'pen', isDrawing = false, objects = [], currentObj = null;
     let scale = 1, offsetX = 0, offsetY = 0;
+    let selectedObjects = [];
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -117,6 +119,35 @@
     socket.on('new-object', (obj) => { objects.push(obj); render(); });
     socket.on('clear-board', () => { objects = []; render(); });
 
+    function undo() {
+    if (objects.length > 0) {
+        objects.pop();
+        socket.emit('undo'); // Повідомляємо іншим про скасування
+        render();
+    }
+}
+
+// Слухач клавіш (Ctrl+Z та Delete)
+window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.code === 'KeyZ') {
+        e.preventDefault();
+        undo();
+    }
+    if (e.code === 'Delete' && selectedObjects.length > 0) {
+        // Видаляємо виділені об'єкти з основного масиву
+        objects = objects.filter(obj => !selectedObjects.includes(obj));
+        selectedObjects = [];
+        socket.emit('full-update', objects); // Оновлюємо стан у всіх
+        render();
+    }
+});
+
+// Обробка відміни від інших користувачів
+socket.on('undo', () => {
+    objects.pop();
+    render();
+});
+
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
@@ -139,6 +170,23 @@
         objects.forEach(draw);
         if (currentObj) draw(currentObj);
         ctx.restore();
+            // Малюємо рамку виділення (синя пунктирна лінія)
+    if (currentObj && currentObj.type === 'select') {
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = '#3498db';
+        ctx.strokeRect(currentObj.x, currentObj.y, currentObj.w, currentObj.h);
+        ctx.setLineDash([]);
+    }
+
+    // Підсвічуємо вибрані об'єкти
+    selectedObjects.forEach(obj => {
+        ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
+        ctx.lineWidth = 5;
+        // Малюємо рамку навколо кожного вибраного об'єкта
+        const x = obj.x || (obj.points && obj.points[0].x);
+        const y = obj.y || (obj.points && obj.points[0].y);
+        ctx.strokeRect(x - 5, y - 5, (obj.w || 10) + 10, (obj.h || 10) + 10);
+    });
     }
 
     function draw(obj) {
@@ -177,6 +225,11 @@
         const mY = (e.clientY - 50 - offsetY) / scale;
         isDrawing = true;
 
+        if (tool === 'select') {
+        selectedObjects = []; // Скидаємо старе виділення
+        currentObj = { type: 'select', x: mX, y: mY, w: 0, h: 0 };
+        return; 
+    }
         if (tool === 'hand') { canvas.style.cursor = 'grabbing'; return; }
         if (tool === 'text') { 
             const content = prompt("Введите текст:");
@@ -196,6 +249,11 @@
     };
 
     window.onmousemove = (e) => {
+            if (tool === 'select' && currentObj) {
+        currentObj.w = mX - currentObj.x;
+        currentObj.h = mY - currentObj.y;
+    }
+
         if (!isDrawing) return;
         if (tool === 'hand') {
             offsetX += e.movementX;
@@ -211,14 +269,31 @@
     };
 
     window.onmouseup = () => {
-        if (isDrawing && currentObj) {
+    if (isDrawing && currentObj) {
+        if (tool === 'select') {
+            // Шукаємо об'єкти, які потрапили в рамку
+            const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w);
+            const x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
+            const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h);
+            const y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
+
+            selectedObjects = objects.filter(obj => {
+                // Перевіряємо, чи точка або центр об'єкта в рамці
+                const targetX = obj.x || (obj.points && obj.points[0].x);
+                const targetY = obj.y || (obj.points && obj.points[0].y);
+                return targetX >= x1 && targetX <= x2 && targetY >= y1 && targetY <= y2;
+            });
+        } else {
             objects.push(currentObj);
             socket.emit('new-object', currentObj);
         }
-        isDrawing = false; currentObj = null;
-        if (tool === 'hand') canvas.style.cursor = 'grab';
-        render();
-    };
+    }
+    isDrawing = false;
+    currentObj = null;
+    if (tool === 'hand') canvas.style.cursor = 'grab';
+    render();
+};
+
 
     function clearBoard() {
         if(confirm("Очистить текущую доску?")) { objects = []; socket.emit('clear-board'); render(); }
