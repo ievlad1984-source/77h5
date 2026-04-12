@@ -12,11 +12,11 @@ const io = new Server(server, {
 // 2. Затем настраиваем статику
 // Если index.html лежит в корне, используйте это:
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Если index.html лежит в папке public, раскомментируйте это:
-// app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', (socket) => {
     console.log('Пользователь подключился:', socket.id);
