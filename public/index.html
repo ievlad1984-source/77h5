@@ -1,24 +1,29 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Совместная доска з кімнатами</title>
+    <title>Shared Whiteboard Pro</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
-        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-wrap: wrap; }
-        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; }
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f0f0f0; }
+        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 10px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); flex-wrap: wrap; }
+        
+        button { cursor: pointer; padding: 8px 14px; border-radius: 6px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
         button:hover { background: #bdc3c7; }
         button.active { background: #3498db; color: white; }
+        
         #canvas-container { flex-grow: 1; position: relative; background: #fff; overflow: hidden; }
         canvas { display: block; background: white; }
-        
-        /* Кастомні курсори */
-        .cursor-pen { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='20'>✏️</text></svg>") 0 20, crosshair; }
-        .cursor-eraser { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='20'>🧽</text></svg>") 0 20, cell; }
 
-        .status-bar { position: absolute; bottom: 10px; left: 20px; background: rgba(0,0,0,0.6); color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; pointer-events: none; z-index: 20; }
-        .size-control { display: flex; align-items: center; gap: 5px; background: #34495e; padding: 5px 10px; border-radius: 4px; }
+        /* Виправлені курсори зі зміщеною "гарячою точкою" */
+        .cursor-pen { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>✏️</text></svg>") 2 24, crosshair; }
+        .cursor-eraser { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>🧽</text></svg>") 12 12, cell; }
+        .cursor-hand { cursor: grab; }
+        .cursor-grabbing { cursor: grabbing; }
+
+        .status-bar { position: absolute; bottom: 15px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 6px 18px; border-radius: 20px; font-size: 13px; pointer-events: none; z-index: 20; }
+        .size-control { display: flex; align-items: center; gap: 8px; background: #34495e; padding: 5px 12px; border-radius: 6px; }
+        input[type="range"] { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -29,27 +34,26 @@
     <button onclick="setTool('pen')" id="penBtn" class="active">✏️ Ручка</button>
     <button onclick="setTool('eraser')" id="eraserBtn">🧽 Ластик</button>
     <button onclick="setTool('line')" id="lineBtn">📏 Лінія</button>
-    <button onclick="setTool('rect')" id="rectBtn">⬜ Прямокутник</button>
+    <button onclick="setTool('rect')" id="rectBtn">⬜ Квадрат</button>
     <button onclick="setTool('text')" id="textBtn">Текст</button>
     
     <input type="color" id="colorPicker" value="#000000" title="Колір">
     
     <div class="size-control">
-        <span style="font-size: 12px;">Розмір:</span>
+        <span>Розмір:</span>
         <input type="range" id="sizePicker" min="1" max="50" value="3">
-        <span id="sizeValue" style="font-size: 12px; width: 20px;">3</span>
+        <span id="sizeValue" style="width: 20px;">3</span>
     </div>
 
     <div style="flex-grow: 1;"></div>
     
     <button onclick="undo()" style="background:#f39c12; color:white;">↩️ Відміна</button>
-    <button onclick="createNewBoard()" style="background:#27ae60; color:white;">➕ Нова доска</button>
     <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистити все</button>
 </div>
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
-    <div class="status-bar" id="infoBar">Дошка: main | Масштаб: 100% | Ctrl+V | Del для видалення</div>
+    <div class="status-bar" id="infoBar">Дошка: main | Масштаб: 100% | Del - видалити виділене</div>
 </div>
 
 <script>
@@ -58,6 +62,7 @@
     
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const toolbar = document.querySelector('.toolbar');
     const colorPicker = document.getElementById('colorPicker');
     const sizePicker = document.getElementById('sizePicker');
     const sizeValue = document.getElementById('sizeValue');
@@ -71,7 +76,7 @@
 
     function resize() {
         canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight - document.querySelector('.toolbar').offsetHeight;
+        canvas.height = window.innerHeight - toolbar.offsetHeight;
         render();
     }
     window.onresize = resize;
@@ -83,18 +88,27 @@
         const btn = document.getElementById(t + 'Btn');
         if(btn) btn.classList.add('active');
         
-        canvas.classList.remove('cursor-pen', 'cursor-eraser');
+        canvas.className = ''; // Скидаємо класи курсорів
         if (t === 'pen') canvas.classList.add('cursor-pen');
         else if (t === 'eraser') canvas.classList.add('cursor-eraser');
-        else if (t === 'hand') canvas.style.cursor = 'grab';
+        else if (t === 'hand') canvas.classList.add('cursor-hand');
         else canvas.style.cursor = 'crosshair';
     }
     setTool('pen');
 
+    // Отримання координат з врахуванням зуму та зсуву
+    function getCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left - offsetX) / scale,
+            y: (e.clientY - rect.top - offsetY) / scale
+        };
+    }
+
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Сітка
+        // Малювання сітки
         const gridSize = 30 * scale;
         ctx.beginPath();
         ctx.strokeStyle = '#e8e8e8';
@@ -114,7 +128,7 @@
         objects.forEach(draw);
         if (currentObj) draw(currentObj);
 
-        // Малювання рамки виділення
+        // Рамка виділення під час вибору
         if (currentObj && currentObj.type === 'select') {
             ctx.setLineDash([5, 5]);
             ctx.strokeStyle = '#3498db';
@@ -123,13 +137,13 @@
             ctx.setLineDash([]);
         }
 
-        // Підсвічування вибраних
+        // Підсвічування вже вибраних об'єктів
         selectedObjects.forEach(obj => {
             ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
             ctx.lineWidth = 4 / scale;
             const x = obj.x !== undefined ? obj.x : (obj.points ? obj.points[0].x : obj.x1);
             const y = obj.y !== undefined ? obj.y : (obj.points ? obj.points[0].y : obj.y1);
-            ctx.strokeRect(x - 10, y - 10, (obj.w || 20) + 20, (obj.h || 20) + 20);
+            ctx.strokeRect(x - 10, y - 10, (obj.w || 30) + 20, (obj.h || 30) + 20);
         });
 
         ctx.restore();
@@ -145,12 +159,15 @@
 
         if (obj.type === 'eraser') {
             ctx.globalCompositeOperation = 'destination-out';
-            ctx.lineWidth = (obj.lineWidth || 3) * 5;
+            ctx.lineWidth = (obj.lineWidth || 3) * 4;
         }
 
         if (obj.type === 'pen' || obj.type === 'eraser') {
             ctx.beginPath();
-            obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            if(obj.points && obj.points.length > 0) {
+                ctx.moveTo(obj.points[0].x, obj.points[0].y);
+                obj.points.forEach(p => ctx.lineTo(p.x, p.y));
+            }
             ctx.stroke();
         } else if (obj.type === 'rect') {
             ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
@@ -168,23 +185,26 @@
     }
 
     canvas.onmousedown = (e) => {
-        const mX = (e.clientX - offsetX) / scale;
-        const mY = (e.clientY - 50 - offsetY) / scale;
+        const coords = getCoords(e);
         isDrawing = true;
 
         if (tool === 'select') {
             selectedObjects = [];
-            currentObj = { type: 'select', x: mX, y: mY, w: 0, h: 0 };
+            currentObj = { type: 'select', x: coords.x, y: coords.y, w: 0, h: 0 };
             render();
             return;
         }
 
-        if (tool === 'hand') { canvas.style.cursor = 'grabbing'; return; }
+        if (tool === 'hand') { canvas.classList.add('cursor-grabbing'); return; }
         
-        const common = { color: colorPicker.value, lineWidth: parseInt(sizePicker.value), x: mX, y: mY };
+        const common = { 
+            color: colorPicker.value, 
+            lineWidth: parseInt(sizePicker.value), 
+            x: coords.x, y: coords.y 
+        };
         
         if (tool === 'text') {
-            const content = prompt("Текст:");
+            const content = prompt("Введіть текст:");
             if (content) {
                 const textObj = { type: 'text', content, ...common };
                 objects.push(textObj);
@@ -193,27 +213,26 @@
             isDrawing = false; render(); return;
         }
 
-        if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [{x: mX, y: mY}] };
+        if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [{x: coords.x, y: coords.y}] };
         else if (tool === 'rect') currentObj = { type: 'rect', ...common, w: 0, h: 0 };
-        else if (tool === 'line') currentObj = { type: 'line', ...common, x1: mX, y1: mY, x2: mX, y2: mY };
+        else if (tool === 'line') currentObj = { type: 'line', ...common, x1: coords.x, y1: coords.y, x2: coords.x, y2: coords.y };
     };
 
     window.onmousemove = (e) => {
         if (!isDrawing) return;
-        const mX = (e.clientX - offsetX) / scale;
-        const mY = (e.clientY - 50 - offsetY) / scale;
+        const coords = getCoords(e);
 
         if (tool === 'hand') {
             offsetX += e.movementX;
             offsetY += e.movementY;
         } else if (currentObj) {
             if (tool === 'select' || tool === 'rect') {
-                currentObj.w = mX - currentObj.x;
-                currentObj.h = mY - currentObj.y;
+                currentObj.w = coords.x - currentObj.x;
+                currentObj.h = coords.y - currentObj.y;
             } else if (tool === 'pen' || tool === 'eraser') {
-                currentObj.points.push({x: mX, y: mY});
+                currentObj.points.push({x: coords.x, y: coords.y});
             } else if (tool === 'line') {
-                currentObj.x2 = mX; currentObj.y2 = mY;
+                currentObj.x2 = coords.x; currentObj.y2 = coords.y;
             }
         }
         render();
@@ -237,8 +256,9 @@
                 socket.emit('new-object', currentObj);
             }
         }
-        isDrawing = false; currentObj = null;
-        if (tool === 'hand') canvas.style.cursor = 'grab';
+        isDrawing = false; 
+        currentObj = null;
+        canvas.classList.remove('cursor-grabbing');
         render();
     };
 
@@ -250,6 +270,7 @@
         }
     }
 
+    // Клавіші швидкого доступу
     window.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.code === 'KeyZ') { e.preventDefault(); undo(); }
         if (e.code === 'Delete' && selectedObjects.length > 0) {
@@ -260,25 +281,49 @@
         }
     });
 
+    // Зум коліщатком миші
     window.addEventListener('wheel', (e) => {
         e.preventDefault();
         const oldScale = scale;
-        scale = Math.min(Math.max(0.1, scale + (e.deltaY > 0 ? -0.1 : 0.1)), 4);
-        const mX = e.clientX, mY = e.clientY - 50;
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        scale = Math.min(Math.max(0.1, scale + delta), 4);
+        
+        const mX = e.clientX, mY = e.clientY - toolbar.offsetHeight;
         offsetX -= (mX - offsetX) * (scale / oldScale - 1);
         offsetY -= (mY - offsetY) * (scale / oldScale - 1);
+        
+        infoBar.innerText = `Дошка: ${boardId} | Масштаб: ${Math.round(scale * 100)}% | Del - видалити виділене`;
         render();
-        infoBar.innerText = `Дошка: ${boardId} | Масштаб: ${Math.round(scale * 100)}% | Ctrl+V | Del для видалення`;
     }, { passive: false });
 
+    // Робота з сокетами
     socket.on('init-history', (h) => { objects = h; render(); });
     socket.on('new-object', (o) => { objects.push(o); render(); });
     socket.on('undo', () => { objects.pop(); render(); });
     socket.on('clear-board', () => { objects = []; render(); });
     socket.on('full-update', (h) => { objects = h; render(); });
 
-    function clearBoard() { if(confirm("Очистити все?")) { socket.emit('clear-board'); objects = []; render(); } }
-    function createNewBoard() { const name = prompt("ID дошки:"); if (name) window.location.href = `/board/${name.trim()}`; }
+    function clearBoard() { if(confirm("Очистити всю дошку?")) { socket.emit('clear-board'); objects = []; render(); } }
+    
+    // Вставка зображень
+    window.addEventListener('paste', (e) => {
+        const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
+        if (item) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const coords = { x: (canvas.width/2 - offsetX)/scale - img.width/4, y: (canvas.height/2 - offsetY)/scale - img.height/4 };
+                    const obj = { type: 'image', src: event.target.result, ...coords, w: img.width/2, h: img.height/2 };
+                    objects.push(obj);
+                    socket.emit('new-object', obj);
+                    render();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsFile(item.getAsFile());
+        }
+    });
 </script>
 </body>
 </html>
