@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Shared Whiteboard Pro</title>
+    <title>Shared Whiteboard Pro (Text & Paste)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f0f0f0; }
@@ -22,6 +22,19 @@
 
         .status-bar { position: absolute; bottom: 15px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 6px 18px; border-radius: 20px; font-size: 13px; pointer-events: none; z-index: 20; }
         .size-control { display: flex; align-items: center; gap: 8px; background: #34495e; padding: 5px 12px; border-radius: 6px; }
+        
+        /* Стиль для інпуту тексту */
+        .board-text-input {
+            position: absolute;
+            background: transparent;
+            border: 1px dashed #3498db;
+            outline: none;
+            padding: 0;
+            margin: 0;
+            z-index: 100;
+            overflow: visible;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -52,7 +65,7 @@
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
-    <div class="status-bar" id="infoBar">Дошка: main | Масштаб: 100% | Ctrl+V для вставки</div>
+    <div class="status-bar" id="infoBar">Дошка: main | Ctrl+V для вставки зображень</div>
 </div>
 
 <script>
@@ -61,6 +74,7 @@
     
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-container');
     const sizePicker = document.getElementById('sizePicker');
     const sizeValue = document.getElementById('sizeValue');
     const infoBar = document.getElementById('infoBar');
@@ -80,12 +94,12 @@
     resize();
 
     function createNewBoard() {
-        const id = prompt("Введіть назву (ID) нової дошки:");
+        const id = prompt("Введіть назву нової дошки:");
         if (id) window.location.href = `/board/${id.trim()}`;
     }
 
     function deleteBoard() {
-        if (confirm(`Ви впевнені, що хочете видалити дошку "${boardId}" для всіх?`)) {
+        if (confirm(`Видалити дошку "${boardId}" для всіх?`)) {
             socket.emit('delete-board-complete', boardId);
             window.location.href = '/';
         }
@@ -100,7 +114,7 @@
         if (t === 'pen') canvas.classList.add('cursor-pen');
         else if (t === 'eraser') canvas.classList.add('cursor-eraser');
         else if (t === 'hand') canvas.classList.add('cursor-hand');
-        else canvas.style.cursor = 'crosshair';
+        else canvas.style.cursor = t === 'text' ? 'text' : 'crosshair';
     }
 
     function getCoords(e) {
@@ -108,7 +122,7 @@
         return { x: (e.clientX - rect.left - offsetX) / scale, y: (e.clientY - rect.top - offsetY) / scale };
     }
 
-    // --- ВСТАВКА ЗОБРАЖЕНЬ (CTRL+V) ---
+    // --- ВСТАВКА ФОТО (CTRL+V) ---
     window.addEventListener('paste', (e) => {
         const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
         if (item) {
@@ -136,6 +150,45 @@
         }
     });
 
+    // --- ТЕКСТОВИЙ ВВІД ---
+    function handleTextInput(e, coords) {
+        const existingInput = document.querySelector('.board-text-input');
+        if (existingInput) existingInput.remove();
+
+        const input = document.createElement('input');
+        input.className = 'board-text-input';
+        const fontSize = parseInt(sizePicker.value) * 5 * scale;
+        
+        input.style.left = e.clientX + 'px';
+        input.style.top = e.clientY + 'px';
+        input.style.fontSize = fontSize + 'px';
+        input.style.color = document.getElementById('colorPicker').value;
+
+        container.appendChild(input);
+        setTimeout(() => input.focus(), 10);
+
+        const saveText = () => {
+            const val = input.value.trim();
+            if (val) {
+                const textObj = {
+                    type: 'text',
+                    content: val,
+                    x: coords.x,
+                    y: coords.y,
+                    color: input.style.color,
+                    lineWidth: parseInt(sizePicker.value)
+                };
+                objects.push(textObj);
+                socket.emit('new-object', textObj);
+                render();
+            }
+            input.remove();
+        };
+
+        input.onkeydown = (ev) => { if (ev.key === 'Enter') saveText(); if (ev.key === 'Escape') input.remove(); };
+        input.onblur = saveText;
+    }
+
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const gridSize = 30 * scale;
@@ -158,8 +211,8 @@
 
         selectedObjects.forEach(obj => {
             ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)'; ctx.lineWidth = 4 / scale;
-            const x = obj.x ?? (obj.points ? obj.points[0].x : obj.x1);
-            const y = obj.y ?? (obj.points ? obj.points[0].y : obj.y1);
+            const x = obj.x ?? (obj.points ? obj.points.x : obj.x1);
+            const y = obj.y ?? (obj.points ? obj.points.y : obj.y1);
             ctx.strokeRect(x - 10, y - 10, (obj.w || 30) + 20, (obj.h || 30) + 20);
         });
         ctx.restore();
@@ -179,12 +232,12 @@
                 obj.points.forEach(p => ctx.lineTo(p.x, p.y));
             }
             ctx.stroke();
-        } else if (obj.type === 'rect') {
-            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
-        } else if (obj.type === 'line') {
-            ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke();
-        } else if (obj.type === 'text') {
-            ctx.font = `${(obj.lineWidth || 3) * 5}px Arial`; ctx.fillText(obj.content, obj.x, obj.y);
+        } else if (obj.type === 'rect') ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        else if (obj.type === 'line') { ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke(); }
+        else if (obj.type === 'text') {
+            ctx.font = `${(obj.lineWidth || 3) * 5}px Arial`;
+            ctx.textBaseline = 'top';
+            ctx.fillText(obj.content, obj.x, obj.y);
         } else if (obj.type === 'image') {
             const img = new Image(); img.src = obj.src;
             if (img.complete) ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h);
@@ -201,21 +254,14 @@
             currentObj = { type: 'select', x: coords.x, y: coords.y, w: 0, h: 0 };
         } else if (tool === 'hand') {
             canvas.classList.add('cursor-grabbing');
+        } else if (tool === 'text') {
+            handleTextInput(e, coords);
+            isDrawing = false;
         } else {
             const common = { color: document.getElementById('colorPicker').value, lineWidth: parseInt(sizePicker.value), x: coords.x, y: coords.y };
             if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [coords] };
             else if (tool === 'rect') currentObj = { type: 'rect', ...common, w: 0, h: 0 };
             else if (tool === 'line') currentObj = { type: 'line', ...common, x1: coords.x, y1: coords.y, x2: coords.x, y2: coords.y };
-            else if (tool === 'text') {
-                const txt = prompt("Введіть текст:");
-                if(txt) {
-                    const textObj = { type: 'text', content: txt, ...common };
-                    objects.push(textObj);
-                    socket.emit('new-object', textObj);
-                }
-                isDrawing = false;
-                currentObj = null;
-            }
         }
         render();
     };
@@ -224,8 +270,7 @@
         if (!isDrawing) return;
         const coords = getCoords(e);
         if (tool === 'hand') {
-            offsetX += e.movementX;
-            offsetY += e.movementY;
+            offsetX += e.movementX; offsetY += e.movementY;
         } else if (currentObj) {
             if (currentObj.type === 'select' || currentObj.type === 'rect') {
                 currentObj.w = coords.x - currentObj.x;
@@ -233,8 +278,7 @@
             } else if (currentObj.type === 'pen' || currentObj.type === 'eraser') {
                 currentObj.points.push(coords);
             } else if (currentObj.type === 'line') {
-                currentObj.x2 = coords.x;
-                currentObj.y2 = coords.y;
+                currentObj.x2 = coords.x; currentObj.y2 = coords.y;
             }
         }
         render();
@@ -243,10 +287,8 @@
     window.onmouseup = () => {
         if (isDrawing && currentObj) {
             if (currentObj.type === 'select') {
-                const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w);
-                const x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
-                const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h);
-                const y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
+                const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w), x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
+                const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h), y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
                 selectedObjects = objects.filter(o => {
                     const ox = o.x ?? (o.points ? o.points[0].x : o.x1);
                     const oy = o.y ?? (o.points ? o.points[0].y : o.y1);
@@ -257,8 +299,7 @@
                 socket.emit('new-object', currentObj);
             }
         }
-        isDrawing = false;
-        currentObj = null;
+        isDrawing = false; currentObj = null;
         canvas.classList.remove('cursor-grabbing');
         render();
     };
@@ -289,7 +330,7 @@
     socket.on('full-update', h => { objects = h; render(); });
 
     function undo() { if(objects.length > 0) { objects.pop(); socket.emit('undo'); render(); } }
-    function clearBoard() { if(confirm("Очистити всю дошку?")) { objects = []; socket.emit('clear-board'); render(); } }
+    function clearBoard() { if(confirm("Очистити?")) { objects = []; socket.emit('clear-board'); render(); } }
 </script>
 </body>
 </html>
