@@ -2,11 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Совместная математическая доска</title>
-    <!-- ИСПРАВЛЕНО: Полные рабочие ссылки на внешние библиотеки -->
+    <title>Совместная доска с текстом</title>
     <script src="https://socket.io"></script>
-    <script src="https://polyfill.io"></script>
-    <script id="MathJax-script" async src="https://jsdelivr.net"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
         .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
@@ -14,30 +11,25 @@
         button.active { background: #3498db; color: white; }
         #canvas-container { flex-grow: 1; position: relative; background: #fff; cursor: crosshair; }
         canvas { display: block; }
-        #math-buffer { position: absolute; visibility: hidden; top: 0; left: 0; }
     </style>
 </head>
 <body>
 
 <div class="toolbar">
     <button onclick="setTool('pen')" id="penBtn" class="active">✏️ Ручка</button>
-    <button onclick="setTool('latex')" id="latexBtn">f(x) LaTeX</button>
-    <button onclick="setTool('rect')" id="rectBtn">⬜</button>
+    <button onclick="setTool('text')" id="textBtn">Text Текст</button>
+    <button onclick="setTool('rect')" id="rectBtn">⬜ Прямоугольник</button>
     <input type="color" id="colorPicker" value="#000000">
     <button onclick="clearBoard()" style="background:#e74c3c; color:white; margin-left: auto;">Очистить всё</button>
 </div>
 
 <div id="canvas-container"><canvas id="canvas"></canvas></div>
-<div id="math-buffer"></div>
 
 <script>
-    // Подключение к вашему серверу
-    const socket = io("https://seven7h5.onrender.com");
-    
+    const socket = io("https://onrender.com");
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
-    const mathBuffer = document.getElementById('math-buffer');
     
     let tool = 'pen', isDrawing = false, objects = [], currentObj = null;
 
@@ -55,48 +47,28 @@
         if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
     }
 
-    // Слушаем сервер
-    socket.on('init-history', (history) => {
-        objects = [];
-        history.forEach(obj => {
-            if (obj.type === 'latex') loadRemoteLatex(obj);
-            else objects.push(obj);
-        });
-        render();
-    });
-
-    socket.on('new-object', (obj) => {
-        if (obj.type === 'latex') loadRemoteLatex(obj);
-        else {
-            objects.push(obj);
-            render();
-        }
-    });
-
+    // Синхронизация
+    socket.on('init-history', (history) => { objects = history; render(); });
+    socket.on('new-object', (obj) => { objects.push(obj); render(); });
     socket.on('clear-board', () => { objects = []; render(); });
 
-    async function addLatex(x, y) {
-        const formula = prompt("LaTeX:", "a^2 + b^2 = c^2");
-        if (!formula) return;
-        const obj = { type: 'latex', formula, x, y, color: colorPicker.value };
-        loadRemoteLatex(obj);
-        socket.emit('new-object', obj);
-    }
-
-    async function loadRemoteLatex(obj) {
-        mathBuffer.innerHTML = `\\(\\color{${obj.color}}{${obj.formula}}\\)`;
-        await MathJax.typesetPromise([mathBuffer]);
-        const svg = mathBuffer.querySelector('svg');
-        if(!svg) return;
-        const svgData = new XMLSerializer().serializeToString(svg);
-        const img = new Image();
-        const rect = svg.getBoundingClientRect();
-        const w = rect.width * 1.5, h = rect.height * 1.5;
-        img.onload = () => {
-            objects.push({ type: 'image', img, x: obj.x, y: obj.y - (h/2), w, h });
-            render();
+    // Функция добавления текста
+    function addText(x, y) {
+        const content = prompt("Введите текст:");
+        if (!content) return;
+        
+        const textObj = {
+            type: 'text',
+            content: content,
+            x: x,
+            y: y,
+            color: colorPicker.value,
+            font: "20px Arial"
         };
-        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        
+        objects.push(textObj);
+        socket.emit('new-object', textObj);
+        render();
     }
 
     function render() {
@@ -107,28 +79,38 @@
 
     function draw(obj) {
         ctx.strokeStyle = obj.color;
+        ctx.fillStyle = obj.color;
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
-        ctx.beginPath();
+        
         if (obj.type === 'pen') {
+            ctx.beginPath();
             obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            ctx.stroke();
         } else if (obj.type === 'rect') {
             ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
-        } else if (obj.type === 'image') {
-            ctx.drawImage(obj.img, obj.x, obj.y, obj.w, obj.h);
+        } else if (obj.type === 'text') {
+            ctx.font = obj.font;
+            ctx.fillText(obj.content, obj.x, obj.y);
         }
-        ctx.stroke();
     }
 
     canvas.onmousedown = (e) => {
-        isDrawing = true;
         const rect = canvas.getBoundingClientRect();
         const mX = e.clientX - rect.left;
         const mY = e.clientY - rect.top;
-        if (tool === 'latex') { addLatex(mX, mY); isDrawing = false; return; }
-        currentObj = tool === 'pen' ? 
-            { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] } :
-            { type: 'rect', color: colorPicker.value, x: mX, y: mY, w: 0, h: 0 };
+
+        if (tool === 'text') {
+            addText(mX, mY);
+            return;
+        }
+
+        isDrawing = true;
+        if (tool === 'pen') {
+            currentObj = { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] };
+        } else if (tool === 'rect') {
+            currentObj = { type: 'rect', color: colorPicker.value, x: mX, y: mY, w: 0, h: 0 };
+        }
     };
 
     window.onmousemove = (e) => {
@@ -136,8 +118,12 @@
         const rect = canvas.getBoundingClientRect();
         const mX = e.clientX - rect.left;
         const mY = e.clientY - rect.top;
+
         if (tool === 'pen') currentObj.points.push({x: mX, y: mY});
-        else { currentObj.w = mX - currentObj.x; currentObj.h = mY - currentObj.y; }
+        else if (tool === 'rect') {
+            currentObj.w = mX - currentObj.x;
+            currentObj.h = mY - currentObj.y;
+        }
         render();
     };
 
@@ -146,12 +132,14 @@
             objects.push(currentObj);
             socket.emit('new-object', currentObj);
         }
-        isDrawing = false; currentObj = null;
+        isDrawing = false;
+        currentObj = null;
     };
 
     function clearBoard() {
-        if(confirm("Очистить для всех?")) {
-            objects = []; render();
+        if(confirm("Очистить доску для всех?")) {
+            objects = [];
+            render();
             socket.emit('clear-board');
         }
     }
