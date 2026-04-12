@@ -2,18 +2,17 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Whiteboard Pro (iDroo Style with Rotate)</title>
+    <title>Whiteboard Pro: Rotate, Select & Paste</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f0f0f0; }
-        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); flex-wrap: wrap; }
+        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
         button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; font-size: 13px; }
         button:hover { background: #bdc3c7; }
         button.active { background: #3498db; color: white; }
         #canvas-container { flex-grow: 1; position: relative; background: #fff; overflow: hidden; }
         canvas { display: block; background: white; }
         .cursor-pen { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>✏️</text></svg>") 2 24, crosshair; }
-        .cursor-eraser { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>🧽</text></svg>") 12 12, cell; }
         .status-bar { position: absolute; bottom: 15px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 6px 18px; border-radius: 20px; font-size: 12px; pointer-events: none; z-index: 20; }
         .size-control { display: flex; align-items: center; gap: 5px; background: #34495e; padding: 5px 10px; border-radius: 4px; }
     </style>
@@ -24,22 +23,19 @@
     <button onclick="setTool('select')" id="selectBtn" class="active">🔦 Вибір</button>
     <button onclick="setTool('hand')" id="handBtn">✋ Рука</button>
     <button onclick="setTool('pen')" id="penBtn">✏️ Ручка</button>
-    <button onclick="setTool('eraser')" id="eraserBtn">🧽 Ластик</button>
     <button onclick="setTool('rect')" id="rectBtn">⬜ Квадрат</button>
-    <button onclick="setTool('line')" id="lineBtn">📏 Лінія</button>
     <input type="color" id="colorPicker" value="#000000">
     <div class="size-control">
         <input type="range" id="sizePicker" min="1" max="50" value="3">
     </div>
     <div style="flex-grow: 1;"></div>
-    <button onclick="createNewBoard()" style="background:#27ae60; color:white;">➕ Нова дошка</button>
     <button onclick="undo()" style="background:#f39c12; color:white;">↩️ Відміна</button>
     <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистити</button>
 </div>
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
-    <div class="status-bar" id="infoBar">Дошка: main | Тягніть за верхню точку для повороту</div>
+    <div class="status-bar" id="infoBar">Ctrl+V для вставки | Тягніть верхню точку для повороту | Рамка для масового виділення</div>
 </div>
 
 <script>
@@ -62,7 +58,7 @@
         tool = t;
         document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
         document.getElementById(t + 'Btn').classList.add('active');
-        canvas.className = t === 'pen' ? 'cursor-pen' : (t === 'eraser' ? 'cursor-eraser' : '');
+        canvas.className = t === 'pen' ? 'cursor-pen' : '';
         if(t !== 'select') selectedObjects = [];
         render();
     }
@@ -73,19 +69,16 @@
     }
 
     function isPointInObj(p, obj) {
-        // Спрощена логіка для визначення кліку по об'єкту з урахуванням кута
         const m = 10;
-        if (obj.type === 'rect') {
-            const dx = p.x - (obj.x + obj.w/2), dy = p.y - (obj.y + obj.h/2);
-            const angle = -(obj.angle || 0);
-            const rx = dx * Math.cos(angle) - dy * Math.sin(angle);
-            const ry = dx * Math.sin(angle) + dy * Math.cos(angle);
-            return Math.abs(rx) <= obj.w/2 && Math.abs(ry) <= obj.h/2;
+        const cx = obj.x + (obj.w/2 || 0), cy = obj.y + (obj.h/2 || 0);
+        const s = Math.sin(-(obj.angle || 0)), c = Math.cos(-(obj.angle || 0));
+        const rx = c * (p.x - cx) - s * (p.y - cy), ry = s * (p.x - cx) + c * (p.y - cy);
+
+        if (obj.type === 'rect' || obj.type === 'image') {
+            return Math.abs(rx) <= (obj.w/2) && Math.abs(ry) <= (obj.h/2);
         }
-        if (obj.type === 'line' || obj.type === 'pen') {
-            const ox = obj.x ?? obj.x1 ?? (obj.points && obj.points[0].x);
-            const oy = obj.y ?? obj.y1 ?? (obj.points && obj.points[0].y);
-            return Math.hypot(ox - p.x, oy - p.y) < 20;
+        if (obj.type === 'pen') {
+            return obj.points.some(pt => Math.hypot(pt.x - p.x, pt.y - p.y) < m);
         }
         return false;
     }
@@ -97,10 +90,8 @@
             if (selectedObjects.length === 1) {
                 const o = selectedObjects[0];
                 const cx = o.x + o.w/2, cy = o.y + o.h/2;
-                // Точка повороту (зверху об'єкта)
                 const rotX = cx + (0) * Math.cos(o.angle||0) - (-o.h/2 - 30) * Math.sin(o.angle||0);
                 const rotY = cy + (0) * Math.sin(o.angle||0) + (-o.h/2 - 30) * Math.cos(o.angle||0);
-                
                 if (Math.hypot(p.x - rotX, p.y - rotY) < 15) { isRotating = true; return; }
                 
                 const resX = cx + (o.w/2) * Math.cos(o.angle||0) - (o.h/2) * Math.sin(o.angle||0);
@@ -110,7 +101,7 @@
             
             const clicked = objects.slice().reverse().find(o => isPointInObj(p, o));
             if (clicked) {
-                selectedObjects = [clicked];
+                if (!selectedObjects.includes(clicked)) selectedObjects = [clicked];
                 isDragging = true;
             } else {
                 selectedObjects = [];
@@ -120,9 +111,8 @@
         }
 
         const common = { color: document.getElementById('colorPicker').value, lineWidth: parseInt(document.getElementById('sizePicker').value), x: p.x, y: p.y, angle: 0 };
-        if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [{x:p.x, y:p.y}] };
-        else if (tool === 'rect') currentObj = { type: 'rect', ...common, w:0, h:0 };
-        else if (tool === 'line') currentObj = { type: 'line', ...common, x1:p.x, y1:p.y, x2:p.x, y2:p.y };
+        if (tool === 'pen') currentObj = { type: 'pen', ...common, points: [{x:p.x, y:p.y}] };
+        else if (tool === 'rect') currentObj = { type: 'rect', ...common, w: 0, h: 0 };
     };
 
     window.onmousemove = (e) => {
@@ -131,59 +121,72 @@
 
         if (isRotating && selectedObjects[0]) {
             const o = selectedObjects[0];
-            const cx = o.x + o.w/2, cy = o.y + o.h/2;
-            o.angle = Math.atan2(p.y - cy, p.x - cx) + Math.PI/2;
+            o.angle = Math.atan2(p.y - (o.y + o.h/2), p.x - (o.x + o.w/2)) + Math.PI/2;
         } else if (isResizing && selectedObjects[0]) {
-            const o = selectedObjects[0];
-            o.w += dx; o.h += dy;
+            selectedObjects[0].w += dx; selectedObjects[0].h += dy;
         } else if (isDragging) {
-            selectedObjects.forEach(o => {
-                if (o.points) o.points.forEach(pt => { pt.x += dx; pt.y += dy; });
-                else { o.x += dx; o.y += dy; if (o.x1 !== undefined) { o.x1 += dx; o.y1 += dy; o.x2 += dx; o.y2 += dy; } }
+            selectedObjects.forEach(o => { 
+                o.x += dx; o.y += dy; 
+                if(o.points) o.points.forEach(pt => { pt.x += dx; pt.y += dy; });
             });
         } else if (tool === 'hand') { offsetX += e.movementX; offsetY += e.movementY; }
         else if (currentObj) {
-            if (currentObj.type === 'pen' || currentObj.type === 'eraser') currentObj.points.push({x:p.x, y:p.y});
-            else { currentObj.w = p.x - currentObj.x; currentObj.h = p.y - currentObj.y; currentObj.x2 = p.x; currentObj.y2 = p.y; }
+            if (currentObj.type === 'pen') currentObj.points.push({x:p.x, y:p.y});
+            else { currentObj.w = p.x - currentObj.x; currentObj.h = p.y - currentObj.y; }
         }
         lastPos = p; render();
     };
 
     window.onmouseup = () => {
-        if (isDrawing && currentObj && currentObj.type !== 'select_area') { objects.push(currentObj); socket.emit('new-object', currentObj); }
+        if (isDrawing && currentObj) {
+            if (currentObj.type === 'select_area') {
+                const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w), x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
+                const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h), y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
+                selectedObjects = objects.filter(o => (o.x >= x1 && o.x <= x2 && o.y >= y1 && o.y <= y2));
+            } else { objects.push(currentObj); socket.emit('new-object', currentObj); }
+        }
         if (isDragging || isResizing || isRotating) socket.emit('full-update', objects);
         isDrawing = isDragging = isResizing = isRotating = false; currentObj = null; render();
     };
 
+    // ВСТАВКА ЗОБРАЖЕНЬ (CTRL+V)
+    window.addEventListener('paste', (e) => {
+        const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
+        if (item) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const obj = { type: 'image', src: event.target.result, x: (canvas.width/2-offsetX)/scale - img.width/4, y: (canvas.height/2-offsetY)/scale - img.height/4, w: img.width/2, h: img.height/2, angle: 0 };
+                    objects.push(obj); socket.emit('new-object', obj); render();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(item.getAsFile());
+        }
+    });
+
     function draw(obj) {
         ctx.save();
-        if (obj.angle) {
-            const cx = (obj.x + obj.w/2) || obj.x1 || (obj.points && obj.points[0].x);
-            const cy = (obj.y + obj.h/2) || obj.y1 || (obj.points && obj.points[0].y);
-            ctx.translate(cx, cy);
-            ctx.rotate(obj.angle);
-            ctx.translate(-cx, -cy);
-        }
-
-        ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color; ctx.lineWidth = obj.lineWidth; ctx.lineCap = ctx.lineJoin = 'round';
-        if (obj.type === 'eraser') ctx.globalCompositeOperation = 'destination-out';
+        const cx = obj.x + (obj.w/2 || 0), cy = obj.y + (obj.h/2 || 0);
+        ctx.translate(cx, cy); ctx.rotate(obj.angle || 0); ctx.translate(-cx, -cy);
         
-        if (obj.type === 'pen' || obj.type === 'eraser') {
+        ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color; ctx.lineWidth = obj.lineWidth;
+        if (obj.type === 'pen') {
             ctx.beginPath(); obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)); ctx.stroke();
         } else if (obj.type === 'rect') ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
-        else if (obj.type === 'line') { ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke(); }
-        
+        else if (obj.type === 'image') {
+            const i = new Image(); i.src = obj.src; 
+            if(i.complete) ctx.drawImage(i, obj.x, obj.y, obj.w, obj.h); else i.onload = render;
+        }
+
         if (selectedObjects.includes(obj) && tool === 'select') {
-            ctx.setLineDash([5, 5]); ctx.strokeStyle = '#3498db'; ctx.lineWidth = 1/scale;
+            ctx.setLineDash([5,5]); ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2/scale;
             ctx.strokeRect(obj.x - 5, obj.y - 5, (obj.w || 0) + 10, (obj.h || 0) + 10);
-            
-            if (selectedObjects.length === 1 && obj.type === 'rect') {
+            if (selectedObjects.length === 1) {
                 ctx.setLineDash([]); ctx.fillStyle = '#3498db';
-                // Ручка розміру
-                ctx.fillRect(obj.x + obj.w, obj.y + obj.h, 10/scale, 10/scale);
-                // Ручка повороту
-                ctx.beginPath(); ctx.arc(obj.x + obj.w/2, obj.y - 30, 7/scale, 0, Math.PI*2); ctx.fill();
-                ctx.moveTo(obj.x + obj.w/2, obj.y - 5); ctx.lineTo(obj.x + obj.w/2, obj.y - 23); ctx.stroke();
+                ctx.fillRect(obj.x + obj.w, obj.y + obj.h, 10/scale, 10/scale); // Scale handle
+                ctx.beginPath(); ctx.arc(obj.x + obj.w/2, obj.y - 30, 7/scale, 0, Math.PI*2); ctx.fill(); // Rotate handle
             }
         }
         ctx.restore();
@@ -197,25 +200,22 @@
         ctx.stroke();
         ctx.save(); ctx.translate(offsetX, offsetY); ctx.scale(scale, scale);
         objects.forEach(draw); 
-        if (currentObj && currentObj.type === 'select_area') { 
-            ctx.strokeStyle='#3498db'; ctx.setLineDash([5,5]); ctx.strokeRect(currentObj.x, currentObj.y, currentObj.w, currentObj.h); 
-        } else if (currentObj) draw(currentObj);
+        if(currentObj) { if(currentObj.type === 'select_area') { ctx.strokeStyle='#3498db'; ctx.strokeRect(currentObj.x, currentObj.y, currentObj.w, currentObj.h); } else draw(currentObj); }
         ctx.restore();
     }
 
     window.onkeydown = (e) => {
         if (e.code === 'Delete') { objects = objects.filter(o => !selectedObjects.includes(o)); selectedObjects = []; socket.emit('full-update', objects); render(); }
+        if (e.ctrlKey && e.code === 'KeyZ') undo();
     };
 
     window.onwheel = (e) => {
         e.preventDefault(); const old = scale; scale = Math.min(Math.max(0.1, scale + (e.deltaY>0?-0.1:0.1)), 4);
-        const mX = e.clientX, mY = e.clientY - 50;
-        offsetX -= (mX - offsetX) * (scale / old - 1); offsetY -= (mY - offsetY) * (scale / old - 1); render();
-    };
+        offsetX -= (e.clientX - offsetX) * (scale / old - 1); offsetY -= (e.clientY - 50 - offsetY) * (scale / old - 1); render();
+    }, { passive: false };
 
     function undo() { objects.pop(); socket.emit('undo'); render(); }
     function clearBoard() { if(confirm("Очистити?")) { objects = []; socket.emit('clear-board'); render(); } }
-    function createNewBoard() { const id = prompt("ID дошки:"); if(id) window.location.href = "/board/" + id.trim(); }
 
     socket.on('init-history', h => { objects = h; render(); });
     socket.on('new-object', o => { objects.push(o); render(); });
