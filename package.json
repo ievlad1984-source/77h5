@@ -1,9 +1,7 @@
 json
-
 {
-  "name": "multiplayer-board",
+  "name": "board",
   "version": "1.0.0",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
