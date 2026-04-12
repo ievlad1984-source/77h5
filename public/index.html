@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Shared Whiteboard Pro</title>
+    <title>Whiteboard Pro (iDroo Style)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f0f0f0; }
@@ -15,315 +15,179 @@
         #canvas-container { flex-grow: 1; position: relative; background: #fff; overflow: hidden; }
         canvas { display: block; background: white; }
 
-        /* Виправлені курсори зі зміщеною "гарячою точкою" */
         .cursor-pen { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>✏️</text></svg>") 2 24, crosshair; }
         .cursor-eraser { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>🧽</text></svg>") 12 12, cell; }
-        .cursor-hand { cursor: grab; }
-        .cursor-grabbing { cursor: grabbing; }
-
+        
         .status-bar { position: absolute; bottom: 15px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 6px 18px; border-radius: 20px; font-size: 13px; pointer-events: none; z-index: 20; }
         .size-control { display: flex; align-items: center; gap: 8px; background: #34495e; padding: 5px 12px; border-radius: 6px; }
-        input[type="range"] { cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="toolbar">
-    <button onclick="setTool('select')" id="selectBtn">🔦 Виділення</button>
+    <button onclick="setTool('select')" id="selectBtn" class="active">🔦 Вибір</button>
     <button onclick="setTool('hand')" id="handBtn">✋ Рука</button>
-    <button onclick="setTool('pen')" id="penBtn" class="active">✏️ Ручка</button>
+    <button onclick="setTool('pen')" id="penBtn">✏️ Ручка</button>
     <button onclick="setTool('eraser')" id="eraserBtn">🧽 Ластик</button>
-    <button onclick="setTool('line')" id="lineBtn">📏 Лінія</button>
     <button onclick="setTool('rect')" id="rectBtn">⬜ Квадрат</button>
-    <button onclick="setTool('text')" id="textBtn">Текст</button>
+    <button onclick="setTool('line')" id="lineBtn">📏 Лінія</button>
     
-    <input type="color" id="colorPicker" value="#000000" title="Колір">
-    
+    <input type="color" id="colorPicker" value="#000000">
     <div class="size-control">
         <span>Розмір:</span>
         <input type="range" id="sizePicker" min="1" max="50" value="3">
-        <span id="sizeValue" style="width: 20px;">3</span>
     </div>
 
     <div style="flex-grow: 1;"></div>
-    
     <button onclick="undo()" style="background:#f39c12; color:white;">↩️ Відміна</button>
-    <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистити все</button>
+    <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистити</button>
 </div>
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
-    <div class="status-bar" id="infoBar">Дошка: main | Масштаб: 100% | Del - видалити виділене</div>
+    <div class="status-bar" id="infoBar">Дошка: main | Колесо: Зум | Del: Видалити</div>
 </div>
 
 <script>
     const boardId = window.location.pathname.split('/').pop() || 'main';
     const socket = io({ query: { boardId: boardId } });
+    const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
     
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const toolbar = document.querySelector('.toolbar');
-    const colorPicker = document.getElementById('colorPicker');
-    const sizePicker = document.getElementById('sizePicker');
-    const sizeValue = document.getElementById('sizeValue');
-    const infoBar = document.getElementById('infoBar');
-    
-    let tool = 'pen', isDrawing = false, objects = [], currentObj = null;
+    let tool = 'select', isDrawing = false, objects = [], currentObj = null;
     let scale = 1, offsetX = 0, offsetY = 0;
-    let selectedObjects = [];
-
-    sizePicker.oninput = () => sizeValue.innerText = sizePicker.value;
+    let selectedObj = null, isDragging = false, isResizing = false, lastPos = {x:0, y:0};
 
     function resize() {
         canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight - toolbar.offsetHeight;
+        canvas.height = window.innerHeight - document.querySelector('.toolbar').offsetHeight;
         render();
     }
-    window.onresize = resize;
-    resize();
+    window.onresize = resize; resize();
 
     function setTool(t) {
         tool = t;
         document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
-        const btn = document.getElementById(t + 'Btn');
-        if(btn) btn.classList.add('active');
-        
-        canvas.className = ''; // Скидаємо класи курсорів
-        if (t === 'pen') canvas.classList.add('cursor-pen');
-        else if (t === 'eraser') canvas.classList.add('cursor-eraser');
-        else if (t === 'hand') canvas.classList.add('cursor-hand');
-        else canvas.style.cursor = 'crosshair';
+        document.getElementById(t + 'Btn').classList.add('active');
+        canvas.className = t === 'pen' ? 'cursor-pen' : (t === 'eraser' ? 'cursor-eraser' : '');
+        if(t !== 'select') selectedObj = null;
+        render();
     }
-    setTool('pen');
 
-    // Отримання координат з врахуванням зуму та зсуву
     function getCoords(e) {
-        const rect = canvas.getBoundingClientRect();
-        return {
-            x: (e.clientX - rect.left - offsetX) / scale,
-            y: (e.clientY - rect.top - offsetY) / scale
-        };
+        const r = canvas.getBoundingClientRect();
+        return { x: (e.clientX - r.left - offsetX) / scale, y: (e.clientY - r.top - offsetY) / scale };
     }
 
-    function render() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Малювання сітки
-        const gridSize = 30 * scale;
-        ctx.beginPath();
-        ctx.strokeStyle = '#e8e8e8';
-        ctx.lineWidth = 1;
-        for (let x = offsetX % gridSize; x < canvas.width; x += gridSize) {
-            ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+    function isPointInObj(p, obj) {
+        const margin = 10;
+        if (obj.type === 'rect' || obj.type === 'image') 
+            return p.x >= obj.x && p.x <= obj.x + obj.w && p.y >= obj.y && p.y <= obj.y + obj.h;
+        if (obj.type === 'line') {
+            const d = Math.abs((obj.x2-obj.x1)*(obj.y1-p.y) - (obj.x1-p.x)*(obj.y2-obj.y1)) / Math.hypot(obj.x2-obj.x1, obj.y2-obj.y1);
+            return d < margin && p.x >= Math.min(obj.x1, obj.x2)-margin && p.x <= Math.max(obj.x1, obj.x2)+margin;
         }
-        for (let y = offsetY % gridSize; y < canvas.height; y += gridSize) {
-            ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
-        }
-        ctx.stroke();
-
-        ctx.save();
-        ctx.translate(offsetX, offsetY);
-        ctx.scale(scale, scale);
-        
-        objects.forEach(draw);
-        if (currentObj) draw(currentObj);
-
-        // Рамка виділення під час вибору
-        if (currentObj && currentObj.type === 'select') {
-            ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = '#3498db';
-            ctx.lineWidth = 1/scale;
-            ctx.strokeRect(currentObj.x, currentObj.y, currentObj.w, currentObj.h);
-            ctx.setLineDash([]);
-        }
-
-        // Підсвічування вже вибраних об'єктів
-        selectedObjects.forEach(obj => {
-            ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
-            ctx.lineWidth = 4 / scale;
-            const x = obj.x !== undefined ? obj.x : (obj.points ? obj.points[0].x : obj.x1);
-            const y = obj.y !== undefined ? obj.y : (obj.points ? obj.points[0].y : obj.y1);
-            ctx.strokeRect(x - 10, y - 10, (obj.w || 30) + 20, (obj.h || 30) + 20);
-        });
-
-        ctx.restore();
-    }
-
-    function draw(obj) {
-        ctx.save();
-        ctx.strokeStyle = obj.color;
-        ctx.fillStyle = obj.color;
-        ctx.lineWidth = obj.lineWidth || 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        if (obj.type === 'eraser') {
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.lineWidth = (obj.lineWidth || 3) * 4;
-        }
-
-        if (obj.type === 'pen' || obj.type === 'eraser') {
-            ctx.beginPath();
-            if(obj.points && obj.points.length > 0) {
-                ctx.moveTo(obj.points[0].x, obj.points[0].y);
-                obj.points.forEach(p => ctx.lineTo(p.x, p.y));
-            }
-            ctx.stroke();
-        } else if (obj.type === 'rect') {
-            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
-        } else if (obj.type === 'line') {
-            ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke();
-        } else if (obj.type === 'text') {
-            ctx.font = `${(obj.lineWidth || 3) * 5}px Arial`; 
-            ctx.fillText(obj.content, obj.x, obj.y);
-        } else if (obj.type === 'image') {
-            const img = new Image(); img.src = obj.src;
-            if (img.complete) ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h);
-            else img.onload = () => render();
-        }
-        ctx.restore();
+        if (obj.type === 'pen') return obj.points.some(pt => Math.hypot(pt.x - p.x, pt.y - p.y) < margin);
+        return false;
     }
 
     canvas.onmousedown = (e) => {
-        const coords = getCoords(e);
+        const p = getCoords(e);
+        lastPos = p;
         isDrawing = true;
 
         if (tool === 'select') {
-            selectedObjects = [];
-            currentObj = { type: 'select', x: coords.x, y: coords.y, w: 0, h: 0 };
-            render();
-            return;
-        }
-
-        if (tool === 'hand') { canvas.classList.add('cursor-grabbing'); return; }
-        
-        const common = { 
-            color: colorPicker.value, 
-            lineWidth: parseInt(sizePicker.value), 
-            x: coords.x, y: coords.y 
-        };
-        
-        if (tool === 'text') {
-            const content = prompt("Введіть текст:");
-            if (content) {
-                const textObj = { type: 'text', content, ...common };
-                objects.push(textObj);
-                socket.emit('new-object', textObj);
+            if (selectedObj && Math.hypot(p.x - (selectedObj.x + (selectedObj.w||0)), p.y - (selectedObj.y + (selectedObj.h||0))) < 15) {
+                isResizing = true;
+            } else {
+                selectedObj = objects.slice().reverse().find(o => isPointInObj(p, o));
+                if (selectedObj) isDragging = true;
             }
-            isDrawing = false; render(); return;
+            render(); return;
         }
 
-        if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [{x: coords.x, y: coords.y}] };
-        else if (tool === 'rect') currentObj = { type: 'rect', ...common, w: 0, h: 0 };
-        else if (tool === 'line') currentObj = { type: 'line', ...common, x1: coords.x, y1: coords.y, x2: coords.x, y2: coords.y };
+        if (tool === 'hand') return;
+
+        const common = { color: document.getElementById('colorPicker').value, lineWidth: parseInt(document.getElementById('sizePicker').value), x: p.x, y: p.y };
+        if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [{x:p.x, y:p.y}] };
+        else if (tool === 'rect') currentObj = { type: 'rect', ...common, w:0, h:0 };
+        else if (tool === 'line') currentObj = { type: 'line', ...common, x1:p.x, y1:p.y, x2:p.x, y2:p.y };
     };
 
     window.onmousemove = (e) => {
         if (!isDrawing) return;
-        const coords = getCoords(e);
+        const p = getCoords(e);
+        const dx = p.x - lastPos.x, dy = p.y - lastPos.y;
 
-        if (tool === 'hand') {
-            offsetX += e.movementX;
-            offsetY += e.movementY;
+        if (isResizing && selectedObj) {
+            if(selectedObj.w !== undefined) { selectedObj.w += dx; selectedObj.h += dy; }
+            else if(selectedObj.x2 !== undefined) { selectedObj.x2 += dx; selectedObj.y2 += dy; }
+        } else if (isDragging && selectedObj) {
+            if(selectedObj.points) selectedObj.points.forEach(pt => { pt.x += dx; pt.y += dy; });
+            else { selectedObj.x += dx; selectedObj.y += dy; if(selectedObj.x1) { selectedObj.x1 += dx; selectedObj.y1 += dy; selectedObj.x2 += dx; selectedObj.y2 += dy; } }
+        } else if (tool === 'hand') {
+            offsetX += e.movementX; offsetY += e.movementY;
         } else if (currentObj) {
-            if (tool === 'select' || tool === 'rect') {
-                currentObj.w = coords.x - currentObj.x;
-                currentObj.h = coords.y - currentObj.y;
-            } else if (tool === 'pen' || tool === 'eraser') {
-                currentObj.points.push({x: coords.x, y: coords.y});
-            } else if (tool === 'line') {
-                currentObj.x2 = coords.x; currentObj.y2 = coords.y;
-            }
+            if (tool === 'pen' || tool === 'eraser') currentObj.points.push({x:p.x, y:p.y});
+            else if (tool === 'rect') { currentObj.w = p.x - currentObj.x; currentObj.h = p.y - currentObj.y; }
+            else if (tool === 'line') { currentObj.x2 = p.x; currentObj.y2 = p.y; }
         }
-        render();
+        lastPos = p; render();
     };
 
     window.onmouseup = () => {
-        if (isDrawing && currentObj) {
-            if (tool === 'select') {
-                const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w);
-                const x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
-                const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h);
-                const y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
-
-                selectedObjects = objects.filter(obj => {
-                    let ox = obj.x !== undefined ? obj.x : (obj.points ? obj.points[0].x : obj.x1);
-                    let oy = obj.y !== undefined ? obj.y : (obj.points ? obj.points[0].y : obj.y1);
-                    return ox >= x1 && ox <= x2 && oy >= y1 && oy <= y2;
-                });
-            } else {
-                objects.push(currentObj);
-                socket.emit('new-object', currentObj);
-            }
-        }
-        isDrawing = false; 
-        currentObj = null;
-        canvas.classList.remove('cursor-grabbing');
-        render();
+        if (isDrawing && currentObj) { objects.push(currentObj); socket.emit('new-object', currentObj); }
+        if (isDragging || isResizing) socket.emit('full-update', objects);
+        isDrawing = isDragging = isResizing = false; currentObj = null; render();
     };
 
-    function undo() {
-        if (objects.length > 0) {
-            objects.pop();
-            socket.emit('undo');
-            render();
+    function draw(obj) {
+        ctx.save();
+        ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color; ctx.lineWidth = obj.lineWidth;
+        ctx.lineCap = ctx.lineJoin = 'round';
+        if (obj.type === 'eraser') ctx.globalCompositeOperation = 'destination-out';
+
+        if (obj.type === 'pen' || obj.type === 'eraser') {
+            ctx.beginPath(); obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)); ctx.stroke();
+        } else if (obj.type === 'rect') ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        else if (obj.type === 'line') { ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke(); }
+        
+        if (selectedObj === obj && tool === 'select') {
+            ctx.setLineDash([5, 5]); ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2/scale;
+            const x = obj.x ?? obj.x1, y = obj.y ?? obj.y1, w = obj.w ?? (obj.x2-obj.x1), h = obj.h ?? (obj.y2-obj.y1);
+            ctx.strokeRect(x-5, y-5, w+10, h+10);
+            ctx.fillStyle = '#3498db'; ctx.fillRect(x+w+2, y+h+2, 10/scale, 10/scale); // Ручка зміни розміру
         }
+        ctx.restore();
     }
 
-    // Клавіші швидкого доступу
-    window.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.code === 'KeyZ') { e.preventDefault(); undo(); }
-        if (e.code === 'Delete' && selectedObjects.length > 0) {
-            objects = objects.filter(o => !selectedObjects.includes(o));
-            selectedObjects = [];
-            socket.emit('full-update', objects);
-            render();
-        }
-    });
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const g = 30 * scale; ctx.beginPath(); ctx.strokeStyle = '#eee';
+        for (let x=offsetX%g; x<canvas.width; x+=g) { ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); }
+        for (let y=offsetY%g; y<canvas.height; y+=g) { ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); }
+        ctx.stroke();
+        ctx.save(); ctx.translate(offsetX, offsetY); ctx.scale(scale, scale);
+        objects.forEach(draw); if(currentObj) draw(currentObj); ctx.restore();
+    }
 
-    // Зум коліщатком миші
-    window.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const oldScale = scale;
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        scale = Math.min(Math.max(0.1, scale + delta), 4);
-        
-        const mX = e.clientX, mY = e.clientY - toolbar.offsetHeight;
-        offsetX -= (mX - offsetX) * (scale / oldScale - 1);
-        offsetY -= (mY - offsetY) * (scale / oldScale - 1);
-        
-        infoBar.innerText = `Дошка: ${boardId} | Масштаб: ${Math.round(scale * 100)}% | Del - видалити виділене`;
-        render();
-    }, { passive: false });
+    window.onkeydown = (e) => {
+        if (e.code === 'Delete' && selectedObj) { objects = objects.filter(o => o !== selectedObj); selectedObj = null; socket.emit('full-update', objects); render(); }
+        if (e.ctrlKey && e.code === 'KeyZ') undo();
+    };
 
-    // Робота з сокетами
-    socket.on('init-history', (h) => { objects = h; render(); });
-    socket.on('new-object', (o) => { objects.push(o); render(); });
+    window.onwheel = (e) => {
+        e.preventDefault(); const old = scale; scale = Math.min(Math.max(0.1, scale + (e.deltaY>0?-0.1:0.1)), 4);
+        const mX = e.clientX, mY = e.clientY - 50;
+        offsetX -= (mX - offsetX) * (scale / old - 1); offsetY -= (mY - offsetY) * (scale / old - 1); render();
+    };
+
+    function undo() { objects.pop(); socket.emit('undo'); render(); }
+    function clearBoard() { if(confirm("Очистити?")) { objects = []; socket.emit('clear-board'); render(); } }
+
+    socket.on('init-history', h => { objects = h; render(); });
+    socket.on('new-object', o => { objects.push(o); render(); });
+    socket.on('full-update', h => { objects = h; render(); });
     socket.on('undo', () => { objects.pop(); render(); });
-    socket.on('clear-board', () => { objects = []; render(); });
-    socket.on('full-update', (h) => { objects = h; render(); });
-
-    function clearBoard() { if(confirm("Очистити всю дошку?")) { socket.emit('clear-board'); objects = []; render(); } }
-    
-    // Вставка зображень
-    window.addEventListener('paste', (e) => {
-        const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
-        if (item) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const coords = { x: (canvas.width/2 - offsetX)/scale - img.width/4, y: (canvas.height/2 - offsetY)/scale - img.height/4 };
-                    const obj = { type: 'image', src: event.target.result, ...coords, w: img.width/2, h: img.height/2 };
-                    objects.push(obj);
-                    socket.emit('new-object', obj);
-                    render();
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsFile(item.getAsFile());
-        }
-    });
 </script>
 </body>
 </html>
