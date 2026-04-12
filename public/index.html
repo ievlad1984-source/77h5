@@ -15,8 +15,8 @@
         #canvas-container { flex-grow: 1; position: relative; background: #fff; overflow: hidden; }
         canvas { display: block; background: white; }
 
-        .cursor-pen { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>✏️</text></svg>") 2 24, crosshair; }
-        .cursor-eraser { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>🧽</text></svg>") 12 12, cell; }
+        .cursor-pen { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>✏️</text></svg>") 2 24, crosshair; }
+        .cursor-eraser { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>🧽</text></svg>") 12 12, cell; }
         .cursor-hand { cursor: grab; }
         .cursor-grabbing { cursor: grabbing; }
 
@@ -52,7 +52,7 @@
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
-    <div class="status-bar" id="infoBar">Дошка: main | Масштаб: 100%</div>
+    <div class="status-bar" id="infoBar">Дошка: main | Масштаб: 100% | Ctrl+V для вставки</div>
 </div>
 
 <script>
@@ -79,7 +79,6 @@
     window.onresize = resize;
     resize();
 
-    // --- КЕРУВАННЯ ДОШКАМИ ---
     function createNewBoard() {
         const id = prompt("Введіть назву (ID) нової дошки:");
         if (id) window.location.href = `/board/${id.trim()}`;
@@ -108,6 +107,34 @@
         const rect = canvas.getBoundingClientRect();
         return { x: (e.clientX - rect.left - offsetX) / scale, y: (e.clientY - rect.top - offsetY) / scale };
     }
+
+    // --- ВСТАВКА ЗОБРАЖЕНЬ (CTRL+V) ---
+    window.addEventListener('paste', (e) => {
+        const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
+        if (item) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const centerX = (canvas.width / 2 - offsetX) / scale;
+                    const centerY = (canvas.height / 2 - offsetY) / scale;
+                    const obj = {
+                        type: 'image',
+                        src: event.target.result,
+                        x: centerX - (img.width / 4),
+                        y: centerY - (img.height / 4),
+                        w: img.width / 2,
+                        h: img.height / 2
+                    };
+                    objects.push(obj);
+                    socket.emit('new-object', obj);
+                    render();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(item.getAsFile());
+        }
+    });
 
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -152,9 +179,17 @@
                 obj.points.forEach(p => ctx.lineTo(p.x, p.y));
             }
             ctx.stroke();
-        } else if (obj.type === 'rect') ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
-        else if (obj.type === 'line') { ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke(); }
-        else if (obj.type === 'text') { ctx.font = `${(obj.lineWidth || 3) * 5}px Arial`; ctx.fillText(obj.content, obj.x, obj.y); }
+        } else if (obj.type === 'rect') {
+            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        } else if (obj.type === 'line') {
+            ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke();
+        } else if (obj.type === 'text') {
+            ctx.font = `${(obj.lineWidth || 3) * 5}px Arial`; ctx.fillText(obj.content, obj.x, obj.y);
+        } else if (obj.type === 'image') {
+            const img = new Image(); img.src = obj.src;
+            if (img.complete) ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h);
+            else img.onload = () => render();
+        }
         ctx.restore();
     }
 
@@ -172,9 +207,14 @@
             else if (tool === 'rect') currentObj = { type: 'rect', ...common, w: 0, h: 0 };
             else if (tool === 'line') currentObj = { type: 'line', ...common, x1: coords.x, y1: coords.y, x2: coords.x, y2: coords.y };
             else if (tool === 'text') {
-                const txt = prompt("Текст:");
-                if(txt) { currentObj = { type: 'text', content: txt, ...common }; objects.push(currentObj); socket.emit('new-object', currentObj); }
-                isDrawing = false; currentObj = null;
+                const txt = prompt("Введіть текст:");
+                if(txt) {
+                    const textObj = { type: 'text', content: txt, ...common };
+                    objects.push(textObj);
+                    socket.emit('new-object', textObj);
+                }
+                isDrawing = false;
+                currentObj = null;
             }
         }
         render();
@@ -184,7 +224,8 @@
         if (!isDrawing) return;
         const coords = getCoords(e);
         if (tool === 'hand') {
-            offsetX += e.movementX; offsetY += e.movementY;
+            offsetX += e.movementX;
+            offsetY += e.movementY;
         } else if (currentObj) {
             if (currentObj.type === 'select' || currentObj.type === 'rect') {
                 currentObj.w = coords.x - currentObj.x;
@@ -192,7 +233,8 @@
             } else if (currentObj.type === 'pen' || currentObj.type === 'eraser') {
                 currentObj.points.push(coords);
             } else if (currentObj.type === 'line') {
-                currentObj.x2 = coords.x; currentObj.y2 = coords.y;
+                currentObj.x2 = coords.x;
+                currentObj.y2 = coords.y;
             }
         }
         render();
@@ -201,8 +243,10 @@
     window.onmouseup = () => {
         if (isDrawing && currentObj) {
             if (currentObj.type === 'select') {
-                const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w), x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
-                const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h), y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
+                const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w);
+                const x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
+                const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h);
+                const y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
                 selectedObjects = objects.filter(o => {
                     const ox = o.x ?? (o.points ? o.points[0].x : o.x1);
                     const oy = o.y ?? (o.points ? o.points[0].y : o.y1);
@@ -213,7 +257,8 @@
                 socket.emit('new-object', currentObj);
             }
         }
-        isDrawing = false; currentObj = null;
+        isDrawing = false;
+        currentObj = null;
         canvas.classList.remove('cursor-grabbing');
         render();
     };
@@ -223,9 +268,9 @@
         const oldS = scale;
         scale = Math.min(Math.max(0.1, scale + (e.deltaY > 0 ? -0.1 : 0.1)), 4);
         offsetX -= (e.clientX - offsetX) * (scale / oldS - 1);
-        offsetY -= (e.clientY - toolbar.offsetHeight - offsetY) * (scale / oldS - 1);
+        offsetY -= (e.clientY - document.querySelector('.toolbar').offsetHeight - offsetY) * (scale / oldS - 1);
         render();
-    };
+    }, { passive: false };
 
     window.onkeydown = (e) => {
         if (e.code === 'Delete' && selectedObjects.length > 0) {
@@ -243,8 +288,8 @@
     socket.on('clear-board', () => { objects = []; render(); });
     socket.on('full-update', h => { objects = h; render(); });
 
-    function undo() { objects.pop(); socket.emit('undo'); render(); }
-    function clearBoard() { if(confirm("Очистити?")) { objects = []; socket.emit('clear-board'); render(); } }
+    function undo() { if(objects.length > 0) { objects.pop(); socket.emit('undo'); render(); } }
+    function clearBoard() { if(confirm("Очистити всю дошку?")) { objects = []; socket.emit('clear-board'); render(); } }
 </script>
 </body>
 </html>
