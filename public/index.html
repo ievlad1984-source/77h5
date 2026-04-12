@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Математическая доска</title>
+    <!-- Подключаем MathJax для обработки LaTeX -->
+    <script src="https://polyfill.io"></script>
+    <script id="MathJax-script" async src="https://jsdelivr.net"></script>
+    <style>
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; }
+        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; flex-wrap: wrap; }
+        button { cursor: pointer; padding: 6px 10px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; }
+        button.active { background: #3498db; color: white; }
+        #canvas-container { flex-grow: 1; position: relative; background: #fff; }
+        canvas { display: block; }
+        /* Скрытый элемент для рендеринга формул */
+        #math-buffer { position: absolute; visibility: hidden; top: 0; left: 0; background: white; padding: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <button onclick="setTool('hand')" id="handBtn">✋ Рука</button>
+    <button onclick="setTool('pen')" id="penBtn" class="active">✏️ Ручка</button>
+    <button onclick="setTool('latex')" id="latexBtn">f(x) LaTeX</button>
+    <button onclick="setTool('rect')" id="rectBtn">⬜</button>
+    <button onclick="setTool('circle')" id="circleBtn">⭕</button>
+    <button onclick="setTool('line')" id="lineBtn">📏</button>
+    <input type="color" id="colorPicker" value="#000000">
+    <button onclick="objects=[]; render();" style="background:#e74c3c; color:white;">Очистить</button>
+</div>
+
+<div id="canvas-container">
+    <canvas id="canvas"></canvas>
+</div>
+
+<!-- Буфер для MathJax -->
+<div id="math-buffer"></div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-container');
+    const colorPicker = document.getElementById('colorPicker');
+    const mathBuffer = document.getElementById('math-buffer');
+
+    let tool = 'pen';
+    let isDrawing = false;
+    let offsetX = 0, offsetY = 0; 
+    let objects = []; 
+    let currentObj = null;
+
+    function resize() {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        render();
+    }
+    window.onresize = resize;
+    resize();
+
+    function setTool(t) {
+        tool = t;
+        document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
+        canvas.style.cursor = (t === 'hand') ? 'grab' : 'crosshair';
+    }
+
+    // Рендеринг формулы в картинку через SVG
+    async function addLatex(x, y) {
+        const formula = prompt("Введите формулу LaTeX (например, E=mc^2):", "e^{i\\pi} + 1 = 0");
+        if (!formula) return;
+
+        mathBuffer.innerHTML = `\\(\\color{${colorPicker.value}}{${formula}}\\)`;
+        
+        // Ждем отрисовки MathJax
+        await MathJax.typesetPromise([mathBuffer]);
+        
+        const svg = mathBuffer.querySelector('svg');
+        const svgData = new XMLSerializer().serializeToString(svg);
+        const img = new Image();
+        
+        // Превращаем SVG в Blob URL для вставки на Canvas
+        const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(svgBlob);
+        
+        img.onload = () => {
+            objects.push({ 
+                type: 'image', 
+                img: img, 
+                x: x, 
+                y: y - (img.height / 2), 
+                w: img.width.baseVal.value * 1.5, // Немного увеличим масштаб
+                h: img.height.baseVal.value * 1.5 
+            });
+            render();
+            URL.revokeObjectURL(url);
+        };
+        img.src = url;
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+
+        // Сетка
+        const gridSize = 30;
+        ctx.beginPath();
+        ctx.strokeStyle = '#eee';
+        for (let x = -offsetX % gridSize; x < canvas.width - offsetX; x += gridSize) {
+            ctx.moveTo(x, -offsetY); ctx.lineTo(x, canvas.height - offsetY);
+        }
+        for (let y = -offsetY % gridSize; y < canvas.height - offsetY; y += gridSize) {
+            ctx.moveTo(-offsetX, y); ctx.lineTo(canvas.width - offsetX, y);
+        }
+        ctx.stroke();
+
+        objects.forEach(obj => {
+            if (obj.type === 'image') {
+                ctx.drawImage(obj.img, obj.x, obj.y, obj.w, obj.h);
+            } else {
+                draw(obj);
+            }
+        });
+        if (currentObj) draw(currentObj);
+
+        ctx.restore();
+    }
+
+    function draw(obj) {
+        ctx.strokeStyle = obj.color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        if (obj.type === 'pen') {
+            obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            ctx.stroke();
+        } else if (obj.type === 'rect') {
+            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        } else if (obj.type === 'circle') {
+            ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI*2); ctx.stroke();
+        } else if (obj.type === 'line') {
+            ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke();
+        }
+    }
+
+    canvas.onmousedown = (e) => {
+        const mX = e.offsetX - offsetX;
+        const mY = e.offsetY - offsetY;
+
+        if (tool === 'latex') {
+            addLatex(mX, mY);
+            return;
+        }
+
+        isDrawing = true;
+        if (tool === 'hand') {
+            canvas.style.cursor = 'grabbing';
+        } else if (tool === 'pen') {
+            currentObj = { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] };
+        } else {
+            currentObj = { type: tool, color: colorPicker.value, x: mX, y: mY, x1: mX, y1: mY, w: 0, h: 0, r: 0 };
+        }
+    };
+
+    window.onmousemove = (e) => {
+        if (!isDrawing) return;
+        if (tool === 'hand') {
+            offsetX += e.movementX;
+            offsetY += e.movementY;
+        } else if (currentObj) {
+            const mX = e.offsetX - offsetX;
+            const mY = e.offsetY - offsetY;
+            if (tool === 'pen') currentObj.points.push({x: mX, y: mY});
+            if (tool === 'rect') { currentObj.w = mX - currentObj.x; currentObj.h = mY - currentObj.y; }
+            if (tool === 'line') { currentObj.x2 = mX; currentObj.y2 = mY; }
+            if (tool === 'circle') currentObj.r = Math.sqrt((mX-currentObj.x)**2 + (mY-currentObj.y)**2);
+        }
+        render();
+    };
+
+    window.onmouseup = () => {
+        if (isDrawing && currentObj) objects.push(currentObj);
+        isDrawing = false;
+        currentObj = null;
+        if (tool === 'hand') canvas.style.cursor = 'grab';
+        render();
+    };
+
+    window.onpaste = (e) => {
+        const item = Array.from(e.clipboardData.items).find(x => x.type.includes('image'));
+        if (item) {
+            const img = new Image();
+            img.onload = () => {
+                objects.push({ type: 'image', img: img, x: 20 - offsetX, y: 20 - offsetY, w: img.width/2, h: img.height/2 });
+                render();
+            };
+            img.src = URL.createObjectURL(item.getAsFile());
+        }
+    };
+</script>
+
+</body>
+</html>
