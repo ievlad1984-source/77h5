@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Совместная доска</title>
-    <!-- ИСПРАВЛЕНО: Теперь здесь рабочая ссылка на библиотеку -->
+    <!-- ЗДЕСЬ ИСПРАВЛЕНО: добавлено cdn. и номер версии -->
     <script src="https://socket.io"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
@@ -28,9 +28,7 @@
 <div id="canvas-container"><canvas id="canvas"></canvas></div>
 
 <script>
-    // Подключение к вашему серверу на Render
-    const socket = io("https://seven7h5.onrender.com");
-    
+    const socket = io("https://onrender.com");
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
@@ -51,7 +49,6 @@
         if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
     }
 
-    // Прием данных от других пользователей
     socket.on('new-object', (obj) => {
         objects.push(obj);
         render();
@@ -141,7 +138,7 @@
     };
 
     function clearBoard() {
-        if(confirm("Очистить доску для всех?")) {
+        if(confirm("Очистить для всех?")) {
             objects = [];
             render();
             socket.emit('clear-board');
