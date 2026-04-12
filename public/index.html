@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Совместная доска с комнатами</title>
+    <title>Совместная доска з кімнатами</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
@@ -12,7 +12,13 @@
         button.active { background: #3498db; color: white; }
         #canvas-container { flex-grow: 1; position: relative; background: #fff; overflow: hidden; }
         canvas { display: block; background: white; }
+        
+        /* Кастомні курсори */
+        .cursor-pen { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='20'>✏️</text></svg>") 0 20, crosshair; }
+        .cursor-eraser { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='20'>🧽</text></svg>") 0 20, cell; }
+
         .status-bar { position: absolute; bottom: 10px; left: 20px; background: rgba(0,0,0,0.6); color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; pointer-events: none; z-index: 20; }
+        .size-control { display: flex; align-items: center; gap: 5px; background: #34495e; padding: 5px 10px; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -20,37 +26,48 @@
 <div class="toolbar">
     <button onclick="setTool('select')" id="selectBtn">🔦 Виділення</button>
     <button onclick="setTool('hand')" id="handBtn">✋ Рука</button>
-    <button onclick="setTool('eraser')" id="eraserBtn">🧽 Ластик</button>
     <button onclick="setTool('pen')" id="penBtn" class="active">✏️ Ручка</button>
-    <button onclick="setTool('line')" id="lineBtn">📏 Линия</button>
-    <button onclick="setTool('rect')" id="rectBtn">⬜ Прямоугольник</button>
+    <button onclick="setTool('eraser')" id="eraserBtn">🧽 Ластик</button>
+    <button onclick="setTool('line')" id="lineBtn">📏 Лінія</button>
+    <button onclick="setTool('rect')" id="rectBtn">⬜ Прямокутник</button>
     <button onclick="setTool('text')" id="textBtn">Текст</button>
-    <input type="color" id="colorPicker" value="#000000" title="Цвет">
     
+    <input type="color" id="colorPicker" value="#000000" title="Колір">
+    
+    <div class="size-control">
+        <span style="font-size: 12px;">Розмір:</span>
+        <input type="range" id="sizePicker" min="1" max="50" value="3">
+        <span id="sizeValue" style="font-size: 12px; width: 20px;">3</span>
+    </div>
+
     <div style="flex-grow: 1;"></div>
     
-    <button onclick="createNewBoard()" style="background:#27ae60; color:white;">➕ Новая доска</button>
-    <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистить всё</button>
+    <button onclick="undo()" style="background:#f39c12; color:white;">↩️ Відміна</button>
+    <button onclick="createNewBoard()" style="background:#27ae60; color:white;">➕ Нова доска</button>
+    <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистити все</button>
 </div>
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
-    <div class="status-bar" id="infoBar">Доска: main | Масштаб: 100% | Ctrl+V для вставки</div>
+    <div class="status-bar" id="infoBar">Дошка: main | Масштаб: 100% | Ctrl+V | Del для видалення</div>
 </div>
 
 <script>
-    // 1. ОПРЕДЕЛЕНИЕ КОМНАТЫ
     const boardId = window.location.pathname.split('/').pop() || 'main';
     const socket = io({ query: { boardId: boardId } });
     
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
+    const sizePicker = document.getElementById('sizePicker');
+    const sizeValue = document.getElementById('sizeValue');
     const infoBar = document.getElementById('infoBar');
     
     let tool = 'pen', isDrawing = false, objects = [], currentObj = null;
     let scale = 1, offsetX = 0, offsetY = 0;
     let selectedObjects = [];
+
+    sizePicker.oninput = () => sizeValue.innerText = sizePicker.value;
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -60,98 +77,24 @@
     window.onresize = resize;
     resize();
 
-    function updateInfo() {
-        infoBar.innerText = `Доска: ${boardId} | Масштаб: ${Math.round(scale * 100)}% | Ctrl+V для вставки`;
-    }
-    updateInfo();
-
     function setTool(t) {
         tool = t;
         document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
         const btn = document.getElementById(t + 'Btn');
         if(btn) btn.classList.add('active');
-        canvas.style.cursor = t === 'hand' ? 'grab' : 'crosshair';
-    }
-
-    function createNewBoard() {
-        const name = prompt("Введите ID новой доски (только буквы и цифры):");
-        if (name) window.location.href = `/board/${name.trim()}`;
-    }
-
-    // 2. ВСТАВКА ИЗОБРАЖЕНИЯ (Ctrl+V)
-    window.addEventListener('paste', (e) => {
-        const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
-        if (item) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const x = (canvas.width/2 - offsetX) / scale - (img.width/4);
-                    const y = (canvas.height/2 - offsetY) / scale - (img.height/4);
-                    const obj = { type: 'image', src: event.target.result, x, y, w: img.width/2, h: img.height/2 };
-                    objects.push(obj);
-                    socket.emit('new-object', obj);
-                    render();
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(item.getAsFile());
-        }
-    });
-
-    // 3. МАСШТАБИРОВАНИЕ
-    window.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const oldScale = scale;
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        scale = Math.min(Math.max(0.1, scale + delta), 4);
         
-        const mX = e.clientX, mY = e.clientY - 50;
-        offsetX -= (mX - offsetX) * (scale / oldScale - 1);
-        offsetY -= (mY - offsetY) * (scale / oldScale - 1);
-        
-        updateInfo();
-        render();
-    }, { passive: false });
-
-    // 4. СЕТЕВЫЕ СОБЫТИЯ
-    socket.on('init-history', (history) => { objects = history; render(); });
-    socket.on('new-object', (obj) => { objects.push(obj); render(); });
-    socket.on('clear-board', () => { objects = []; render(); });
-
-    function undo() {
-    if (objects.length > 0) {
-        objects.pop();
-        socket.emit('undo'); // Повідомляємо іншим про скасування
-        render();
+        canvas.classList.remove('cursor-pen', 'cursor-eraser');
+        if (t === 'pen') canvas.classList.add('cursor-pen');
+        else if (t === 'eraser') canvas.classList.add('cursor-eraser');
+        else if (t === 'hand') canvas.style.cursor = 'grab';
+        else canvas.style.cursor = 'crosshair';
     }
-}
-
-// Слухач клавіш (Ctrl+Z та Delete)
-window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.code === 'KeyZ') {
-        e.preventDefault();
-        undo();
-    }
-    if (e.code === 'Delete' && selectedObjects.length > 0) {
-        // Видаляємо виділені об'єкти з основного масиву
-        objects = objects.filter(obj => !selectedObjects.includes(obj));
-        selectedObjects = [];
-        socket.emit('full-update', objects); // Оновлюємо стан у всіх
-        render();
-    }
-});
-
-// Обробка відміни від інших користувачів
-socket.on('undo', () => {
-    objects.pop();
-    render();
-});
+    setTool('pen');
 
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Сетка (Клеточки)
+        // Сітка
         const gridSize = 30 * scale;
         ctx.beginPath();
         ctx.strokeStyle = '#e8e8e8';
@@ -167,39 +110,42 @@ socket.on('undo', () => {
         ctx.save();
         ctx.translate(offsetX, offsetY);
         ctx.scale(scale, scale);
+        
         objects.forEach(draw);
         if (currentObj) draw(currentObj);
-        ctx.restore();
-            // Малюємо рамку виділення (синя пунктирна лінія)
-    if (currentObj && currentObj.type === 'select') {
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = '#3498db';
-        ctx.strokeRect(currentObj.x, currentObj.y, currentObj.w, currentObj.h);
-        ctx.setLineDash([]);
-    }
 
-    // Підсвічуємо вибрані об'єкти
-    selectedObjects.forEach(obj => {
-        ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
-        ctx.lineWidth = 5;
-        // Малюємо рамку навколо кожного вибраного об'єкта
-        const x = obj.x || (obj.points && obj.points[0].x);
-        const y = obj.y || (obj.points && obj.points[0].y);
-        ctx.strokeRect(x - 5, y - 5, (obj.w || 10) + 10, (obj.h || 10) + 10);
-    });
+        // Малювання рамки виділення
+        if (currentObj && currentObj.type === 'select') {
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 1/scale;
+            ctx.strokeRect(currentObj.x, currentObj.y, currentObj.w, currentObj.h);
+            ctx.setLineDash([]);
+        }
+
+        // Підсвічування вибраних
+        selectedObjects.forEach(obj => {
+            ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
+            ctx.lineWidth = 4 / scale;
+            const x = obj.x !== undefined ? obj.x : (obj.points ? obj.points[0].x : obj.x1);
+            const y = obj.y !== undefined ? obj.y : (obj.points ? obj.points[0].y : obj.y1);
+            ctx.strokeRect(x - 10, y - 10, (obj.w || 20) + 20, (obj.h || 20) + 20);
+        });
+
+        ctx.restore();
     }
 
     function draw(obj) {
         ctx.save();
         ctx.strokeStyle = obj.color;
         ctx.fillStyle = obj.color;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = obj.lineWidth || 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
         if (obj.type === 'eraser') {
             ctx.globalCompositeOperation = 'destination-out';
-            ctx.lineWidth = 20;
+            ctx.lineWidth = (obj.lineWidth || 3) * 5;
         }
 
         if (obj.type === 'pen' || obj.type === 'eraser') {
@@ -211,7 +157,8 @@ socket.on('undo', () => {
         } else if (obj.type === 'line') {
             ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke();
         } else if (obj.type === 'text') {
-            ctx.font = "20px Arial"; ctx.fillText(obj.content, obj.x, obj.y);
+            ctx.font = `${(obj.lineWidth || 3) * 5}px Arial`; 
+            ctx.fillText(obj.content, obj.x, obj.y);
         } else if (obj.type === 'image') {
             const img = new Image(); img.src = obj.src;
             if (img.complete) ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h);
@@ -226,78 +173,112 @@ socket.on('undo', () => {
         isDrawing = true;
 
         if (tool === 'select') {
-        selectedObjects = []; // Скидаємо старе виділення
-        currentObj = { type: 'select', x: mX, y: mY, w: 0, h: 0 };
-        return; 
-    }
-        if (tool === 'hand') { canvas.style.cursor = 'grabbing'; return; }
-        if (tool === 'text') { 
-            const content = prompt("Введите текст:");
-            if (content) {
-                const textObj = { type: 'text', content, x: mX, y: mY, color: colorPicker.value };
-                objects.push(textObj);
-                socket.emit('new-object', textObj);
-                render();
-            }
-            isDrawing = false; return;
+            selectedObjects = [];
+            currentObj = { type: 'select', x: mX, y: mY, w: 0, h: 0 };
+            render();
+            return;
         }
 
-        const common = { color: colorPicker.value, x: mX, y: mY };
+        if (tool === 'hand') { canvas.style.cursor = 'grabbing'; return; }
+        
+        const common = { color: colorPicker.value, lineWidth: parseInt(sizePicker.value), x: mX, y: mY };
+        
+        if (tool === 'text') {
+            const content = prompt("Текст:");
+            if (content) {
+                const textObj = { type: 'text', content, ...common };
+                objects.push(textObj);
+                socket.emit('new-object', textObj);
+            }
+            isDrawing = false; render(); return;
+        }
+
         if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [{x: mX, y: mY}] };
         else if (tool === 'rect') currentObj = { type: 'rect', ...common, w: 0, h: 0 };
         else if (tool === 'line') currentObj = { type: 'line', ...common, x1: mX, y1: mY, x2: mX, y2: mY };
     };
 
     window.onmousemove = (e) => {
-            if (tool === 'select' && currentObj) {
-        currentObj.w = mX - currentObj.x;
-        currentObj.h = mY - currentObj.y;
-    }
-
         if (!isDrawing) return;
+        const mX = (e.clientX - offsetX) / scale;
+        const mY = (e.clientY - 50 - offsetY) / scale;
+
         if (tool === 'hand') {
             offsetX += e.movementX;
             offsetY += e.movementY;
         } else if (currentObj) {
-            const mX = (e.clientX - offsetX) / scale;
-            const mY = (e.clientY - 50 - offsetY) / scale;
-            if (currentObj.points) currentObj.points.push({x: mX, y: mY});
-            else if (tool === 'rect') { currentObj.w = mX - currentObj.x; currentObj.h = mY - currentObj.y; }
-            else if (tool === 'line') { currentObj.x2 = mX; currentObj.y2 = mY; }
+            if (tool === 'select' || tool === 'rect') {
+                currentObj.w = mX - currentObj.x;
+                currentObj.h = mY - currentObj.y;
+            } else if (tool === 'pen' || tool === 'eraser') {
+                currentObj.points.push({x: mX, y: mY});
+            } else if (tool === 'line') {
+                currentObj.x2 = mX; currentObj.y2 = mY;
+            }
         }
         render();
     };
 
     window.onmouseup = () => {
-    if (isDrawing && currentObj) {
-        if (tool === 'select') {
-            // Шукаємо об'єкти, які потрапили в рамку
-            const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w);
-            const x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
-            const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h);
-            const y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
+        if (isDrawing && currentObj) {
+            if (tool === 'select') {
+                const x1 = Math.min(currentObj.x, currentObj.x + currentObj.w);
+                const x2 = Math.max(currentObj.x, currentObj.x + currentObj.w);
+                const y1 = Math.min(currentObj.y, currentObj.y + currentObj.h);
+                const y2 = Math.max(currentObj.y, currentObj.y + currentObj.h);
 
-            selectedObjects = objects.filter(obj => {
-                // Перевіряємо, чи точка або центр об'єкта в рамці
-                const targetX = obj.x || (obj.points && obj.points[0].x);
-                const targetY = obj.y || (obj.points && obj.points[0].y);
-                return targetX >= x1 && targetX <= x2 && targetY >= y1 && targetY <= y2;
-            });
-        } else {
-            objects.push(currentObj);
-            socket.emit('new-object', currentObj);
+                selectedObjects = objects.filter(obj => {
+                    let ox = obj.x !== undefined ? obj.x : (obj.points ? obj.points[0].x : obj.x1);
+                    let oy = obj.y !== undefined ? obj.y : (obj.points ? obj.points[0].y : obj.y1);
+                    return ox >= x1 && ox <= x2 && oy >= y1 && oy <= y2;
+                });
+            } else {
+                objects.push(currentObj);
+                socket.emit('new-object', currentObj);
+            }
+        }
+        isDrawing = false; currentObj = null;
+        if (tool === 'hand') canvas.style.cursor = 'grab';
+        render();
+    };
+
+    function undo() {
+        if (objects.length > 0) {
+            objects.pop();
+            socket.emit('undo');
+            render();
         }
     }
-    isDrawing = false;
-    currentObj = null;
-    if (tool === 'hand') canvas.style.cursor = 'grab';
-    render();
-};
 
+    window.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.code === 'KeyZ') { e.preventDefault(); undo(); }
+        if (e.code === 'Delete' && selectedObjects.length > 0) {
+            objects = objects.filter(o => !selectedObjects.includes(o));
+            selectedObjects = [];
+            socket.emit('full-update', objects);
+            render();
+        }
+    });
 
-    function clearBoard() {
-        if(confirm("Очистить текущую доску?")) { objects = []; socket.emit('clear-board'); render(); }
-    }
+    window.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const oldScale = scale;
+        scale = Math.min(Math.max(0.1, scale + (e.deltaY > 0 ? -0.1 : 0.1)), 4);
+        const mX = e.clientX, mY = e.clientY - 50;
+        offsetX -= (mX - offsetX) * (scale / oldScale - 1);
+        offsetY -= (mY - offsetY) * (scale / oldScale - 1);
+        render();
+        infoBar.innerText = `Дошка: ${boardId} | Масштаб: ${Math.round(scale * 100)}% | Ctrl+V | Del для видалення`;
+    }, { passive: false });
+
+    socket.on('init-history', (h) => { objects = h; render(); });
+    socket.on('new-object', (o) => { objects.push(o); render(); });
+    socket.on('undo', () => { objects.pop(); render(); });
+    socket.on('clear-board', () => { objects = []; render(); });
+    socket.on('full-update', (h) => { objects = h; render(); });
+
+    function clearBoard() { if(confirm("Очистити все?")) { socket.emit('clear-board'); objects = []; render(); } }
+    function createNewBoard() { const name = prompt("ID дошки:"); if (name) window.location.href = `/board/${name.trim()}`; }
 </script>
 </body>
 </html>
