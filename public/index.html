@@ -4,36 +4,38 @@
     <meta charset="UTF-8">
     <title>Інтерактивна Дошка</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #f0f0f0; }
         #toolbar {
             position: absolute; top: 10px; left: 10px; background: white; padding: 10px;
-            display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100;
+            display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100; align-items: center;
         }
-        .tool-btn { padding: 8px; cursor: pointer; border: 1px solid #ccc; background: #f9f9f9; border-radius: 4px; }
-        .tool-btn.active { background: #007bff; color: white; }
-        #canvas-container { width: 100vw; height: 100vh; background: white; cursor: crosshair; position: relative; }
-        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.6); color: white; padding: 5px 10px; border-radius: 4px; }
+        .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 4px; transition: 0.2s; }
+        .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
+        #canvas-container { width: 100vw; height: 100vh; background: white; position: relative; overflow: hidden; }
+        canvas { display: block; }
+        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; pointer-events: none; }
         .text-input-div {
-            position: absolute; border: 1px dashed #007bff; min-width: 10px; outline: none;
+            position: absolute; border: 1px dashed #007bff; min-width: 50px; outline: none;
             background: transparent; white-space: pre-wrap; font-family: Arial, sans-serif;
-            overflow: hidden; display: inline-block;
+            overflow: visible; display: inline-block; padding: 2px; line-height: 1.2;
         }
     </style>
 </head>
 <body>
 
 <div id="toolbar">
-    <button class="tool-btn" data-tool="select">Виділення</button>
+    <button class="tool-btn" data-tool="select">Выделение</button>
     <button class="tool-btn" data-tool="hand">Рука</button>
-    <button class="tool-btn" data-tool="pen">Ручка</button>
-    <button class="tool-btn" data-tool="line">Лінія</button>
-    <button class="tool-btn" data-tool="rect">Прямокутник</button>
+    <button class="tool-btn active" data-tool="pen">Ручка</button>
+    <button class="tool-btn" data-tool="line">Линия</button>
+    <button class="tool-btn" data-tool="rect">Прямоугольник</button>
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <button class="tool-btn" data-tool="text">Текст</button>
-    <input type="color" id="colorPicker" value="#000000">
-    <input type="range" id="lineWidth" min="1" max="20" value="2">
-    <button class="tool-btn" onclick="createNewBoard()">Нова доска</button>
-    <button class="tool-btn" onclick="deleteBoard()">Видалити</button>
+    <input type="color" id="colorPicker" value="#000000" title="Колір">
+    <input type="range" id="lineWidth" min="1" max="20" value="3" title="Товщина">
+    <div style="width: 1px; height: 25px; background: #ccc; margin: 0 5px;"></div>
+    <button class="tool-btn" onclick="location.href='?id='+Math.random().toString(36).substr(2,9)">Нова дошка</button>
+    <button class="tool-btn" onclick="location.reload()">Удалить</button>
 </div>
 
 <div id="zoom-display">Масштаб: 100%</div>
@@ -44,8 +46,9 @@
 <script>
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
-const container = document.getElementById('canvas-container');
 const zoomDisplay = document.getElementById('zoom-display');
+const colorPicker = document.getElementById('colorPicker');
+const lineWidthInput = document.getElementById('lineWidth');
 
 let scale = 1.0;
 let offsetX = 0;
@@ -53,10 +56,9 @@ let offsetY = 0;
 let objects = [];
 let currentTool = 'pen';
 let isDrawing = false;
-let startX, startY;
-let history = [];
+let currentObj = null;
+let selectedObj = null;
 
-// Налаштування Canvas
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -65,20 +67,17 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Малювання сітки
 function drawGrid() {
     const gridSize = 40 * scale;
     ctx.beginPath();
-    ctx.strokeStyle = '#e0e0e0';
+    ctx.strokeStyle = '#e8e8e8';
     ctx.lineWidth = 1;
 
     for (let x = offsetX % gridSize; x < canvas.width; x += gridSize) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
     }
     for (let y = offsetY % gridSize; y < canvas.height; y += gridSize) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
     }
     ctx.stroke();
 }
@@ -87,44 +86,119 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid();
 
-    objects.forEach(obj => {
+    objects.concat(currentObj ? [currentObj] : []).forEach(obj => {
         ctx.beginPath();
         ctx.strokeStyle = obj.color;
         ctx.lineWidth = obj.width * scale;
-        
-        const x = obj.x * scale + offsetX;
-        const y = obj.y * scale + offsetY;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-        if (obj.type === 'pen') {
-            ctx.moveTo(x, y);
+        if (obj.type === 'pen' || obj.type === 'eraser') {
+            if (obj.type === 'eraser') ctx.strokeStyle = 'white';
+            ctx.moveTo(obj.points[0].x * scale + offsetX, obj.points[0].y * scale + offsetY);
             obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
             ctx.stroke();
         } else if (obj.type === 'line') {
-            ctx.moveTo(x, y);
+            ctx.moveTo(obj.x * scale + offsetX, obj.y * scale + offsetY);
             ctx.lineTo(obj.ex * scale + offsetX, obj.ey * scale + offsetY);
             ctx.stroke();
         } else if (obj.type === 'rect') {
-            ctx.strokeRect(x, y, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
+            ctx.strokeRect(obj.x * scale + offsetX, obj.y * scale + offsetY, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
         }
     });
 }
 
-// Масштабування колесиком (10% - 400%)
+function getCoords(e) {
+    return {
+        x: (e.clientX - offsetX) / scale,
+        y: (e.clientY - offsetY) / scale
+    };
+}
+
+canvas.addEventListener('mousedown', (e) => {
+    const coords = getCoords(e);
+    isDrawing = true;
+
+    if (currentTool === 'hand') return;
+    if (currentTool === 'text') {
+        createTextDiv(e.clientX, e.clientY);
+        isDrawing = false;
+        return;
+    }
+
+    currentObj = {
+        type: currentTool,
+        color: colorPicker.value,
+        width: lineWidthInput.value,
+        x: coords.x,
+        y: coords.y,
+        points: [{x: coords.x, y: coords.y}]
+    };
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (!isDrawing) return;
+    const coords = getCoords(e);
+
+    if (currentTool === 'hand') {
+        offsetX += e.movementX;
+        offsetY += e.movementY;
+    } else if (currentTool === 'pen' || currentTool === 'eraser') {
+        currentObj.points.push({x: coords.x, y: coords.y});
+    } else if (currentTool === 'line' || currentTool === 'rect') {
+        currentObj.ex = coords.x;
+        currentObj.ey = coords.y;
+    }
+    draw();
+});
+
+window.addEventListener('mouseup', () => {
+    if (isDrawing && currentObj) {
+        objects.push(currentObj);
+    }
+    isDrawing = false;
+    currentObj = null;
+    draw();
+});
+
+// Масштабування
 window.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(Math.max(scale * delta, 0.1), 4.0);
-    
-    // Центрування зуму відносно мишки
+    const zoomSpeed = 0.1;
+    const delta = e.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+    const oldScale = scale;
+    scale = Math.min(Math.max(scale * delta, 0.1), 4.0);
+
     const mouseX = e.clientX;
     const mouseY = e.clientY;
-    offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
-    offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
-    
-    scale = newScale;
+    offsetX = mouseX - (mouseX - offsetX) * (scale / oldScale);
+    offsetY = mouseY - (mouseY - offsetY) * (scale / oldScale);
+
     zoomDisplay.innerText = `Масштаб: ${Math.round(scale * 100)}%`;
     draw();
 }, { passive: false });
+
+// Текст
+function createTextDiv(x, y) {
+    const div = document.createElement('div');
+    div.className = 'text-input-div';
+    div.contentEditable = true;
+    div.style.left = x + 'px';
+    div.style.top = y + 'px';
+    div.style.color = colorPicker.value;
+    div.style.fontSize = (20 * scale) + 'px';
+    document.body.appendChild(div);
+    setTimeout(() => div.focus(), 10);
+    div.addEventListener('blur', () => { if (!div.innerText.trim()) div.remove(); });
+}
+
+// Гарячі клавіші
+window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+        objects.pop();
+        draw();
+    }
+});
 
 // Інструменти
 document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -137,66 +211,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
     });
 });
 
-canvas.addEventListener('mousedown', (e) => {
-    isDrawing = true;
-    startX = (e.clientX - offsetX) / scale;
-    startY = (e.clientY - offsetY) / scale;
-
-    if (currentTool === 'text') {
-        createTextDiv(e.clientX, e.clientY);
-        isDrawing = false;
-    }
-});
-
-// Динамічний текст
-function createTextDiv(x, y) {
-    const div = document.createElement('div');
-    div.className = 'text-input-div';
-    div.contentEditable = true;
-    div.style.left = x + 'px';
-    div.style.top = y + 'px';
-    div.style.color = document.getElementById('colorPicker').value;
-    div.style.fontSize = (20 * scale) + 'px';
-    
-    document.body.appendChild(div);
-    div.focus();
-
-    div.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            // Перенос рядка працює автоматично через white-space: pre-wrap
-        }
-    });
-
-    div.addEventListener('blur', () => {
-        if (!div.innerText.trim()) div.remove();
-    });
-}
-
-// Гарячі клавіші
-window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'z') {
-        objects.pop();
-        draw();
-    }
-    if (e.ctrlKey && e.key === 'a') {
-        e.preventDefault();
-        console.log("Виділено все (логіка виділення)");
-    }
-});
-
-// Робота з "кімнатами"
-function createNewBoard() {
-    const id = Math.random().toString(36).substring(7);
-    window.location.href = `?board=${id}`;
-}
-
-function deleteBoard() {
-    if (confirm("Видалити цю дошку?")) {
-        window.location.href = window.location.pathname;
-    }
-}
-
-// Вставка зображення
+// Вставка картинки
 window.addEventListener('paste', (e) => {
     const items = e.clipboardData.items;
     for (let item of items) {
@@ -206,8 +221,7 @@ window.addEventListener('paste', (e) => {
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    ctx.drawImage(img, 100, 100);
-                    // Додати логіку збереження в масив об'єктів
+                    ctx.drawImage(img, 50, 50, 300, 200);
                 };
                 img.src = event.target.result;
             };
@@ -215,8 +229,6 @@ window.addEventListener('paste', (e) => {
         }
     }
 });
-
-// Решта логіки малювання (pen, rect, line) має бути додана в mousemove...
 </script>
 
 </body>
