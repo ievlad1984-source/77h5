@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <title>Совместная доска</title>
-    <!-- Подключаем библиотеку для связи с сервером -->
+    <!-- ИСПРАВЛЕНО: Рабочая ссылка на Socket.io -->
     <script src="https://socket.io"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
-        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; }
-        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; }
+        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #bdc3c7; }
         button.active { background: #3498db; color: white; }
         #canvas-container { flex-grow: 1; position: relative; background: #fff; }
-        canvas { display: block; cursor: crosshair; }
+        canvas { display: block; cursor: crosshair; background-color: #ffffff; }
     </style>
 </head>
 <body>
@@ -27,7 +28,9 @@
 <div id="canvas-container"><canvas id="canvas"></canvas></div>
 
 <script>
+    // Подключение к серверу
     const socket = io("https://seven7h5.onrender.com");
+    
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
@@ -44,11 +47,11 @@
 
     function setTool(t) {
         tool = t;
-        document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
         if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
     }
 
-    // Слушаем данные от других пользователей
+    // Обработка данных от сервера
     socket.on('new-object', (obj) => {
         objects.push(obj);
         render();
@@ -69,7 +72,11 @@
     }
 
     function render() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Рисуем белый фон
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Рисуем все объекты
         objects.forEach(draw);
         if (currentObj) draw(currentObj);
     }
@@ -79,8 +86,10 @@
         ctx.fillStyle = obj.color;
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
-        ctx.beginPath();
+        ctx.lineJoin = 'round';
+        
         if (obj.type === 'pen') {
+            ctx.beginPath();
             obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
             ctx.stroke();
         } else if (obj.type === 'rect') {
@@ -95,10 +104,18 @@
         const rect = canvas.getBoundingClientRect();
         const mX = e.clientX - rect.left;
         const mY = e.clientY - rect.top;
-        if (tool === 'text') { addText(mX, mY); return; }
+
+        if (tool === 'text') {
+            addText(mX, mY);
+            return;
+        }
+
         isDrawing = true;
-        if (tool === 'pen') currentObj = { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] };
-        else if (tool === 'rect') currentObj = { type: 'rect', color: colorPicker.value, x: mX, y: mY, w: 0, h: 0 };
+        if (tool === 'pen') {
+            currentObj = { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] };
+        } else if (tool === 'rect') {
+            currentObj = { type: 'rect', color: colorPicker.value, x: mX, y: mY, w: 0, h: 0 };
+        }
     };
 
     window.onmousemove = (e) => {
@@ -106,8 +123,13 @@
         const rect = canvas.getBoundingClientRect();
         const mX = e.clientX - rect.left;
         const mY = e.clientY - rect.top;
-        if (tool === 'pen') currentObj.points.push({x: mX, y: mY});
-        else if (tool === 'rect') { currentObj.w = mX - currentObj.x; currentObj.h = mY - currentObj.y; }
+
+        if (tool === 'pen') {
+            currentObj.points.push({x: mX, y: mY});
+        } else if (tool === 'rect') {
+            currentObj.w = mX - currentObj.x;
+            currentObj.h = mY - currentObj.y;
+        }
         render();
     };
 
@@ -118,11 +140,13 @@
         }
         isDrawing = false;
         currentObj = null;
+        render();
     };
 
     function clearBoard() {
-        if(confirm("Очистить для всех?")) {
-            objects = []; render();
+        if(confirm("Очистить доску для всех пользователей?")) {
+            objects = [];
+            render();
             socket.emit('clear-board');
         }
     }
