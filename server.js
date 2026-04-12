@@ -7,33 +7,36 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-// Хранилище историй для разных досок: { "board1": [...], "my-room": [...] }
 let boards = {}; 
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Любой путь после /board/ будет открывать файл index.html
+// Маршрут для открытия конкретной доски
 app.get('/board/:id', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Редирект с главной на случайную доску
+app.get('/', (req, res) => {
+    const randomId = Math.random().toString(36).substr(2, 9);
+    res.redirect(`/board/${randomId}`);
+});
+
 io.on('connection', (socket) => {
-    // Получаем имя комнаты из URL, который прислал клиент
     const boardId = socket.handshake.query.boardId;
     if (!boardId) return;
 
-    socket.join(boardId); // Пользователь заходит в конкретную комнату
-
-    // Если доски еще нет, создаем пустую историю
+    socket.join(boardId);
     if (!boards[boardId]) boards[boardId] = [];
 
-    // Отправляем историю только этой конкретной доски
+    // Отправляем историю новому пользователю
     socket.emit('init-history', boards[boardId]);
 
     socket.on('new-object', (obj) => {
-        boards[boardId].push(obj);
-        // Рассылаем только участникам этой комнаты
-        socket.to(boardId).emit('new-object', obj);
+        if (boards[boardId]) {
+            boards[boardId].push(obj);
+            socket.to(boardId).emit('new-object', obj);
+        }
     });
 
     socket.on('clear-board', () => {
@@ -43,4 +46,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Сервер: порт ${PORT}`));
+server.listen(PORT, () => console.log(`Сервер запущен: http://localhost:${PORT}`));
