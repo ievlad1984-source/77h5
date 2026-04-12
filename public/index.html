@@ -6,20 +6,16 @@
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f0f0f0; }
-        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 10px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); flex-wrap: wrap; }
-        
-        button { cursor: pointer; padding: 8px 14px; border-radius: 6px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); flex-wrap: wrap; }
+        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; font-size: 13px; }
         button:hover { background: #bdc3c7; }
         button.active { background: #3498db; color: white; }
-        
         #canvas-container { flex-grow: 1; position: relative; background: #fff; overflow: hidden; }
         canvas { display: block; background: white; }
-
         .cursor-pen { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>✏️</text></svg>") 2 24, crosshair; }
         .cursor-eraser { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='32' height='32' style='font-size:24px'><text y='24' x='0'>🧽</text></svg>") 12 12, cell; }
-        
-        .status-bar { position: absolute; bottom: 15px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 6px 18px; border-radius: 20px; font-size: 13px; pointer-events: none; z-index: 20; }
-        .size-control { display: flex; align-items: center; gap: 8px; background: #34495e; padding: 5px 12px; border-radius: 6px; }
+        .status-bar { position: absolute; bottom: 15px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 6px 18px; border-radius: 20px; font-size: 12px; pointer-events: none; z-index: 20; }
+        .size-control { display: flex; align-items: center; gap: 5px; background: #34495e; padding: 5px 10px; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -31,31 +27,29 @@
     <button onclick="setTool('eraser')" id="eraserBtn">🧽 Ластик</button>
     <button onclick="setTool('rect')" id="rectBtn">⬜ Квадрат</button>
     <button onclick="setTool('line')" id="lineBtn">📏 Лінія</button>
-    
     <input type="color" id="colorPicker" value="#000000">
     <div class="size-control">
-        <span>Розмір:</span>
         <input type="range" id="sizePicker" min="1" max="50" value="3">
     </div>
-
     <div style="flex-grow: 1;"></div>
+    <button onclick="createNewBoard()" style="background:#27ae60; color:white;">➕ Нова дошка</button>
     <button onclick="undo()" style="background:#f39c12; color:white;">↩️ Відміна</button>
     <button onclick="clearBoard()" style="background:#e74c3c; color:white;">Очистити</button>
 </div>
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
-    <div class="status-bar" id="infoBar">Дошка: main | Колесо: Зум | Del: Видалити</div>
+    <div class="status-bar" id="infoBar">Дошка: main | Del: видалити | Рамка: виділити область</div>
 </div>
 
 <script>
     const boardId = window.location.pathname.split('/').pop() || 'main';
-    const socket = io({ query: { boardId: boardId } });
+    const socket = io({ query: { boardId } });
     const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
     
     let tool = 'select', isDrawing = false, objects = [], currentObj = null;
     let scale = 1, offsetX = 0, offsetY = 0;
-    let selectedObj = null, isDragging = false, isResizing = false, lastPos = {x:0, y:0};
+    let selectedObjects = [], isDragging = false, isResizing = false, lastPos = {x:0, y:0};
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -69,7 +63,7 @@
         document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
         document.getElementById(t + 'Btn').classList.add('active');
         canvas.className = t === 'pen' ? 'cursor-pen' : (t === 'eraser' ? 'cursor-eraser' : '');
-        if(t !== 'select') selectedObj = null;
+        if(t !== 'select') selectedObjects = [];
         render();
     }
 
@@ -79,33 +73,39 @@
     }
 
     function isPointInObj(p, obj) {
-        const margin = 10;
-        if (obj.type === 'rect' || obj.type === 'image') 
-            return p.x >= obj.x && p.x <= obj.x + obj.w && p.y >= obj.y && p.y <= obj.y + obj.h;
+        const m = 10;
+        if (obj.type === 'rect') return p.x >= obj.x && p.x <= obj.x + obj.w && p.y >= obj.y && p.y <= obj.y + obj.h;
         if (obj.type === 'line') {
-            const d = Math.abs((obj.x2-obj.x1)*(obj.y1-p.y) - (obj.x1-p.x)*(obj.y2-obj.y1)) / Math.hypot(obj.x2-obj.x1, obj.y2-obj.y1);
-            return d < margin && p.x >= Math.min(obj.x1, obj.x2)-margin && p.x <= Math.max(obj.x1, obj.x2)+margin;
+            const d = Math.abs((obj.x2-obj.x1)*(obj.y1-p.y)-(obj.x1-p.x)*(obj.y2-obj.y1))/Math.hypot(obj.x2-obj.x1, obj.y2-obj.y1);
+            return d < m && p.x >= Math.min(obj.x1,obj.x2)-m && p.x <= Math.max(obj.x1,obj.x2)+m;
         }
-        if (obj.type === 'pen') return obj.points.some(pt => Math.hypot(pt.x - p.x, pt.y - p.y) < margin);
+        if (obj.type === 'pen') return obj.points.some(pt => Math.hypot(pt.x - p.x, pt.y - p.y) < m);
         return false;
     }
 
     canvas.onmousedown = (e) => {
-        const p = getCoords(e);
-        lastPos = p;
-        isDrawing = true;
+        const p = getCoords(e); lastPos = p; isDrawing = true;
 
         if (tool === 'select') {
-            if (selectedObj && Math.hypot(p.x - (selectedObj.x + (selectedObj.w||0)), p.y - (selectedObj.y + (selectedObj.h||0))) < 15) {
-                isResizing = true;
+            // Перевірка на зміну розміру (тільки якщо вибрано один об'єкт)
+            if (selectedObjects.length === 1) {
+                const o = selectedObjects[0];
+                const handleX = o.x !== undefined ? o.x + o.w : o.x2;
+                const handleY = o.y !== undefined ? o.y + o.h : o.y2;
+                if (Math.hypot(p.x - handleX, p.y - handleY) < 15) { isResizing = true; return; }
+            }
+            
+            const clicked = objects.slice().reverse().find(o => isPointInObj(p, o));
+            if (clicked) {
+                if (!e.shiftKey && !selectedObjects.includes(clicked)) selectedObjects = [clicked];
+                else if (e.shiftKey) selectedObjects.push(clicked);
+                isDragging = true;
             } else {
-                selectedObj = objects.slice().reverse().find(o => isPointInObj(p, o));
-                if (selectedObj) isDragging = true;
+                selectedObjects = [];
+                currentObj = { type: 'select_area', x: p.x, y: p.y, w: 0, h: 0 };
             }
             render(); return;
         }
-
-        if (tool === 'hand') return;
 
         const common = { color: document.getElementById('colorPicker').value, lineWidth: parseInt(document.getElementById('sizePicker').value), x: p.x, y: p.y };
         if (tool === 'pen' || tool === 'eraser') currentObj = { type: tool, ...common, points: [{x:p.x, y:p.y}] };
@@ -115,47 +115,53 @@
 
     window.onmousemove = (e) => {
         if (!isDrawing) return;
-        const p = getCoords(e);
-        const dx = p.x - lastPos.x, dy = p.y - lastPos.y;
+        const p = getCoords(e); const dx = p.x - lastPos.x, dy = p.y - lastPos.y;
 
-        if (isResizing && selectedObj) {
-            if(selectedObj.w !== undefined) { selectedObj.w += dx; selectedObj.h += dy; }
-            else if(selectedObj.x2 !== undefined) { selectedObj.x2 += dx; selectedObj.y2 += dy; }
-        } else if (isDragging && selectedObj) {
-            if(selectedObj.points) selectedObj.points.forEach(pt => { pt.x += dx; pt.y += dy; });
-            else { selectedObj.x += dx; selectedObj.y += dy; if(selectedObj.x1) { selectedObj.x1 += dx; selectedObj.y1 += dy; selectedObj.x2 += dx; selectedObj.y2 += dy; } }
-        } else if (tool === 'hand') {
-            offsetX += e.movementX; offsetY += e.movementY;
-        } else if (currentObj) {
-            if (tool === 'pen' || tool === 'eraser') currentObj.points.push({x:p.x, y:p.y});
-            else if (tool === 'rect') { currentObj.w = p.x - currentObj.x; currentObj.h = p.y - currentObj.y; }
-            else if (tool === 'line') { currentObj.x2 = p.x; currentObj.y2 = p.y; }
+        if (isResizing && selectedObjects.length === 1) {
+            const o = selectedObjects[0];
+            if (o.w !== undefined) { o.w += dx; o.h += dy; } else { o.x2 += dx; o.y2 += dy; }
+        } else if (isDragging) {
+            selectedObjects.forEach(o => {
+                if (o.points) o.points.forEach(pt => { pt.x += dx; pt.y += dy; });
+                else { o.x += dx; o.y += dy; if (o.x1 !== undefined) { o.x1 += dx; o.y1 += dy; o.x2 += dx; o.y2 += dy; } }
+            });
+        } else if (tool === 'hand') { offsetX += e.movementX; offsetY += e.movementY; }
+        else if (currentObj) {
+            if (currentObj.type === 'pen' || currentObj.type === 'eraser') currentObj.points.push({x:p.x, y:p.y});
+            else { currentObj.w = p.x - currentObj.x; currentObj.h = p.y - currentObj.y; currentObj.x2 = p.x; currentObj.y2 = p.y; }
         }
         lastPos = p; render();
     };
 
     window.onmouseup = () => {
-        if (isDrawing && currentObj) { objects.push(currentObj); socket.emit('new-object', currentObj); }
+        if (isDrawing && currentObj) {
+            if (currentObj.type === 'select_area') {
+                const xmin = Math.min(currentObj.x, currentObj.x + currentObj.w), xmax = Math.max(currentObj.x, currentObj.x + currentObj.w);
+                const ymin = Math.min(currentObj.y, currentObj.y + currentObj.h), ymax = Math.max(currentObj.y, currentObj.y + currentObj.h);
+                selectedObjects = objects.filter(o => {
+                    const ox = o.x ?? o.x1 ?? o.points[0].x, oy = o.y ?? o.y1 ?? o.points[0].y;
+                    return ox >= xmin && ox <= xmax && oy >= ymin && oy <= ymax;
+                });
+            } else { objects.push(currentObj); socket.emit('new-object', currentObj); }
+        }
         if (isDragging || isResizing) socket.emit('full-update', objects);
         isDrawing = isDragging = isResizing = false; currentObj = null; render();
     };
 
     function draw(obj) {
-        ctx.save();
-        ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color; ctx.lineWidth = obj.lineWidth;
-        ctx.lineCap = ctx.lineJoin = 'round';
+        ctx.save(); ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color; ctx.lineWidth = obj.lineWidth; ctx.lineCap = ctx.lineJoin = 'round';
         if (obj.type === 'eraser') ctx.globalCompositeOperation = 'destination-out';
-
         if (obj.type === 'pen' || obj.type === 'eraser') {
             ctx.beginPath(); obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)); ctx.stroke();
         } else if (obj.type === 'rect') ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
         else if (obj.type === 'line') { ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke(); }
         
-        if (selectedObj === obj && tool === 'select') {
-            ctx.setLineDash([5, 5]); ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2/scale;
-            const x = obj.x ?? obj.x1, y = obj.y ?? obj.y1, w = obj.w ?? (obj.x2-obj.x1), h = obj.h ?? (obj.y2-obj.y1);
+        if (selectedObjects.includes(obj) && tool === 'select') {
+            ctx.setLineDash([5,5]); ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2/scale;
+            const x = obj.x ?? Math.min(obj.x1, obj.x2), y = obj.y ?? Math.min(obj.y1, obj.y2);
+            const w = obj.w ?? Math.abs(obj.x2-obj.x1), h = obj.h ?? Math.abs(obj.y2-obj.y1);
             ctx.strokeRect(x-5, y-5, w+10, h+10);
-            ctx.fillStyle = '#3498db'; ctx.fillRect(x+w+2, y+h+2, 10/scale, 10/scale); // Ручка зміни розміру
+            if (selectedObjects.length === 1) { ctx.setLineDash([]); ctx.fillStyle = '#3498db'; ctx.fillRect(x+w, y+h, 8/scale, 8/scale); }
         }
         ctx.restore();
     }
@@ -167,11 +173,14 @@
         for (let y=offsetY%g; y<canvas.height; y+=g) { ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); }
         ctx.stroke();
         ctx.save(); ctx.translate(offsetX, offsetY); ctx.scale(scale, scale);
-        objects.forEach(draw); if(currentObj) draw(currentObj); ctx.restore();
+        objects.forEach(draw); 
+        if (currentObj) { if(currentObj.type === 'select_area') { ctx.strokeStyle='#3498db'; ctx.setLineDash([5,5]); ctx.strokeRect(currentObj.x, currentObj.y, currentObj.w, currentObj.h); } else draw(currentObj); }
+        ctx.restore();
+        document.getElementById('infoBar').innerText = `Дошка: ${boardId} | Об'єктів: ${objects.length}`;
     }
 
     window.onkeydown = (e) => {
-        if (e.code === 'Delete' && selectedObj) { objects = objects.filter(o => o !== selectedObj); selectedObj = null; socket.emit('full-update', objects); render(); }
+        if (e.code === 'Delete' && selectedObjects.length > 0) { objects = objects.filter(o => !selectedObjects.includes(o)); selectedObjects = []; socket.emit('full-update', objects); render(); }
         if (e.ctrlKey && e.code === 'KeyZ') undo();
     };
 
@@ -182,7 +191,8 @@
     };
 
     function undo() { objects.pop(); socket.emit('undo'); render(); }
-    function clearBoard() { if(confirm("Очистити?")) { objects = []; socket.emit('clear-board'); render(); } }
+    function clearBoard() { if(confirm("Очистити дошку?")) { objects = []; socket.emit('clear-board'); render(); } }
+    function createNewBoard() { const id = prompt("Введіть назву нової дошки:"); if(id) window.location.href = "/board/" + id.trim(); }
 
     socket.on('init-history', h => { objects = h; render(); });
     socket.on('new-object', o => { objects.push(o); render(); });
