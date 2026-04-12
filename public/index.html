@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Совместная доска</title>
-    <!-- ЗДЕСЬ ИСПРАВЛЕНО: добавлено cdn. и номер версии -->
+    <!-- Подключаем библиотеку через локальный путь сервера -->
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
@@ -28,7 +28,9 @@
 <div id="canvas-container"><canvas id="canvas"></canvas></div>
 
 <script>
-    const socket = io("https://onrender.com");
+    // Подключение к серверу
+    const socket = io(); // Автоматически подключается к текущему домену
+    
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
@@ -49,22 +51,35 @@
         if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
     }
 
+    // --- СИНХРОНИЗАЦИЯ ---
+
+    // 1. Получаем всю историю при входе
+    socket.on('init-history', (history) => {
+        objects = history;
+        render();
+    });
+
+    // 2. Получаем новые объекты от других в реальном времени
     socket.on('new-object', (obj) => {
         objects.push(obj);
         render();
     });
 
+    // 3. Слушаем очистку доски
     socket.on('clear-board', () => {
         objects = [];
         render();
     });
 
+    // --- ЛОГИКА РИСОВАНИЯ ---
+
     function addText(x, y) {
         const content = prompt("Введите текст:");
         if (!content) return;
         const textObj = { type: 'text', content, x, y, color: colorPicker.value };
+        
         objects.push(textObj);
-        socket.emit('new-object', textObj);
+        socket.emit('new-object', textObj); // Отправляем на сервер
         render();
     }
 
@@ -130,7 +145,7 @@
     window.onmouseup = () => {
         if (isDrawing && currentObj) {
             objects.push(currentObj);
-            socket.emit('new-object', currentObj);
+            socket.emit('new-object', currentObj); // Синхронизируем с сервером
         }
         isDrawing = false;
         currentObj = null;
@@ -138,7 +153,7 @@
     };
 
     function clearBoard() {
-        if(confirm("Очистить для всех?")) {
+        if(confirm("Очистить доску для всех пользователей?")) {
             objects = [];
             render();
             socket.emit('clear-board');
