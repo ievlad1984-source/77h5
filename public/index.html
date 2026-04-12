@@ -13,7 +13,7 @@
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
         #canvas-container { width: 100vw; height: 100vh; background: white; position: relative; overflow: hidden; }
         canvas { display: block; }
-        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; pointer-events: none; }
+        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: white; color: #333; padding: 8px 15px; border-radius: 8px; font-size: 14px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1); pointer-events: none; z-index: 100; }
         .text-input-div {
             position: absolute; border: 1px dashed #007bff; min-width: 50px; outline: none;
             background: transparent; white-space: pre-wrap; font-family: Arial, sans-serif;
@@ -34,11 +34,11 @@
     <input type="color" id="colorPicker" value="#000000" title="Колір">
     <input type="range" id="lineWidth" min="1" max="20" value="3" title="Товщина">
     <div style="width: 1px; height: 25px; background: #ccc; margin: 0 5px;"></div>
-    <button class="tool-btn" onclick="location.href='?id='+Math.random().toString(36).substr(2,9)">Нова дошка</button>
+    <button class="tool-btn" onclick="location.href='?id='+Math.random().toString(36).substr(2,9)">Новая дошка</button>
     <button class="tool-btn" onclick="location.reload()">Удалить</button>
 </div>
 
-<div id="zoom-display">Масштаб: 100%</div>
+<div id="zoom-display">100%</div>
 <div id="canvas-container">
     <canvas id="board"></canvas>
 </div>
@@ -51,13 +51,13 @@ const colorPicker = document.getElementById('colorPicker');
 const lineWidthInput = document.getElementById('lineWidth');
 
 let scale = 1.0;
-let offsetX = 0;
-let offsetY = 0;
+let offsetX = 0, offsetY = 0;
 let objects = [];
 let currentTool = 'pen';
 let isDrawing = false;
 let currentObj = null;
 let selectedObj = null;
+let dragStartX, dragStartY;
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -72,7 +72,6 @@ function drawGrid() {
     ctx.beginPath();
     ctx.strokeStyle = '#e8e8e8';
     ctx.lineWidth = 1;
-
     for (let x = offsetX % gridSize; x < canvas.width; x += gridSize) {
         ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
     }
@@ -87,51 +86,77 @@ function draw() {
     drawGrid();
 
     objects.concat(currentObj ? [currentObj] : []).forEach(obj => {
-        ctx.beginPath();
-        ctx.strokeStyle = obj.color;
         ctx.lineWidth = obj.width * scale;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
+        
+        const sX = obj.x * scale + offsetX;
+        const sY = obj.y * scale + offsetY;
 
         if (obj.type === 'pen' || obj.type === 'eraser') {
-            if (obj.type === 'eraser') ctx.strokeStyle = 'white';
-            ctx.moveTo(obj.points[0].x * scale + offsetX, obj.points[0].y * scale + offsetY);
+            ctx.beginPath();
+            ctx.strokeStyle = (obj === selectedObj) ? '#007bff' : (obj.type === 'eraser' ? 'white' : obj.color);
+            ctx.moveTo(sX, sY);
             obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
             ctx.stroke();
         } else if (obj.type === 'line') {
-            ctx.moveTo(obj.x * scale + offsetX, obj.y * scale + offsetY);
+            ctx.beginPath();
+            ctx.strokeStyle = (obj === selectedObj) ? '#007bff' : obj.color;
+            ctx.moveTo(sX, sY);
             ctx.lineTo(obj.ex * scale + offsetX, obj.ey * scale + offsetY);
             ctx.stroke();
         } else if (obj.type === 'rect') {
-            ctx.strokeRect(obj.x * scale + offsetX, obj.y * scale + offsetY, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
+            ctx.beginPath();
+            ctx.strokeStyle = (obj === selectedObj) ? '#007bff' : obj.color;
+            ctx.strokeRect(sX, sY, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
+        } else if (obj.type === 'image') {
+            ctx.drawImage(obj.img, sX, sY, obj.w * scale, obj.h * scale);
+            if (obj === selectedObj) {
+                ctx.strokeStyle = '#007bff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(sX, sY, obj.w * scale, obj.h * scale);
+            }
         }
     });
 }
 
 function getCoords(e) {
-    return {
-        x: (e.clientX - offsetX) / scale,
-        y: (e.clientY - offsetY) / scale
-    };
+    return { x: (e.clientX - offsetX) / scale, y: (e.clientY - offsetY) / scale };
+}
+
+function findObjectAt(coords) {
+    return objects.findLast(obj => {
+        if (obj.type === 'image' || obj.type === 'rect') {
+            const minX = Math.min(obj.x, obj.ex || obj.x + obj.w);
+            const maxX = Math.max(obj.x, obj.ex || obj.x + obj.w);
+            const minY = Math.min(obj.y, obj.ey || obj.y + obj.h);
+            const maxY = Math.max(obj.y, obj.ey || obj.y + obj.h);
+            return coords.x >= minX && coords.x <= maxX && coords.y >= minY && coords.y <= maxY;
+        }
+        return Math.hypot(obj.x - coords.x, obj.y - coords.y) < 20 / scale;
+    });
 }
 
 canvas.addEventListener('mousedown', (e) => {
     const coords = getCoords(e);
     isDrawing = true;
+    dragStartX = coords.x;
+    dragStartY = coords.y;
 
-    if (currentTool === 'hand') return;
-    if (currentTool === 'text') {
-        createTextDiv(e.clientX, e.clientY);
-        isDrawing = false;
+    if (currentTool === 'select') {
+        selectedObj = findObjectAt(coords);
+        draw();
         return;
     }
+    if (currentTool === 'hand') return;
+    if (currentTool === 'text') { createTextDiv(e.clientX, e.clientY); isDrawing = false; return; }
 
     currentObj = {
         type: currentTool,
         color: colorPicker.value,
         width: lineWidthInput.value,
-        x: coords.x,
-        y: coords.y,
+        x: coords.x, y: coords.y,
+        ex: coords.x, ey: coords.y,
         points: [{x: coords.x, y: coords.y}]
     };
 });
@@ -140,51 +165,46 @@ window.addEventListener('mousemove', (e) => {
     if (!isDrawing) return;
     const coords = getCoords(e);
 
-    if (currentTool === 'hand') {
-        offsetX += e.movementX;
-        offsetY += e.movementY;
+    if (currentTool === 'select' && selectedObj) {
+        const dx = coords.x - dragStartX;
+        const dy = coords.y - dragStartY;
+        selectedObj.x += dx; selectedObj.y += dy;
+        if (selectedObj.ex !== undefined) { selectedObj.ex += dx; selectedObj.ey += dy; }
+        if (selectedObj.points) selectedObj.points.forEach(p => { p.x += dx; p.y += dy; });
+        dragStartX = coords.x; dragStartY = coords.y;
+    } else if (currentTool === 'hand') {
+        offsetX += e.movementX; offsetY += e.movementY;
     } else if (currentTool === 'pen' || currentTool === 'eraser') {
         currentObj.points.push({x: coords.x, y: coords.y});
     } else if (currentTool === 'line' || currentTool === 'rect') {
-        currentObj.ex = coords.x;
-        currentObj.ey = coords.y;
+        currentObj.ex = coords.x; currentObj.ey = coords.y;
     }
     draw();
 });
 
 window.addEventListener('mouseup', () => {
-    if (isDrawing && currentObj) {
-        objects.push(currentObj);
-    }
+    if (isDrawing && currentObj) objects.push(currentObj);
     isDrawing = false;
     currentObj = null;
     draw();
 });
 
-// Масштабування
 window.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const zoomSpeed = 0.1;
-    const delta = e.deltaY > 0 ? 1 - zoomSpeed : 1 + zoomSpeed;
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const oldScale = scale;
     scale = Math.min(Math.max(scale * delta, 0.1), 4.0);
-
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
-    offsetX = mouseX - (mouseX - offsetX) * (scale / oldScale);
-    offsetY = mouseY - (mouseY - offsetY) * (scale / oldScale);
-
-    zoomDisplay.innerText = `Масштаб: ${Math.round(scale * 100)}%`;
+    offsetX = e.clientX - (e.clientX - offsetX) * (scale / oldScale);
+    offsetY = e.clientY - (e.clientY - offsetY) * (scale / oldScale);
+    zoomDisplay.innerText = `${Math.round(scale * 100)}%`;
     draw();
 }, { passive: false });
 
-// Текст
 function createTextDiv(x, y) {
     const div = document.createElement('div');
     div.className = 'text-input-div';
     div.contentEditable = true;
-    div.style.left = x + 'px';
-    div.style.top = y + 'px';
+    div.style.left = x + 'px'; div.style.top = y + 'px';
     div.style.color = colorPicker.value;
     div.style.fontSize = (20 * scale) + 'px';
     document.body.appendChild(div);
@@ -192,15 +212,10 @@ function createTextDiv(x, y) {
     div.addEventListener('blur', () => { if (!div.innerText.trim()) div.remove(); });
 }
 
-// Гарячі клавіші
 window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key.toLowerCase() === 'z') {
-        objects.pop();
-        draw();
-    }
+    if (e.ctrlKey && e.key.toLowerCase() === 'z') { objects.pop(); draw(); }
 });
 
-// Інструменти
 document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         if (btn.dataset.tool) {
@@ -211,7 +226,6 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
     });
 });
 
-// Вставка картинки
 window.addEventListener('paste', (e) => {
     const items = e.clipboardData.items;
     for (let item of items) {
@@ -221,7 +235,14 @@ window.addEventListener('paste', (e) => {
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    ctx.drawImage(img, 50, 50, 300, 200);
+                    const coords = { x: (window.innerWidth/2 - offsetX)/scale, y: (window.innerHeight/2 - offsetY)/scale };
+                    objects.push({
+                        type: 'image',
+                        img: img,
+                        x: coords.x - (img.width/4), y: coords.y - (img.height/4),
+                        w: img.width/2, h: img.height/2
+                    });
+                    draw();
                 };
                 img.src = event.target.result;
             };
@@ -230,6 +251,5 @@ window.addEventListener('paste', (e) => {
     }
 });
 </script>
-
 </body>
 </html>
