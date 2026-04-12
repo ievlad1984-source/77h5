@@ -1,41 +1,35 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path'); // Добавили для работы с путями
+const path = require('path');
 
-const app = express(); // 1. Сначала создаем app
+const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*" } 
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
-// 2. Затем настраиваем статику
-// Если index.html лежит в корне, используйте это:
+let boardHistory = []; // Память сервера для всех рисунков
+
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Если index.html лежит в папке public, раскомментируйте это:
-app.use(express.static(path.join(__dirname, 'public')));
-
 io.on('connection', (socket) => {
-    console.log('Пользователь подключился:', socket.id);
+    // 1. Отправляем всю накопленную историю НОВОМУ пользователю
+    socket.emit('init-history', boardHistory);
 
+    // 2. Когда кто-то рисует новый объект
     socket.on('new-object', (obj) => {
-        // Пересылаем объект всем, кроме отправителя
-        socket.broadcast.emit('new-object', obj);
+        boardHistory.push(obj); // Сохраняем в память
+        socket.broadcast.emit('new-object', obj); // Передаем остальным
     });
 
     socket.on('clear-board', () => {
+        boardHistory = []; // Очищаем память
         socket.broadcast.emit('clear-board');
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Пользователь отключился');
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
