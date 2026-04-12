@@ -11,25 +11,29 @@ let boards = {};
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Маршрут для открытия конкретной доски
 app.get('/board/:id', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Редирект с главной на случайную доску
 app.get('/', (req, res) => {
-    const randomId = Math.random().toString(36).substr(2, 9);
-    res.redirect(`/board/${randomId}`);
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// API для получения списка досок
+app.get('/api/boards', (req, res) => {
+    res.json(Object.keys(boards));
 });
 
 io.on('connection', (socket) => {
     const boardId = socket.handshake.query.boardId;
-    if (!boardId) return;
+    if (!boardId || boardId === 'null') return;
 
     socket.join(boardId);
-    if (!boards[boardId]) boards[boardId] = [];
+    if (!boards[boardId]) {
+        boards[boardId] = [];
+        io.emit('update-boards-list', Object.keys(boards)); // Сообщаем всем о новой доске
+    }
 
-    // Отправляем историю новому пользователю
     socket.emit('init-history', boards[boardId]);
 
     socket.on('new-object', (obj) => {
@@ -43,7 +47,14 @@ io.on('connection', (socket) => {
         boards[boardId] = [];
         socket.to(boardId).emit('clear-board');
     });
+
+    // Удаление конкретной доски
+    socket.on('delete-board', (id) => {
+        delete boards[id];
+        io.emit('update-boards-list', Object.keys(boards));
+        io.to(id).emit('board-deleted'); // Выгоняем пользователей из этой доски
+    });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Сервер запущен: http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Сервер: http://localhost:${PORT}`));
