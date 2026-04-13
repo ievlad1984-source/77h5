@@ -2,28 +2,26 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Интерактивная Доска — Pro</title>
+    <title>Интерактивная Доска Pro</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #f0f0f0; }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #fff; }
         #toolbar {
             position: absolute; top: 10px; left: 10px; background: white; padding: 10px;
             display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.2); z-index: 100; align-items: center;
         }
-        #sidebar {
-            position: absolute; right: 10px; top: 10px; width: 200px;
-            background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.2); z-index: 100;
-        }
-        .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ddd; background: #fff; border-radius: 4px; transition: 0.2s; }
+        .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ddd; background: #fff; border-radius: 4px; }
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
-        #canvas-container { width: 100vw; height: 100vh; background: white; position: relative; overflow: hidden; }
-        canvas { display: block; }
-        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: white; padding: 8px 15px; border-radius: 8px; font-size: 14px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; }
+        #canvas-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+        canvas { display: block; cursor: crosshair; }
+        #zoom-display { 
+            position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); 
+            padding: 8px 15px; border-radius: 8px; font-size: 14px; font-weight: bold; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; 
+        }
         .text-input-div {
             position: absolute; border: 1px dashed #007bff; min-width: 10px; outline: none;
             background: transparent; white-space: pre-wrap; padding: 2px; line-height: 1.2; z-index: 200;
         }
-        .board-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .del-board { color: red; cursor: pointer; border: none; background: none; }
     </style>
 </head>
 <body>
@@ -38,13 +36,9 @@
     <button class="tool-btn" data-tool="text">Текст</button>
     <input type="color" id="colorPicker" value="#000000">
     <input type="range" id="lineWidth" min="1" max="20" value="3">
-    <button class="tool-btn" onclick="createNewBoard()" style="background: #e7f3ff;">+ Новая доска</button>
-    <button class="tool-btn" id="deleteCurrent" style="color: red;">Удалить текущую</button>
-</div>
-
-<div id="sidebar">
-    <h4 style="margin:0 0 10px 0">Список досок</h4>
-    <div id="boards-list"></div>
+    <div style="width:1px; height:25px; background:#ccc; margin:0 5px;"></div>
+    <button class="tool-btn" onclick="createNewBoard()" style="background:#e7f3ff">+ Новая доска</button>
+    <button class="tool-btn" onclick="deleteCurrentBoard()" style="color:red">Удалить доску</button>
 </div>
 
 <div id="zoom-display">100%</div>
@@ -54,11 +48,12 @@
 <script>
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
+const zoomDisplay = document.getElementById('zoom-display');
 const boardId = window.location.pathname.split('/').pop() || 'main';
 const socket = io({ query: { boardId } });
 
 let scale = 1.0, offsetX = 0, offsetY = 0;
-let objects = [], history = [], currentTool = 'pen', isDrawing = false, currentObj = null;
+let objects = [], currentTool = 'pen', isDrawing = false, currentObj = null;
 let selectedObj = null, dragStartX, dragStartY;
 
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; draw(); }
@@ -67,7 +62,7 @@ resize();
 
 function drawGrid() {
     const gridSize = 40 * scale;
-    ctx.beginPath(); ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
     for (let x = offsetX % gridSize; x < canvas.width; x += gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
     for (let y = offsetY % gridSize; y < canvas.height; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
     ctx.stroke();
@@ -79,8 +74,8 @@ function draw() {
     objects.concat(currentObj ? [currentObj] : []).forEach(obj => {
         ctx.lineWidth = obj.width * scale;
         ctx.lineCap = 'round';
+        ctx.strokeStyle = (obj === selectedObj) ? '#007bff' : (obj.type === 'eraser' ? '#fff' : obj.color);
         const sX = obj.x * scale + offsetX, sY = obj.y * scale + offsetY;
-        ctx.strokeStyle = (obj === selectedObj) ? '#007bff' : (obj.type === 'eraser' ? 'white' : obj.color);
 
         if (obj.type === 'pen' || obj.type === 'eraser') {
             ctx.beginPath(); ctx.moveTo(sX, sY);
@@ -103,27 +98,23 @@ function draw() {
 
 function getCoords(e) { return { x: (e.clientX - offsetX) / scale, y: (e.clientY - offsetY) / scale }; }
 
-function findObj(c) {
+function findObjectAt(c) {
     return objects.findLast(obj => {
-        if (obj.type === 'rect' || obj.type === 'image') return c.x >= obj.x && c.x <= obj.ex && c.y >= obj.y && c.y <= obj.ey;
-        return Math.hypot(obj.x - c.x, obj.y - c.y) < 20 / scale;
+        const sX = Math.min(obj.x, obj.ex || obj.x), sY = Math.min(obj.y, obj.ey || obj.y);
+        const eX = Math.max(obj.x, obj.ex || obj.x + 20), eY = Math.max(obj.y, obj.ey || obj.y + 20);
+        return c.x >= sX && c.x <= eX && c.y >= sY && c.y <= eY;
     });
 }
 
 // Управление досками
 function createNewBoard() { const n = prompt("Имя доски:"); if(n) window.location.href = `/board/${n.replace(/\s+/g,'-')}`; }
-document.getElementById('deleteCurrent').onclick = () => { if(confirm("Удалить доску?")) socket.emit('delete-board', boardId); };
+function deleteCurrentBoard() { if(confirm("Удалить доску?")) socket.emit('delete-board', boardId); }
 
 // Сокеты
 socket.on('init-history', h => { objects = h; draw(); });
 socket.on('new-object', o => { objects.push(o); draw(); });
 socket.on('clear-board', () => { objects = []; draw(); });
 socket.on('board-deleted', () => window.location.href = '/');
-socket.on('update-boards-list', list => {
-    document.getElementById('boards-list').innerHTML = list.map(id => `
-        <div class="board-item"><a href="/board/${id}">${id}</a><button class="del-board" onclick="socket.emit('delete-board','${id}')">×</button></div>
-    `).join('');
-});
 
 // Инструменты
 document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.onclick = () => {
@@ -133,16 +124,20 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.onclick = () =>
 
 canvas.onmousedown = (e) => {
     const c = getCoords(e); isDrawing = true; dragStartX = c.x; dragStartY = c.y;
-    if (currentTool === 'select') { selectedObj = findObj(c); draw(); return; }
+    if (currentTool === 'select') { selectedObj = findObjectAt(c); draw(); return; }
     if (currentTool === 'text') { createDynamicText(e); isDrawing = false; return; }
-    currentObj = { type: currentTool, color: document.getElementById('colorPicker').value, width: document.getElementById('lineWidth').value, x: c.x, y: c.y, ex: c.x, ey: c.y, points: [{x:c.x, y:c.y}] };
+    currentObj = { 
+        type: currentTool, color: document.getElementById('colorPicker').value, 
+        width: document.getElementById('lineWidth').value, x: c.x, y: c.y, ex: c.x, ey: c.y, points: [{x:c.x, y:c.y}] 
+    };
 };
 
 window.onmousemove = (e) => {
     if (!isDrawing) return; const c = getCoords(e);
     if (currentTool === 'select' && selectedObj) {
         const dx = c.x - dragStartX, dy = c.y - dragStartY;
-        selectedObj.x += dx; selectedObj.y += dy; if(selectedObj.ex) { selectedObj.ex += dx; selectedObj.ey += dy; }
+        selectedObj.x += dx; selectedObj.y += dy;
+        if(selectedObj.ex !== undefined) { selectedObj.ex += dx; selectedObj.ey += dy; }
         if(selectedObj.points) selectedObj.points.forEach(p => { p.x += dx; p.y += dy; });
         dragStartX = c.x; dragStartY = c.y;
     } else if (currentTool === 'hand') { offsetX += e.movementX; offsetY += e.movementY; }
@@ -160,14 +155,15 @@ window.onmouseup = () => {
 window.addEventListener('wheel', e => {
     e.preventDefault(); const d = e.deltaY > 0 ? 0.9 : 1.1; const os = scale;
     scale = Math.min(Math.max(scale * d, 0.1), 4.0);
-    offsetX = e.clientX - (e.clientX - offsetX) * (scale / os); offsetY = e.clientY - (e.clientY - offsetY) * (scale / os);
-    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`; draw();
+    offsetX = e.clientX - (e.clientX - offsetX) * (scale / os);
+    offsetY = e.clientY - (e.clientY - offsetY) * (scale / os);
+    zoomDisplay.innerText = `${Math.round(scale * 100)}%`; draw();
 }, { passive: false });
 
 // Горячие клавиши
 window.onkeydown = e => {
     if (e.ctrlKey && e.code === 'KeyZ') { objects.pop(); draw(); }
-    if (e.ctrlKey && e.code === 'KeyA') { e.preventDefault(); selectedObj = null; draw(); alert("Все выделено (логика выделения группы)"); }
+    if (e.ctrlKey && e.code === 'KeyA') { e.preventDefault(); selectedObj = null; alert("Выбраны все объекты (условно)"); }
 };
 
 // Вставка картинки
@@ -175,9 +171,13 @@ window.onpaste = e => {
     const item = Array.from(e.clipboardData.items).find(x => x.type.indexOf('image') !== -1);
     if (item) {
         const reader = new FileReader();
-        reader.onload = (event) => {
-            const imgObj = { type: 'image', src: event.target.result, x: (window.innerWidth/2 - offsetX)/scale, y: (window.innerHeight/2 - offsetY)/scale, w: 200, h: 200 };
-            imgObj.ex = imgObj.x + imgObj.w; imgObj.ey = imgObj.y + imgObj.h;
+        reader.onload = (ev) => {
+            const imgObj = { 
+                type: 'image', src: ev.target.result, 
+                x: (window.innerWidth/2 - offsetX)/scale, y: (window.innerHeight/2 - offsetY)/scale, 
+                w: 200, h: 200 
+            };
+            imgObj.ex = imgObj.x + 200; imgObj.ey = imgObj.y + 200;
             objects.push(imgObj); socket.emit('new-object', imgObj); draw();
         };
         reader.readAsDataURL(item.getAsFile());
@@ -193,7 +193,10 @@ function createDynamicText(e) {
     setTimeout(() => div.focus(), 10);
     div.onblur = () => {
         if (div.innerText.trim()) {
-            const t = { type: 'text', x: c.x, y: c.y, text: div.innerText, color: div.style.color, size: 20 };
+            const t = { 
+                type: 'text', x: c.x, y: c.y, text: div.innerText, 
+                color: div.style.color, size: 20, ex: c.x + 100, ey: c.y + 20 
+            };
             objects.push(t); socket.emit('new-object', t);
         }
         document.body.removeChild(div); draw();
