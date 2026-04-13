@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <title>Інтерактивна Дошка Pro</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #f0f0f0; }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #fff; }
         #toolbar {
             position: absolute; top: 10px; left: 10px; background: white; padding: 10px;
-            display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.2); z-index: 100; align-items: center;
+            display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.2); z-index: 1000; align-items: center;
         }
         .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 4px; transition: 0.2s; }
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
@@ -17,9 +17,9 @@
         
         /* Стиль для динамічного тексту */
         .text-input-div {
-            position: absolute; border: 1px dashed #007bff; min-width: 10px; outline: none;
-            background: transparent; white-space: pre-wrap; padding: 2px; line-height: 1.2; z-index: 200;
-            font-family: Arial, sans-serif; cursor: text;
+            position: absolute; border: 1px dashed #007bff; min-width: 20px; min-height: 24px; outline: none;
+            background: rgba(255,255,255,0.8); white-space: pre-wrap; padding: 2px; line-height: 1.2; z-index: 2000;
+            font-family: Arial, sans-serif; cursor: text; overflow: visible;
         }
     </style>
 </head>
@@ -77,7 +77,10 @@ function draw() {
     all.forEach(obj => {
         ctx.lineWidth = obj.width * scale;
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.strokeStyle = (obj === selectedObj) ? '#007bff' : (obj.type === 'eraser' ? 'white' : obj.color);
+        
+        const isSelected = selectedObj === obj || (Array.isArray(selectedObj) && selectedObj.includes(obj));
+        ctx.strokeStyle = isSelected ? '#007bff' : (obj.type === 'eraser' ? 'white' : obj.color);
+        
         const sX = obj.x * scale + offsetX, sY = obj.y * scale + offsetY;
 
         if (obj.type === 'pen' || obj.type === 'eraser') {
@@ -104,13 +107,13 @@ function getCoords(e) { return { x: (e.clientX - offsetX) / scale, y: (e.clientY
 function findObj(c) {
     return objects.findLast(obj => {
         const minX = Math.min(obj.x, obj.ex || obj.x), minY = Math.min(obj.y, obj.ey || obj.y);
-        const maxX = Math.max(obj.x, obj.ex || obj.x + (obj.w || 0)), maxY = Math.max(obj.y, obj.ey || obj.y + (obj.h || 0));
+        const maxX = Math.max(obj.x, obj.ex || obj.x + (obj.w || 20)), maxY = Math.max(obj.y, obj.ey || obj.y + (obj.h || 20));
         return c.x >= minX && c.x <= maxX && c.y >= minY && c.y <= maxY;
     });
 }
 
-// Текст через DIV
 function createTextInput(x, y) {
+    if (document.querySelector('.text-input-div')) return;
     const coords = getCoords({clientX: x, clientY: y});
     const input = document.createElement('div');
     input.className = 'text-input-div';
@@ -119,38 +122,37 @@ function createTextInput(x, y) {
     input.style.fontSize = (20 * scale) + 'px';
     input.style.color = colorPicker.value;
     document.body.appendChild(input);
-    input.focus();
+    
+    setTimeout(() => input.focus(), 10);
 
     input.onblur = () => {
         if (input.innerText.trim()) {
             const textObj = { type: 'text', text: input.innerText, x: coords.x, y: coords.y, color: colorPicker.value, size: 20, width: 2 };
-            objects.push(textObj);
-            socket.emit('new-object', textObj);
+            objects.push(textObj); socket.emit('new-object', textObj);
         }
-        document.body.removeChild(input);
-        draw();
+        document.body.removeChild(input); draw();
     };
-    input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) input.blur(); };
+    input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); input.blur(); } };
 }
 
-// Події Socket
 socket.on('init-history', h => { objects = h; draw(); });
 socket.on('new-object', o => { objects.push(o); draw(); });
 socket.on('board-deleted', () => { objects = []; draw(); });
 
-// Кнопки
 document.getElementById('btn-new-board').onclick = () => window.location.href = '/' + Math.random().toString(36).substring(2, 10);
 document.getElementById('btn-delete-board').onclick = () => socket.emit('delete-board', boardId);
 
 document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.onclick = () => {
     document.querySelector('.tool-btn.active').classList.remove('active');
-    b.classList.add('active'); currentTool = b.dataset.tool;
+    b.classList.add('active'); currentTool = b.dataset.tool; selectedObj = null; draw();
 });
 
 canvas.onmousedown = (e) => {
+    if (document.querySelector('.text-input-div')) return;
     const c = getCoords(e); isDrawing = true; dragStartX = c.x; dragStartY = c.y;
+    
     if (currentTool === 'select') { selectedObj = findObj(c); draw(); return; }
-    if (currentTool === 'text') { createTextInput(e.clientX, e.clientY); isDrawing = false; return; }
+    if (currentTool === 'text') { isDrawing = false; createTextInput(e.clientX, e.clientY); return; }
     if (currentTool === 'hand') return;
 
     currentObj = { type: currentTool, color: colorPicker.value, width: lineWidthInput.value, x: c.x, y: c.y, points: [{x:c.x, y:c.y}], ex: c.x, ey: c.y };
@@ -160,13 +162,12 @@ window.onmousemove = (e) => {
     if (!isDrawing) return; const c = getCoords(e);
     if (currentTool === 'select' && selectedObj) {
         const dx = c.x - dragStartX, dy = c.y - dragStartY;
-        selectedObj.x += dx; selectedObj.y += dy;
-        if(selectedObj.ex !== undefined) { selectedObj.ex += dx; selectedObj.ey += dy; }
-        if(selectedObj.points) selectedObj.points.forEach(p => { p.x += dx; p.y += dy; });
+        const move = (o) => { o.x += dx; o.y += dy; if(o.ex!==undefined){o.ex+=dx; o.ey+=dy;} if(o.points) o.points.forEach(p=>{p.x+=dx;p.y+=dy;}); };
+        Array.isArray(selectedObj) ? selectedObj.forEach(move) : move(selectedObj);
         dragStartX = c.x; dragStartY = c.y;
     } else if (currentTool === 'hand') { offsetX += e.movementX; offsetY += e.movementY; }
-    else if (currentTool === 'pen' || currentTool === 'eraser') currentObj.points.push(c);
-    else if (currentTool === 'line' || currentTool === 'rect') { currentObj.ex = c.x; currentObj.ey = c.y; }
+    else if (currentObj && (currentTool === 'pen' || currentTool === 'eraser')) currentObj.points.push(c);
+    else if (currentObj && (currentTool === 'line' || currentTool === 'rect')) { currentObj.ex = c.x; currentObj.ey = c.y; }
     draw();
 };
 
@@ -175,7 +176,6 @@ window.onmouseup = () => {
     isDrawing = false; currentObj = null; draw();
 };
 
-// Zoom (50% - 200%)
 window.addEventListener('wheel', e => {
     e.preventDefault(); const d = e.deltaY > 0 ? 0.9 : 1.1; const os = scale;
     scale = Math.min(Math.max(scale * d, 0.5), 2.0);
@@ -184,10 +184,9 @@ window.addEventListener('wheel', e => {
     zoomDisplay.innerText = `${Math.round(scale * 100)}%`; draw();
 }, { passive: false });
 
-// Hotkeys (Ctrl+A, Ctrl+V, Ctrl+Z)
 window.onkeydown = e => {
     if (e.ctrlKey && e.code === 'KeyZ') { socket.emit('undo'); }
-    if (e.ctrlKey && e.code === 'KeyA') { e.preventDefault(); selectedObj = objects[0]; draw(); } // Спрощене виділення
+    if (e.ctrlKey && e.code === 'KeyA') { e.preventDefault(); selectedObj = [...objects]; draw(); }
 };
 
 window.onpaste = e => {
@@ -195,7 +194,7 @@ window.onpaste = e => {
     if (item) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-            const imgObj = { type: 'image', src: ev.target.result, x: (innerWidth/2-offsetX)/scale, y: (innerHeight/2-offsetY)/scale, w: 300, h: 200 };
+            const imgObj = { type: 'image', src: ev.target.result, x: (innerWidth/2-offsetX)/scale, y: (innerHeight/2-offsetY)/scale, w: 300, h: 200, width: 1 };
             objects.push(imgObj); socket.emit('new-object', imgObj); draw();
         };
         reader.readAsDataURL(item.getAsFile());
