@@ -1,27 +1,17 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-    cors: { origin: "*" }
-});
+const io = require('socket.io')(http, { cors: { origin: "*" } });
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const boardsData = {}; 
 
-// Раздача статических файлов из папки public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Главная страница
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Динамические комнаты (доски)
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/:boardId', (req, res) => {
-    if (req.params.boardId.includes('.')) {
-        return res.status(404).send('Not found');
-    }
+    if (req.params.boardId.includes('.')) return res.status(404).send('Not found');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -30,32 +20,29 @@ io.on('connection', (socket) => {
     socket.join(boardId);
 
     if (!boardsData[boardId]) boardsData[boardId] = [];
-    
-    // Отправляем историю при подключении
     socket.emit('init-history', boardsData[boardId]);
 
-    // Получение нового объекта
     socket.on('new-object', (obj) => {
-        if (!boardsData[boardId]) boardsData[boardId] = [];
         boardsData[boardId].push(obj);
         socket.to(boardId).emit('new-object', obj);
     });
 
-    // Очистка доски
-    socket.on('delete-board', (id) => {
-        boardsData[id] = [];
-        io.in(id).emit('board-deleted');
+    socket.on('update-objects', (data) => {
+        boardsData[boardId] = data;
+        socket.to(boardId).emit('init-history', data);
     });
 
-    // Отмена действия
+    socket.on('delete-board', () => {
+        boardsData[boardId] = [];
+        io.in(boardId).emit('board-deleted');
+    });
+
     socket.on('undo', () => {
-        if (boardsData[boardId] && boardsData[boardId].length > 0) {
+        if (boardsData[boardId]?.length > 0) {
             boardsData[boardId].pop();
             io.in(boardId).emit('init-history', boardsData[boardId]);
         }
     });
 });
 
-http.listen(PORT, () => {
-    console.log(`Сервер работает на порту ${PORT}`);
-});
+http.listen(PORT, () => console.log(`Сервер: ${PORT}`));
