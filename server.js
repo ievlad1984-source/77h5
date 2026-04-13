@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-let boards = {}; 
+let boards = {}; // Хранилище объектов для каждой доски
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -16,24 +16,18 @@ app.get('/board/:id', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// API для получения списка досок
-app.get('/api/boards', (req, res) => {
-    res.json(Object.keys(boards));
+    const randomId = Math.random().toString(36).substr(2, 9);
+    res.redirect(`/board/${randomId}`);
 });
 
 io.on('connection', (socket) => {
     const boardId = socket.handshake.query.boardId;
-    if (!boardId || boardId === 'null') return;
+    if (!boardId) return;
 
     socket.join(boardId);
-    if (!boards[boardId]) {
-        boards[boardId] = [];
-        io.emit('update-boards-list', Object.keys(boards)); // Сообщаем всем о новой доске
-    }
+    if (!boards[boardId]) boards[boardId] = [];
 
+    // Отправляем историю зашедшему
     socket.emit('init-history', boards[boardId]);
 
     socket.on('new-object', (obj) => {
@@ -43,16 +37,16 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('clear-board', () => {
-        boards[boardId] = [];
-        socket.to(boardId).emit('clear-board');
+    socket.on('undo', () => {
+        if (boards[boardId]) {
+            boards[boardId].pop();
+            io.to(boardId).emit('init-history', boards[boardId]);
+        }
     });
 
-    // Удаление конкретной доски
     socket.on('delete-board', (id) => {
         delete boards[id];
-        io.emit('update-boards-list', Object.keys(boards));
-        io.to(id).emit('board-deleted'); // Выгоняем пользователей из этой доски
+        io.to(id).emit('board-deleted');
     });
 });
 
