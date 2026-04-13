@@ -44,66 +44,186 @@
             position: absolute;
             top: 78px;
             left: 15px;
-            background: #ffffff;
+            background: #f3f4f6;
             border: 1px solid #d9d9d9;
-            border-radius: 10px;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
             padding: 0;
             display: none;
             z-index: 120;
-            width: min(1000px, 95vw);
+            width: min(920px, 96vw);
             overflow: hidden;
-        }
-        .formula-head {
-            background: #f1f3f5;
-            border-bottom: 1px solid #e2e6ea;
-            font-weight: 700;
-            color: #6c757d;
-            letter-spacing: 1px;
-            padding: 7px 12px;
-            font-size: 12px;
-            text-transform: uppercase;
         }
         .formula-groups {
             display: flex;
-            gap: 6px;
-            padding: 8px;
-            border-bottom: 1px solid #edf0f2;
-            background: #fbfbfc;
-            flex-wrap: wrap;
+            gap: 2px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f3f4f6;
+            overflow-x: auto;
+            flex-wrap: nowrap;
         }
         .formula-group-btn {
-            border: 1px solid #d8d8d8;
-            background: #fff;
-            border-radius: 18px;
-            padding: 5px 11px;
+            border: 1px solid transparent;
+            background: transparent;
+            border-radius: 8px;
+            padding: 8px 10px;
             cursor: pointer;
-            font-size: 12px;
-            color: #495057;
+            font-size: 19px;
+            color: #4a6589;
+            line-height: 1;
+            min-width: 44px;
+            flex-shrink: 0;
+            font-family: "Cambria Math", "Times New Roman", serif;
+        }
+        .formula-group-btn:hover {
+            background: rgba(60, 95, 135, 0.12);
         }
         .formula-group-btn.active {
-            background: #007bff;
+            background: #3c5f87;
             color: #fff;
-            border-color: #0069d9;
+            border-color: #3c5f87;
         }
         .formula-strip {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(9, minmax(38px, 1fr));
             gap: 8px;
-            padding: 8px;
-            flex-wrap: wrap;
-            align-items: center;
-            min-height: 44px;
+            padding: 14px;
+            min-height: 100px;
+            align-items: stretch;
+            background: #ffffff;
+        }
+        /* Сітка 6×4 для категорії «Стрілки» (як на макеті) */
+        #formula-strip[data-active="arrows"] {
+            grid-template-columns: repeat(6, minmax(44px, 1fr));
+        }
+        /* Вертикальний список шаблонів для x² (степені, дроби, корені) */
+        #formula-strip[data-active="powers"] {
+            grid-template-columns: 1fr;
+            max-width: 300px;
+            gap: 8px;
+            min-height: auto;
+        }
+        /* Сітка 4×3 для дужок (як на макеті) */
+        #formula-strip[data-active="parens"] {
+            grid-template-columns: repeat(4, minmax(56px, 1fr));
+            max-width: 340px;
+            gap: 8px;
+        }
+        /* Великий блок шаблонів матриць (5 колонок, як на макеті) */
+        #formula-strip[data-active="matrices"] {
+            grid-template-columns: repeat(5, minmax(52px, 1fr));
+            max-width: 540px;
+            gap: 8px;
+        }
+        .formula-btn.formula-tpl-matrix {
+            font-size: 0.68rem;
+            line-height: 1.15;
+            min-height: 54px;
+            padding: 6px 4px;
+            white-space: normal;
+            word-break: break-word;
+            justify-content: center;
+            text-align: center;
+        }
+        /* Суми та інтеграли: 5×2 (як на макеті) */
+        #formula-strip[data-active="sums"] {
+            grid-template-columns: repeat(5, minmax(48px, 1fr));
+            max-width: 360px;
+            gap: 8px;
+        }
+        .formula-btn.formula-tpl-sum {
+            font-size: 1.35rem;
+            min-height: 52px;
+            padding: 8px 6px;
+        }
+        /* Функції (log): широка сітка 6 колонок */
+        #formula-strip[data-active="log"] {
+            grid-template-columns: repeat(6, minmax(52px, 1fr));
+            max-width: 440px;
+            gap: 6px;
+        }
+        .formula-btn.formula-tpl-log {
+            font-size: 0.78rem;
+            min-height: 38px;
+            padding: 6px 4px;
+            white-space: normal;
+            line-height: 1.2;
+        }
+        /* Грецькі літери: 8 колонок × 6 рядів (малі, потім великі) */
+        #formula-strip[data-active="greek"] {
+            grid-template-columns: repeat(8, minmax(38px, 1fr));
+            max-width: 400px;
+            gap: 5px;
+        }
+        .formula-btn.formula-tpl-greek {
+            font-size: 1.2rem;
+            min-height: 36px;
+            padding: 5px 3px;
+            font-family: "Cambria Math", "Times New Roman", "Symbola", serif;
+        }
+        /* Blackboard bold (double-struck): 7×4 для A–Z */
+        #formula-strip[data-active="numsets"] {
+            grid-template-columns: repeat(7, minmax(36px, 1fr));
+            max-width: 360px;
+            gap: 5px;
+        }
+        .formula-btn.formula-tpl-bb {
+            font-size: 1.05rem;
+            min-height: 34px;
+            padding: 5px 2px;
+            font-family: "Cambria Math", "Times New Roman", "Segoe UI Symbol", serif;
+        }
+        /* ℵ: спецсимволи, скрипт, іврит, фрактур, геометрія (7×4) */
+        #formula-strip[data-active="aleph"] {
+            grid-template-columns: repeat(7, minmax(38px, 1fr));
+            max-width: 400px;
+            gap: 5px;
+        }
+        .formula-btn.formula-tpl-aleph {
+            font-size: 1.05rem;
+            min-height: 34px;
+            padding: 5px 3px;
+            font-family: "Cambria Math", "Times New Roman", "Segoe UI Symbol", serif;
+        }
+        /* Вектори та акценти: 6×4 (як на макеті) */
+        #formula-strip[data-active="vectors"] {
+            grid-template-columns: repeat(6, minmax(44px, 1fr));
+            max-width: 400px;
+            gap: 5px;
+        }
+        .formula-btn.formula-tpl-vec {
+            font-size: 0.95rem;
+            min-height: 36px;
+            padding: 5px 3px;
+            font-family: "Cambria Math", "Times New Roman", serif;
+        }
+        .formula-btn.formula-tpl {
+            font-size: 1.15rem;
+            justify-content: flex-start;
+            padding: 12px 14px;
+            min-height: 48px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .formula-btn.formula-tpl sup,
+        .formula-btn.formula-tpl sub {
+            font-size: 0.72em;
         }
         .formula-btn {
             border: 1px solid #d8d8d8;
             background: #fff;
             border-radius: 7px;
-            padding: 6px 10px;
-            min-width: 42px;
+            padding: 8px 6px;
             cursor: pointer;
-            font-size: 27px;
+            font-size: 26px;
             line-height: 1;
             font-family: "Cambria Math", "Times New Roman", serif;
+            color: #4e73a3;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .formula-btn:hover {
             background: #f0f7ff;
@@ -125,56 +245,324 @@
     <button class="tool-btn" data-tool="rect">Прямокутник</button>
     <button class="tool-btn" data-tool="text">Текст</button>
     <button class="tool-btn" data-tool="formula">f(x)</button>
+    <button class="tool-btn" id="openFormulaPanelBtn" title="Відкрити панель формул">+</button>
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
     <label title="Жирний текст"><input type="checkbox" id="boldText"> <b>B</b></label>
     <input type="color" id="colorPicker" value="#212529" title="Колір">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
-    <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова дошка</button>
+    <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">Нова дошка</button>
     <button class="tool-btn" id="clearBtn" style="color: #dc3545; font-weight: bold;">Очистити</button>
 </div>
 <div id="formula-panel">
-    <div class="formula-head">Формула</div>
     <div class="formula-groups">
-        <button class="formula-group-btn active" data-group="basic">Базові</button>
-        <button class="formula-group-btn" data-group="fractions">Дроби</button>
-        <button class="formula-group-btn" data-group="powers">Степені</button>
-        <button class="formula-group-btn" data-group="integrals">Інтеграли</button>
-        <button class="formula-group-btn" data-group="matrices">Матриці</button>
+        <button class="formula-group-btn active" data-group="basic" title="Базові операції">±</button>
+        <button class="formula-group-btn" data-group="approx" title="Співвідношення">≅</button>
+        <button class="formula-group-btn" data-group="sets" title="Множини та логіка">∈</button>
+        <button class="formula-group-btn" data-group="arrows" title="Стрілки">↗</button>
+        <button class="formula-group-btn" data-group="powers" title="Степені та корені">x²</button>
+        <button class="formula-group-btn" data-group="parens" title="Дужки">( )</button>
+        <button class="formula-group-btn" data-group="matrices" title="Матриці">[□]</button>
+        <button class="formula-group-btn" data-group="sums" title="Суми та інтеграли">∑</button>
+        <button class="formula-group-btn" data-group="log" title="Логарифми">log</button>
+        <button class="formula-group-btn" data-group="greek" title="Грецькі літери">Ψ</button>
+        <button class="formula-group-btn" data-group="numsets" title="Числові множини">ℕ</button>
+        <button class="formula-group-btn" data-group="aleph" title="Алеф">ℵ</button>
+        <button class="formula-group-btn" data-group="vectors" title="Вектори">AB⃗</button>
+        <button class="formula-group-btn" data-group="prime" title="Штрихи">'</button>
     </div>
     <div class="formula-strip" id="formula-strip">
+        <!-- basic -->
         <button class="formula-btn" data-group="basic" data-insert="+">+</button>
         <button class="formula-btn" data-group="basic" data-insert="-">−</button>
+        <button class="formula-btn" data-group="basic" data-insert="×">×</button>
+        <button class="formula-btn" data-group="basic" data-insert="·">·</button>
+        <button class="formula-btn" data-group="basic" data-insert="÷">÷</button>
+        <button class="formula-btn" data-group="basic" data-insert="/">/</button>
+        <button class="formula-btn" data-group="basic" data-insert="±">±</button>
         <button class="formula-btn" data-group="basic" data-insert="=">=</button>
-        <button class="formula-btn" data-group="basic" data-insert="≈">≈</button>
         <button class="formula-btn" data-group="basic" data-insert="≠">≠</button>
-        <button class="formula-btn" data-group="basic" data-insert="→">→</button>
-        <button class="formula-btn" data-group="basic" data-insert="∞">∞</button>
-
-        <button class="formula-btn" data-group="fractions" data-insert="(a/b)">a/b</button>
-        <button class="formula-btn" data-group="fractions" data-insert="(x+1)/(x-1)">(x+1)/(x−1)</button>
-        <button class="formula-btn" data-group="fractions" data-insert="1/2">1/2</button>
-        <button class="formula-btn" data-group="fractions" data-insert="dy/dx">dy/dx</button>
-        <button class="formula-btn" data-group="fractions" data-insert="Δy/Δx">Δy/Δx</button>
-
-        <button class="formula-btn" data-group="powers" data-insert="x^2">x²</button>
-        <button class="formula-btn" data-group="powers" data-insert="x^n">xⁿ</button>
-        <button class="formula-btn" data-group="powers" data-insert="sqrt(x)">√x</button>
-        <button class="formula-btn" data-group="powers" data-insert="a_n">aₙ</button>
-        <button class="formula-btn" data-group="powers" data-insert="x^(1/2)">x^(1/2)</button>
-
-        <button class="formula-btn" data-group="integrals" data-insert="∫ f(x) dx">∫</button>
-        <button class="formula-btn" data-group="integrals" data-insert="∫_a^b f(x) dx">∫aᵇ</button>
-        <button class="formula-btn" data-group="integrals" data-insert="∑_(i=1)^n">∑</button>
-        <button class="formula-btn" data-group="integrals" data-insert="lim_(x→0)">lim</button>
-        <button class="formula-btn" data-group="integrals" data-insert="∂/∂x">∂</button>
-
-        <button class="formula-btn" data-group="matrices" data-insert="|a b; c d|">| |</button>
-        <button class="formula-btn" data-group="matrices" data-insert="[a b; c d]">[ ]</button>
-        <button class="formula-btn" data-group="matrices" data-insert="det(A)">det</button>
-        <button class="formula-btn" data-group="matrices" data-insert="A^-1">A⁻¹</button>
-        <button class="formula-btn" data-group="matrices" data-insert="A·B">A·B</button>
+        <!-- approx -->
+        <button class="formula-btn" data-group="approx" data-insert="≈">≈</button>
+        <button class="formula-btn" data-group="approx" data-insert="≅">≅</button>
+        <button class="formula-btn" data-group="approx" data-insert="≢">≢</button>
+        <button class="formula-btn" data-group="approx" data-insert="≡">≡</button>
+        <button class="formula-btn" data-group="approx" data-insert="∼">∼</button>
+        <button class="formula-btn" data-group="approx" data-insert="≃">≃</button>
+        <button class="formula-btn" data-group="approx" data-insert="≐">≐</button>
+        <button class="formula-btn" data-group="approx" data-insert="∝">∝</button>
+        <button class="formula-btn" data-group="approx" data-insert="~">~</button>
+        <!-- sets (як на макеті) -->
+        <button class="formula-btn" data-group="sets" data-insert="∩">∩</button>
+        <button class="formula-btn" data-group="sets" data-insert="∪">∪</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊓">⊓</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊔">⊔</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊎">⊎</button>
+        <button class="formula-btn" data-group="sets" data-insert="∨">∨</button>
+        <button class="formula-btn" data-group="sets" data-insert="∧">∧</button>
+        <button class="formula-btn" data-group="sets" data-insert="↦">↦</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊂">⊂</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊃">⊃</button>
+        <button class="formula-btn" data-group="sets" data-insert="∈">∈</button>
+        <button class="formula-btn" data-group="sets" data-insert="∉">∉</button>
+        <button class="formula-btn" data-group="sets" data-insert="∀">∀</button>
+        <button class="formula-btn" data-group="sets" data-insert="∃">∃</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊑">⊑</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊒">⊒</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊆">⊆</button>
+        <button class="formula-btn" data-group="sets" data-insert="⊇">⊇</button>
+        <!-- arrows: 6×4 = 24 символи -->
+        <button class="formula-btn" data-group="arrows" data-insert="→">→</button>
+        <button class="formula-btn" data-group="arrows" data-insert="←">←</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↑">↑</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↓">↓</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↔">↔</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↕">↕</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↖">↖</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↗">↗</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↘">↘</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↙">↙</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇐">⇐</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇒">⇒</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇔">⇔</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇑">⇑</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇓">⇓</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇕">⇕</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇄">⇄</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇆">⇆</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↦">↦</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⟷">⟷</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇌">⇌</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇋">⇋</button>
+        <button class="formula-btn" data-group="arrows" data-insert="↼">↼</button>
+        <button class="formula-btn" data-group="arrows" data-insert="⇀">⇀</button>
+        <!-- powers: вертикальні шаблони (як на макеті) -->
+        <button class="formula-btn formula-tpl" data-group="powers" data-insert="\frac{a}{b}" title="Дріб">a⁄b</button>
+        <button class="formula-btn formula-tpl" data-group="powers" data-insert="x^{\ldots}" title="Степінь">x<sup>…</sup></button>
+        <button class="formula-btn formula-tpl" data-group="powers" data-insert="x_{\ldots}" title="Індекс">x<sub>…</sub></button>
+        <button class="formula-btn formula-tpl" data-group="powers" data-insert="x_{n}^{m}" title="Індекс і степінь">x<sub>n</sub><sup>m</sup></button>
+        <button class="formula-btn formula-tpl" data-group="powers" data-insert="\sqrt[n]{x}" title="Корінь n-го степеня">ⁿ√</button>
+        <button class="formula-btn formula-tpl" data-group="powers" data-insert="\lim_{x\to a}" title="Границя">lim</button>
+        <button class="formula-btn formula-tpl" data-group="powers" data-insert="\overline{x}" title="Рисочка зверху">x̄</button>
+        <!-- parens: 4×3 шаблони дужок (як на макеті) -->
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="(\ldots)" title="Круглі дужки">(…)</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="{\ldots}" title="Фігурні дужки">{…}</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="[\ldots]" title="Квадратні дужки">[…]</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="|\ldots|" title="Модуль">|…|</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="[\ldots,\ldots)" title="Інтервал [a,b)">[…)</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="(\ldots,\ldots]" title="Інтервал (a,b]">(…]</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="[\ldots,\ldots[" title="Інтервал [a,b[">[…[</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="]\ldots,\ldots]" title="Інтервал ]a,b]">]…]</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="⟨\ldots⟩" title="Англійські дужки">⟨…⟩</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="‖\ldots‖" title="Норма">‖…‖</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="\lfloor\ldots\rfloor" title="Ціла частина (floor)">⌊…⌋</button>
+        <button class="formula-btn formula-tpl" data-group="parens" data-insert="\lceil\ldots\rceil" title="Стеля (ceiling)">⌈…⌉</button>
+        <!-- matrices: шаблони 2×2, 3×3, рядки, 4×4, системи (як на макеті) -->
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{matrix} a &amp; b \\ c &amp; d \end{matrix}" title="2×2 без дужок">2×2 ·</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} a &amp; b \\ c &amp; d \end{bmatrix}" title="2×2 у квадратних дужках">[2×2]</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{pmatrix} a &amp; b \\ c &amp; d \end{pmatrix}" title="2×2 у круглих дужках">(2×2)</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{vmatrix} a &amp; b \\ c &amp; d \end{vmatrix}" title="Визначник 2×2">|2×2|</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{Vmatrix} a &amp; b \\ c &amp; d \end{Vmatrix}" title="Норма 2×2">‖2×2‖</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \end{bmatrix}" title="3×3 у квадратних дужках">[3×3]</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{pmatrix} \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \end{pmatrix}" title="3×3 у круглих дужках">(3×3)</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{vmatrix} \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \end{vmatrix}" title="Визначник 3×3">|3×3|</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{Vmatrix} \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \end{Vmatrix}" title="Норма 3×3">‖3×3‖</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} a \\ b \\ c \end{bmatrix}" title="Стовпчик 3×1">3×1</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} a &amp; b \end{bmatrix}" title="Рядок 1×2">1×2</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} a &amp; b &amp; c \end{bmatrix}" title="Рядок 1×3">1×3</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} a &amp; b &amp; c &amp; d \end{bmatrix}" title="Рядок 1×4">1×4</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} \ldots &amp; \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots &amp; \ldots \end{bmatrix}" title="4×4 у квадратних дужках">[4×4]</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{pmatrix} \ldots &amp; \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots &amp; \ldots \end{pmatrix}" title="4×4 у круглих дужках">(4×4)</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} a \\ b \\ c \\ d \end{bmatrix}" title="Стовпчик 4×1">4×1</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{cases} \ldots &amp; \ldots \\ \ldots &amp; \ldots \end{cases}" title="Система рівнянь (cases)">cases</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\left\{ \begin{array}{l} \ldots \\ \ldots \end{array} \right." title="Система з лівою фігурною дужкою">&#123;…</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots \end{bmatrix}" title="Матриця 2×3">2×3</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\begin{bmatrix} \ldots &amp; \ldots \\ \ldots &amp; \ldots \\ \ldots &amp; \ldots \end{bmatrix}" title="Матриця 3×2">3×2</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\left[\begin{array}{ccc|c} \ldots &amp; \ldots &amp; \ldots &amp; \ldots \\ \ldots &amp; \ldots &amp; \ldots &amp; \ldots \end{array}\right]" title="Розширена матриця (Гаус)">[A|b]</button>
+        <button class="formula-btn formula-tpl-matrix" data-group="matrices" data-insert="\det(A),\quad A^{-1},\quad A^{\mathsf{T}},\quad I_n" title="Операції з матрицями">det, A⁻¹…</button>
+        <!-- sums: суми, інтеграли (ряд 1), контурні та добутки (ряд 2) -->
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\sum_{\ldots}^{\ldots}" title="Сума">∑</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\int_{\ldots}^{\ldots}" title="Інтеграл">∫</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\iint_{\ldots}^{\ldots}" title="Подвійний інтеграл">∬</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\iiint_{\ldots}^{\ldots}" title="Потрійний інтеграл">∭</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\iiiint_{\ldots}^{\ldots}" title="Чотириразовий інтеграл">⨌</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\oint_{\ldots}^{\ldots}" title="Контурний інтеграл">∮</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\oiint_{\ldots}^{\ldots}" title="Поверхневий інтеграл">∯</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\oiiint_{\ldots}^{\ldots}" title="Об'ємний інтеграл (замкнена поверхня)">∰</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\prod_{\ldots}^{\ldots}" title="Добуток">∏</button>
+        <button class="formula-btn formula-tpl-sum" data-group="sums" data-insert="\coprod_{\ldots}^{\ldots}" title="Копродукт">∐</button>
+        <!-- log: логарифми, межі, тригонометрія, обернені, gcd, liminf… (як на макеті) -->
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\log(\ldots)" title="Логарифм">log</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\ln(\ldots)" title="Натуральний логарифм">ln</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\lim_{\ldots \to \ldots}" title="Границя">lim</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\min(\ldots)" title="Мінімум">min</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\max(\ldots)" title="Максимум">max</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\frac{\ldots}{\ldots}" title="Дріб">frac</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\sin(\ldots)" title="Синус">sin</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\cos(\ldots)" title="Косинус">cos</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\tan(\ldots)" title="Тангенс">tan</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\sinh(\ldots)" title="Гіперболічний синус">sinh</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\cosh(\ldots)" title="Гіперболічний косинус">cosh</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\tanh(\ldots)" title="Гіперболічний тангенс">tanh</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\csc(\ldots)" title="Косеканс">csc</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\sec(\ldots)" title="Секанс">sec</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\cot(\ldots)" title="Котангенс">cot</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\csch(\ldots)" title="Гіперболічний косеканс">csch</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\sech(\ldots)" title="Гіперболічний секанс">sech</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\coth(\ldots)" title="Гіперболічний котангенс">coth</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\arcsin(\ldots)" title="Арксинус">arcsin</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\arccos(\ldots)" title="Арккосинус">arccos</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\arctan(\ldots)" title="Арктангенс">arctan</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\deg(\ldots)" title="Градус">deg</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\dim(\ldots)" title="Розмірність">dim</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\gcd(\ldots,\ldots)" title="НСД">gcd</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\Pr(\ldots)" title="Ймовірність">Pr</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\inf" title="Інфімум">inf</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\sup" title="Супремум">sup</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\liminf_{n \to \infty}" title="Нижня границя">liminf</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\limsup_{n \to \infty}" title="Верхня границя">limsup</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\ker(\ldots)" title="Ядро">ker</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\lg(\ldots)" title="Десятковий логарифм">lg</button>
+        <button class="formula-btn formula-tpl-log" data-group="log" data-insert="\exp(\ldots)" title="Експонента">exp</button>
+        <!-- greek: малі (3 ряди по 8), великі (3 ряди по 8) — як на макеті -->
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="α" title="alpha">α</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="β" title="beta">β</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="γ" title="gamma">γ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="δ" title="delta">δ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ε" title="epsilon">ε</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ζ" title="zeta">ζ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="η" title="eta">η</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="θ" title="theta">θ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ι" title="iota">ι</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="κ" title="kappa">κ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="λ" title="lambda">λ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="μ" title="mu">μ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ν" title="nu">ν</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ξ" title="xi">ξ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ο" title="omicron">ο</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="π" title="pi">π</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ρ" title="rho">ρ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="σ" title="sigma">σ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="τ" title="tau">τ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="υ" title="upsilon">υ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="φ" title="phi">φ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="χ" title="chi">χ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ψ" title="psi">ψ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="ω" title="omega">ω</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Α" title="Alpha">Α</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Β" title="Beta">Β</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Γ" title="Gamma">Γ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Δ" title="Delta">Δ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ε" title="Epsilon">Ε</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ζ" title="Zeta">Ζ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Η" title="Eta">Η</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Θ" title="Theta">Θ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ι" title="Iota">Ι</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Κ" title="Kappa">Κ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Λ" title="Lambda">Λ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Μ" title="Mu">Μ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ν" title="Nu">Ν</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ξ" title="Xi">Ξ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ο" title="Omicron">Ο</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Π" title="Pi">Π</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ρ" title="Rho">Ρ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Σ" title="Sigma">Σ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Τ" title="Tau">Τ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Υ" title="Upsilon">Υ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Φ" title="Phi">Φ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Χ" title="Chi">Χ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ψ" title="Psi">Ψ</button>
+        <button class="formula-btn formula-tpl-greek" data-group="greek" data-insert="Ω" title="Omega">Ω</button>
+        <!-- numsets: blackboard bold A–Z (Unicode Mathematical Double-Struck) -->
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D538;" title="A">&#x1D538;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D539;" title="B">&#x1D539;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D53A;" title="C">&#x1D53A;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D53B;" title="D">&#x1D53B;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D53C;" title="E">&#x1D53C;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D53D;" title="F">&#x1D53D;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D53E;" title="G">&#x1D53E;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D53F;" title="H">&#x1D53F;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D540;" title="I">&#x1D540;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D541;" title="J">&#x1D541;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D542;" title="K">&#x1D542;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D543;" title="L">&#x1D543;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D544;" title="M">&#x1D544;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D545;" title="N">&#x1D545;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D546;" title="O">&#x1D546;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D547;" title="P">&#x1D547;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D548;" title="Q">&#x1D548;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D549;" title="R">&#x1D549;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D54A;" title="S">&#x1D54A;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D54B;" title="T">&#x1D54B;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D54C;" title="U">&#x1D54C;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D54D;" title="V">&#x1D54D;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D54E;" title="W">&#x1D54E;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D54F;" title="X">&#x1D54F;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D550;" title="Y">&#x1D550;</button>
+        <button class="formula-btn formula-tpl-bb" data-group="numsets" data-insert="&#x1D551;" title="Z">&#x1D551;</button>
+        <!-- aleph: оператори, скрипт, іврит, фрактур, кути (як на макеті) -->
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="*" title="Зірочка">*</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="∘" title="Композиція (коло)">∘</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="⋄" title="Ромб">⋄</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="⋆" title="Зірка">⋆</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="⋈" title="Бант (bowtie)">⋈</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="∞" title="Нескінченність">∞</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="⊤" title="Тавтологія (верх)">⊤</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℰ" title="Скрипт E">ℰ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="&#x1D4AA;" title="Скрипт O">&#x1D4AA;</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℒ" title="Скрипт L">ℒ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℓ" title="Ель скриптова">ℓ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℏ" title="Планк">ℏ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="&#x1D7D9;" title="Одиниця (double-struck 1)">&#x1D7D9;</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="&#x1D4A5;" title="Скрипт J">&#x1D4A5;</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℵ" title="Алеф">ℵ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℶ" title="Бет (іврит)">ℶ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℷ" title="Гімель">ℷ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℸ" title="Далет">ℸ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="&#x1D509;" title="Фрактур F">&#x1D509;</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="&#x1D518;" title="Фрактур U">&#x1D518;</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="℘" title="Вейєрштрасс p">℘</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="∠" title="Кут">∠</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="∢" title="Сферичний кут">∢</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="\wr" title="Wreath (wr)">wr</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="⋮" title="Вертикальне еліпсис">⋮</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="▭" title="Прямокутник">▭</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ˍ" title="Нижня риска">ˍ</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="|" title="Вертикальна риска">|</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="‖" title="Подвійна вертикаль / паралель">‖</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℵ₀" title="Алеф-нуль">ℵ₀</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="ℵ₁" title="Алеф-один">ℵ₁</button>
+        <button class="formula-btn formula-tpl-aleph" data-group="aleph" data-insert="2^{ℵ₀}" title="Континуум-гіпотеза (підказка)">2^ℵ₀</button>
+        <!-- vectors: стрілки, гарпуни, вектори та акценти (6×4) -->
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="→" title="Стрілка вправо">→</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="↔" title="Стрілка двостороння">↔</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="←" title="Стрілка вліво">←</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="⇀" title="Гарпун вправо">⇀</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="↼" title="Гарпун вліво">↼</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\overline{\ldots}" title="Рисочка зверху">‾</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\vec{\ldots}" title="Вектор (vec)">⃗…</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\overrightarrow{\ldots}" title="Вектор (стрілка вправо)">→…</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\overleftarrow{\ldots}" title="Стрілка над виразом вліво">←…</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\overleftrightarrow{\ldots}" title="Стрілки в обидва боки">↔…</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\overrightarrow{AB}" title="Вектор AB">AB→</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\grave{\ldots}" title="Гравіс">ˋ</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\widehat{\ldots}" title="Капелюшок (hat)">^∧</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\widetilde{\ldots}" title="Тильда над виразом">~∼</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\breve{\ldots}" title="Коротка дуга (breve)">⌢</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\check{\ldots}" title="Галочка (check)">ˇ</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\dot{\ldots}" title="Точка зверху">˙</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\ddot{\ldots}" title="Дві крапки зверху">¨</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\overline{\overline{\ldots}}" title="Подвійна риска зверху">═</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\underline{\ldots}" title="Підкреслення">_</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\overbrace{\ldots}" title="Фігурна дужка зверху">⏞</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\underbrace{\ldots}" title="Фігурна дужка знизу">⏟</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\parallel" title="Паралельно">∥</button>
+        <button class="formula-btn formula-tpl-vec" data-group="vectors" data-insert="\perp" title="Перпендикулярно">⊥</button>
+        <!-- prime -->
+        <button class="formula-btn" data-group="prime" data-insert="′">′</button>
+        <button class="formula-btn" data-group="prime" data-insert="″">″</button>
+        <button class="formula-btn" data-group="prime" data-insert="‴">‴</button>
     </div>
 </div>
 
@@ -519,9 +907,21 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         btn.classList.add('active'); 
         currentTool = btn.dataset.tool;
         const formulaPanel = document.getElementById('formula-panel');
-        formulaPanel.style.display = currentTool === 'formula' ? 'flex' : 'none';
+        formulaPanel.style.display = 'none';
         selectedObj = null; draw();
     };
+});
+
+document.getElementById('openFormulaPanelBtn').addEventListener('click', () => {
+    const formulaPanel = document.getElementById('formula-panel');
+    const isOpen = formulaPanel.style.display === 'block';
+    document.querySelectorAll('.tool-btn[data-tool]').forEach((b) => b.classList.remove('active'));
+    const formulaToolBtn = document.querySelector('.tool-btn[data-tool="formula"]');
+    if (formulaToolBtn) formulaToolBtn.classList.add('active');
+    currentTool = 'formula';
+    formulaPanel.style.display = isOpen ? 'none' : 'block';
+    selectedObj = null;
+    draw();
 });
 
 function insertAtCursor(editableEl, text) {
@@ -553,6 +953,8 @@ function switchFormulaGroup(group) {
     document.querySelectorAll('.formula-btn').forEach((btn) => {
         btn.style.display = btn.dataset.group === group ? 'inline-flex' : 'none';
     });
+    const strip = document.getElementById('formula-strip');
+    if (strip) strip.setAttribute('data-active', group);
 }
 
 document.querySelectorAll('.formula-group-btn').forEach((btn) => {
@@ -560,6 +962,14 @@ document.querySelectorAll('.formula-group-btn').forEach((btn) => {
 });
 
 switchFormulaGroup('basic');
+
+document.addEventListener('mousedown', (e) => {
+    const panel = document.getElementById('formula-panel');
+    const plusBtn = document.getElementById('openFormulaPanelBtn');
+    const insidePanel = panel.contains(e.target);
+    const plusClicked = plusBtn.contains(e.target);
+    if (!insidePanel && !plusClicked) panel.style.display = 'none';
+});
 
 function createNewBoard() { 
     const newId = Math.random().toString(36).substr(2, 9);
