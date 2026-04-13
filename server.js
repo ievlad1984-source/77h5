@@ -9,17 +9,16 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const boardsData = {}; 
 
-// Раздача статичних файлів з папки public
+// Раздача статических файлов из папки public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Головна сторінка
+// Главная страница
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Динамічні кімнати (дошки)
+// Динамические комнаты (доски)
 app.get('/:boardId', (req, res) => {
-    // Ігноруємо запити до файлів (наприклад, favicon.ico)
     if (req.params.boardId.includes('.')) {
         return res.status(404).send('Not found');
     }
@@ -27,29 +26,28 @@ app.get('/:boardId', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    // Отримуємо ID дошки з параметрів підключення
     const boardId = socket.handshake.query.boardId || 'main';
     socket.join(boardId);
 
-    // Створюємо історію для нової дошки, якщо її немає
     if (!boardsData[boardId]) boardsData[boardId] = [];
     
-    // Відправляємо історію об'єктів тільки клієнту, що підключився
+    // Отправляем историю при подключении
     socket.emit('init-history', boardsData[boardId]);
 
-    // Обробка нового об'єкта (лінія, текст тощо)
+    // Получение нового объекта
     socket.on('new-object', (obj) => {
+        if (!boardsData[boardId]) boardsData[boardId] = [];
         boardsData[boardId].push(obj);
         socket.to(boardId).emit('new-object', obj);
     });
 
-    // Очищення дошки
+    // Очистка доски
     socket.on('delete-board', (id) => {
         boardsData[id] = [];
         io.in(id).emit('board-deleted');
     });
 
-    // Відміна останньої дії (Undo)
+    // Отмена действия
     socket.on('undo', () => {
         if (boardsData[boardId] && boardsData[boardId].length > 0) {
             boardsData[boardId].pop();
@@ -58,7 +56,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Запуск сервера
 http.listen(PORT, () => {
-    console.log(`Сервер працює на порту ${PORT}`);
+    console.log(`Сервер работает на порту ${PORT}`);
 });
