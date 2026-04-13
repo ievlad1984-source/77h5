@@ -1,54 +1,62 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
 const path = require('path');
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const PORT = 3000;
 
-let boards = {}; // Хранилище объектов для каждой доски
+// Хранилище данных для досок (в памяти сервера)
+const boardsData = {};
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Раздача статических файлов (CSS, JS из папки public, если они есть)
+app.use(express.static('public'));
 
-app.get('/board/:id', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// ГЛАВНОЕ ПРАВИЛО: Любой путь, кроме статики, отдает файл index.html
+app.get('/:boardId', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Если зашли просто на корень / , тоже отдаем index.html
 app.get('/', (req, res) => {
-    const randomId = Math.random().toString(36).substr(2, 9);
-    res.redirect(`/board/${randomId}`);
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Работа с сокетами
 io.on('connection', (socket) => {
-    const boardId = socket.handshake.query.boardId;
-    if (!boardId) return;
-
+    const boardId = socket.handshake.query.boardId || 'main';
     socket.join(boardId);
-    if (!boards[boardId]) boards[boardId] = [];
 
-    // Отправляем историю зашедшему
-    socket.emit('init-history', boards[boardId]);
+    // Создаем историю для доски, если её еще нет
+    if (!boardsData[boardId]) {
+        boardsData[boardId] = [];
+    }
 
+    // Отправляем историю новому пользователю
+    socket.emit('init-history', boardsData[boardId]);
+
+    // Принимаем новый объект
     socket.on('new-object', (obj) => {
-        if (boards[boardId]) {
-            boards[boardId].push(obj);
-            socket.to(boardId).emit('new-object', obj);
-        }
+        boardsData[boardId].push(obj);
+        // Рассылаем всем в этой комнате, кроме отправителя
+        socket.to(boardId).emit('new-object', obj);
     });
 
-    socket.on('undo', () => {
-        if (boards[boardId]) {
-            boards[boardId].pop();
-            io.to(boardId).emit('init-history', boards[boardId]);
-        }
-    });
-
+    // Удаление доски
     socket.on('delete-board', (id) => {
-        delete boards[id];
-        io.to(id).emit('board-deleted');
+        boardsData[id] = [];
+        io.in(id).emit('board-deleted');
+    });
+
+    // Отмена действия (Undo)
+    socket.on('undo', () => {
+        if (boardsData[boardId].length > 0) {
+            boardsData[boardId].pop();
+            io.in(boardId).emit('init-history', boardsData[boardId]);
+        }
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Сервер: http://localhost:${PORT}`));
+http.listen(PORT, () => {
+    console.log(`Сервер запущен: http://localhost:${PORT}`);
+});
