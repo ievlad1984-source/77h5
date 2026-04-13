@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Інтерактивна Дошка Pro + Math</title>
-    <!-- Подключаем MathLive для ввода формул -->
+    <!-- MathLive для введення -->
     <script src="https://unpkg.com"></script>
+    <!-- KaTeX для рендерингу формул на Canvas -->
+    <link rel="stylesheet" href="https://jsdelivr.net">
+    <script src="https://jsdelivr.net"></script>
+    
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #fff; }
         #toolbar {
@@ -15,9 +19,7 @@
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
         #canvas-container { width: 100vw; height: 100vh; background: white; position: relative; overflow: hidden; }
         canvas { display: block; cursor: crosshair; }
-        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 8px; font-size: 14px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; }
         
-        /* Контейнер для редактора формул */
         #math-input-container {
             position: absolute; z-index: 2000; background: white; border: 1px solid #007bff;
             padding: 5px; border-radius: 4px; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
@@ -41,7 +43,6 @@
     <math-field id="math-field"></math-field>
 </div>
 
-<div id="zoom-display">100%</div>
 <div id="canvas-container"><canvas id="board"></canvas></div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -58,16 +59,43 @@ const socket = io({ query: { boardId } });
 
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'pen', isDrawing = false, currentObj = null;
-let selectedObj = null;
 
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; draw(); }
 window.addEventListener('resize', resize);
 resize();
 
-function draw() {
+// Кеш для зображень формул, щоб не рендерити їх щосекунди
+const mathCache = new Map();
+
+async function renderMathToImage(latex, color, fontSize) {
+    const key = `${latex}-${color}-${fontSize}`;
+    if (mathCache.has(key)) return mathCache.get(key);
+
+    const container = document.createElement('div');
+    katex.render(latex, container, { displayMode: true, throwOnError: false });
+    const svg = container.querySelector('svg');
+    svg.setAttribute('fill', color);
+    svg.style.color = color;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+
+    return new Promise(resolve => {
+        img.onload = () => {
+            mathCache.set(key, img);
+            resolve(img);
+        };
+        img.src = url;
+    });
+}
+
+async function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const all = objects.concat(currentObj ? [currentObj] : []);
-    all.forEach(obj => {
+    
+    for (const obj of all) {
         ctx.lineWidth = obj.width * scale;
         ctx.strokeStyle = obj.color;
         ctx.fillStyle = obj.color;
@@ -77,51 +105,35 @@ function draw() {
             ctx.beginPath(); ctx.moveTo(sX, sY);
             if(obj.points) obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
             ctx.stroke();
-        } else if (obj.type === 'text' || obj.type === 'math') {
+        } else if (obj.type === 'text') {
             ctx.font = `${obj.size * scale}px Arial`;
-            // Для простоты рисуем формулу как текст LaTeX. 
-            // В iDroo для этого используется SVG-рендеринг, но тут базовый вывод:
-            const prefix = obj.type === 'math' ? '∑ ' : ''; 
-            ctx.fillText(prefix + obj.text, sX, sY);
+            obj.text.split('\n').forEach((line, i) => ctx.fillText(line, sX, sY + (i * obj.size * 1.2 * scale)));
+        } else if (obj.type === 'math') {
+            const img = await renderMathToImage(obj.text, obj.color, obj.size);
+            ctx.drawImage(img, sX, sY - (obj.size * scale), img.width * scale * 0.5, img.height * scale * 0.5);
         }
-    });
+    }
 }
 
 function getCoords(e) { return { x: (e.clientX - offsetX) / scale, y: (e.clientY - offsetY) / scale }; }
 
-// Работа с формулами
 function openMathInput(x, y) {
     const coords = getCoords({clientX: x, clientY: y});
     mathContainer.style.display = 'block';
-    mathContainer.style.left = x + 'px';
-    mathContainer.style.top = y + 'px';
-    
+    mathContainer.style.left = x + 'px'; mathContainer.style.top = y + 'px';
     setTimeout(() => mathField.focus(), 50);
 
     const finishMath = () => {
-        if (mathField.value.trim() && mathContainer.style.display === 'block') {
-            const mathObj = { 
-                type: 'math', 
-                text: mathField.getValue('latex-simplified'), 
-                x: coords.x, 
-                y: coords.y, 
-                color: colorPicker.value, 
-                size: 24 
-            };
-            objects.push(mathObj);
-            socket.emit('new-object', mathObj);
+        const val = mathField.getValue('latex-simplified');
+        if (val && mathContainer.style.display === 'block') {
+            const mathObj = { type: 'math', text: val, x: coords.x, y: coords.y, color: colorPicker.value, size: 30 };
+            objects.push(mathObj); socket.emit('new-object', mathObj);
         }
-        mathContainer.style.display = 'none';
-        mathField.value = '';
-        draw();
+        mathContainer.style.display = 'none'; mathField.value = ''; draw();
     };
 
-    // Закрытие по клику вне поля или Enter
     mathField.onblur = (e) => { if(!mathContainer.contains(e.relatedTarget)) finishMath(); };
-    mathField.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') finishMath();
-        if (e.key === 'Escape') { mathContainer.style.display = 'none'; mathField.value = ''; }
-    });
+    mathField.addEventListener('keydown', (e) => { if (e.key === 'Enter') finishMath(); });
 }
 
 socket.on('init-history', h => { objects = h; draw(); });
@@ -136,15 +148,14 @@ canvas.onmousedown = (e) => {
     if (mathContainer.style.display === 'block') return;
     const c = getCoords(e);
     if (currentTool === 'math') { openMathInput(e.clientX, e.clientY); return; }
-    
     isDrawing = true;
     currentObj = { type: currentTool, color: colorPicker.value, width: lineWidthInput.value, x: c.x, y: c.y, points: [{x:c.x, y:c.y}] };
 };
 
 window.onmousemove = (e) => {
-    if (!isDrawing || !currentObj) return;
+    if (!isDrawing || !currentObj || currentTool !== 'pen') return;
     const c = getCoords(e);
-    if (currentTool === 'pen') currentObj.points.push({x: c.x, y: c.y});
+    currentObj.points.push({x: c.x, y: c.y});
     draw();
 };
 
