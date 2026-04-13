@@ -40,6 +40,75 @@
         input[type="range"] { cursor: pointer; }
         
         .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
+        #formula-panel {
+            position: absolute;
+            top: 78px;
+            left: 15px;
+            background: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 10px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+            padding: 0;
+            display: none;
+            z-index: 120;
+            width: min(1000px, 95vw);
+            overflow: hidden;
+        }
+        .formula-head {
+            background: #f1f3f5;
+            border-bottom: 1px solid #e2e6ea;
+            font-weight: 700;
+            color: #6c757d;
+            letter-spacing: 1px;
+            padding: 7px 12px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .formula-groups {
+            display: flex;
+            gap: 6px;
+            padding: 8px;
+            border-bottom: 1px solid #edf0f2;
+            background: #fbfbfc;
+            flex-wrap: wrap;
+        }
+        .formula-group-btn {
+            border: 1px solid #d8d8d8;
+            background: #fff;
+            border-radius: 18px;
+            padding: 5px 11px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #495057;
+        }
+        .formula-group-btn.active {
+            background: #007bff;
+            color: #fff;
+            border-color: #0069d9;
+        }
+        .formula-strip {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            min-height: 44px;
+        }
+        .formula-btn {
+            border: 1px solid #d8d8d8;
+            background: #fff;
+            border-radius: 7px;
+            padding: 6px 10px;
+            min-width: 42px;
+            cursor: pointer;
+            font-size: 27px;
+            line-height: 1;
+            font-family: "Cambria Math", "Times New Roman", serif;
+        }
+        .formula-btn:hover {
+            background: #f0f7ff;
+            border-color: #007bff;
+        }
         
         canvas { display: block; touch-action: none; cursor: crosshair; }
     </style>
@@ -55,6 +124,7 @@
     <button class="tool-btn" data-tool="arrow">Стрілка</button>
     <button class="tool-btn" data-tool="rect">Прямокутник</button>
     <button class="tool-btn" data-tool="text">Текст</button>
+    <button class="tool-btn" data-tool="formula">f(x)</button>
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
     <label title="Жирний текст"><input type="checkbox" id="boldText"> <b>B</b></label>
@@ -63,6 +133,49 @@
     <div class="separator"></div>
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова дошка</button>
     <button class="tool-btn" id="clearBtn" style="color: #dc3545; font-weight: bold;">Очистити</button>
+</div>
+<div id="formula-panel">
+    <div class="formula-head">Формула</div>
+    <div class="formula-groups">
+        <button class="formula-group-btn active" data-group="basic">Базові</button>
+        <button class="formula-group-btn" data-group="fractions">Дроби</button>
+        <button class="formula-group-btn" data-group="powers">Степені</button>
+        <button class="formula-group-btn" data-group="integrals">Інтеграли</button>
+        <button class="formula-group-btn" data-group="matrices">Матриці</button>
+    </div>
+    <div class="formula-strip" id="formula-strip">
+        <button class="formula-btn" data-group="basic" data-insert="+">+</button>
+        <button class="formula-btn" data-group="basic" data-insert="-">−</button>
+        <button class="formula-btn" data-group="basic" data-insert="=">=</button>
+        <button class="formula-btn" data-group="basic" data-insert="≈">≈</button>
+        <button class="formula-btn" data-group="basic" data-insert="≠">≠</button>
+        <button class="formula-btn" data-group="basic" data-insert="→">→</button>
+        <button class="formula-btn" data-group="basic" data-insert="∞">∞</button>
+
+        <button class="formula-btn" data-group="fractions" data-insert="(a/b)">a/b</button>
+        <button class="formula-btn" data-group="fractions" data-insert="(x+1)/(x-1)">(x+1)/(x−1)</button>
+        <button class="formula-btn" data-group="fractions" data-insert="1/2">1/2</button>
+        <button class="formula-btn" data-group="fractions" data-insert="dy/dx">dy/dx</button>
+        <button class="formula-btn" data-group="fractions" data-insert="Δy/Δx">Δy/Δx</button>
+
+        <button class="formula-btn" data-group="powers" data-insert="x^2">x²</button>
+        <button class="formula-btn" data-group="powers" data-insert="x^n">xⁿ</button>
+        <button class="formula-btn" data-group="powers" data-insert="sqrt(x)">√x</button>
+        <button class="formula-btn" data-group="powers" data-insert="a_n">aₙ</button>
+        <button class="formula-btn" data-group="powers" data-insert="x^(1/2)">x^(1/2)</button>
+
+        <button class="formula-btn" data-group="integrals" data-insert="∫ f(x) dx">∫</button>
+        <button class="formula-btn" data-group="integrals" data-insert="∫_a^b f(x) dx">∫aᵇ</button>
+        <button class="formula-btn" data-group="integrals" data-insert="∑_(i=1)^n">∑</button>
+        <button class="formula-btn" data-group="integrals" data-insert="lim_(x→0)">lim</button>
+        <button class="formula-btn" data-group="integrals" data-insert="∂/∂x">∂</button>
+
+        <button class="formula-btn" data-group="matrices" data-insert="|a b; c d|">| |</button>
+        <button class="formula-btn" data-group="matrices" data-insert="[a b; c d]">[ ]</button>
+        <button class="formula-btn" data-group="matrices" data-insert="det(A)">det</button>
+        <button class="formula-btn" data-group="matrices" data-insert="A^-1">A⁻¹</button>
+        <button class="formula-btn" data-group="matrices" data-insert="A·B">A·B</button>
+    </div>
 </div>
 
 <div id="zoom-display">100%</div>
@@ -77,6 +190,7 @@ const ctx = canvas.getContext('2d');
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'pen', isDrawing = false, currentObj = null;
 let selectedObj = null, dragStartX, dragStartY;
+let activeFormulaInput = null;
 
 // Налаштування канвасу під розмір вікна
 function resize() {
@@ -164,6 +278,12 @@ function draw() {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px Arial`;
             const lines = obj.text.split('\n');
             lines.forEach((line, i) => ctx.fillText(line, sX, sY + (i * obj.size * scale * 1.2)));
+        } else if (obj.type === 'formula') {
+            // Режим формул: малюємо у "математичному" стилі з підтримкою кількох рядків
+            const formulaSize = (obj.size || 24) * scale;
+            ctx.font = `${obj.isBold ? 'bold ' : ''}italic ${formulaSize}px "Cambria Math", "Times New Roman", serif`;
+            const lines = obj.text.split('\n');
+            lines.forEach((line, i) => ctx.fillText(line, sX, sY + (i * formulaSize * 1.25)));
         } else if (obj.type === 'image') {
             if (!obj._img) { obj._img = new Image(); obj._img.src = obj.src; obj._img.onload = draw; }
             if (obj._img.complete) ctx.drawImage(obj._img, sX, sY, obj.w * scale, obj.h * scale);
@@ -249,12 +369,54 @@ function createText(e) {
     };
 }
 
+// Створення формули
+function createFormula(e) {
+    const coords = getCoords(e);
+    const div = document.createElement('div');
+    div.className = 'text-input-div';
+    div.contentEditable = true;
+    div.style.left = coords.rawX + 'px';
+    div.style.top = coords.rawY + 'px';
+    div.style.fontSize = (24 * scale) + 'px';
+    div.style.color = document.getElementById('colorPicker').value;
+    div.style.fontFamily = '"Cambria Math", "Times New Roman", serif';
+    div.style.fontStyle = 'italic';
+    div.style.minWidth = '90px';
+    div.setAttribute('data-placeholder', 'x^2 + y^2 = z^2');
+    if(document.getElementById('boldText').checked) div.style.fontWeight = 'bold';
+
+    document.body.appendChild(div);
+    setTimeout(() => div.focus(), 50);
+    activeFormulaInput = div;
+    div.addEventListener('focus', () => { activeFormulaInput = div; });
+
+    div.onblur = () => {
+        if (div.innerText.trim()) {
+            const obj = {
+                type: 'formula',
+                x: coords.x,
+                y: coords.y,
+                text: div.innerText,
+                color: div.style.color,
+                size: 24,
+                isBold: document.getElementById('boldText').checked
+            };
+            objects.push(obj);
+            socket.emit('new-object', obj);
+        }
+        if (activeFormulaInput === div) activeFormulaInput = null;
+        document.body.removeChild(div);
+        draw();
+    };
+}
+
 // Обробка миші та тачу
 const startDrawing = (e) => {
     const coords = getCoords(e);
     isDrawing = true;
 
     if (currentTool === 'text') { createText(e); isDrawing = false; return; }
+    if (currentTool === 'formula') { createFormula(e); isDrawing = false; return; }
     
     if (currentTool === 'eraser') {
         // Логіка видалення об'єкта (collision detection)
@@ -356,9 +518,48 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active'); 
         currentTool = btn.dataset.tool;
+        const formulaPanel = document.getElementById('formula-panel');
+        formulaPanel.style.display = currentTool === 'formula' ? 'flex' : 'none';
         selectedObj = null; draw();
     };
 });
+
+function insertAtCursor(editableEl, text) {
+    editableEl.focus();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        editableEl.innerText += text;
+        return;
+    }
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createTextNode(text));
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+document.querySelectorAll('.formula-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+        if (!activeFormulaInput) return;
+        insertAtCursor(activeFormulaInput, btn.dataset.insert || '');
+    });
+});
+
+function switchFormulaGroup(group) {
+    document.querySelectorAll('.formula-group-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.group === group);
+    });
+    document.querySelectorAll('.formula-btn').forEach((btn) => {
+        btn.style.display = btn.dataset.group === group ? 'inline-flex' : 'none';
+    });
+}
+
+document.querySelectorAll('.formula-group-btn').forEach((btn) => {
+    btn.addEventListener('click', () => switchFormulaGroup(btn.dataset.group));
+});
+
+switchFormulaGroup('basic');
 
 function createNewBoard() { 
     const newId = Math.random().toString(36).substr(2, 9);
