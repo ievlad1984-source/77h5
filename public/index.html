@@ -2,12 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>iDroo Clone Pro - Clean Realtime</title>
+    <title>iDroo Clone Pro - Dynamic Text</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', sans-serif; background: #f0f0f0; }
         
-        /* Панель инструментов */
         #toolbar {
             position: absolute; top: 0; left: 0; width: 100%; background: #f5f6f7; 
             padding: 5px 15px; display: flex; gap: 12px; border-bottom: 1px solid #ccc;
@@ -29,6 +28,22 @@
         
         canvas { display: block; background: #fff; touch-action: none; }
         
+        /* Стиль для динамического ввода текста */
+        .dynamic-text-input {
+            position: absolute;
+            min-width: 10px;
+            max-width: 800px;
+            outline: 2px dashed #007bff;
+            background: transparent;
+            padding: 2px;
+            z-index: 1000;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: hidden;
+            line-height: 1.2;
+            cursor: text;
+        }
+
         #status-info { position: absolute; bottom: 10px; left: 10px; font-size: 11px; color: #999; z-index: 10; }
     </style>
 </head>
@@ -39,21 +54,22 @@
         <button class="tool-btn" onclick="createNewBoard()" style="background: #28a745; color: white; font-weight: bold;">+ НОВАЯ ДОСКА</button>
     </div>
     <div class="tool-group">
-        <button class="tool-btn" data-tool="select" title="Выделение (V)">🔍</button>
-        <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
+        <button class="tool-btn" data-tool="select" title="Выделение">🔍</button>
+        <button class="tool-btn" data-tool="hand" title="Рука">✋</button>
     </div>
     <div class="tool-group">
-        <button class="tool-btn active" data-tool="pen" title="Карандаш (P)">✏️</button>
-        <button class="tool-btn" data-tool="line" title="Линия (L)">📏</button>
-        <button class="tool-btn" data-tool="rect" title="Прямоугольник (R)">⬜</button>
-        <button class="tool-btn" data-tool="eraser" title="Ластик (E)">🧽</button>
+        <button class="tool-btn active" data-tool="pen" title="Карандаш">✏️</button>
+        <button class="tool-btn" data-tool="line" title="Линия">📏</button>
+        <button class="tool-btn" data-tool="rect" title="Прямоугольник">⬜</button>
+        <button class="tool-btn" data-tool="text" title="Текст">Текст</button>
+        <button class="tool-btn" data-tool="eraser" title="Ластик">🧽</button>
     </div>
     <div class="tool-group">
         <input type="color" id="colorPicker" value="#000000" style="width:30px; height:30px; border:none; cursor:pointer;">
         <input type="range" id="lineWidth" min="1" max="30" value="3" style="width:80px;">
     </div>
     <div class="tool-group">
-        <button class="tool-btn" onclick="socket.emit('undo')" title="Отмена (Ctrl+Z)">↩</button>
+        <button class="tool-btn" onclick="socket.emit('undo')" title="Отмена">↩</button>
     </div>
 </div>
 
@@ -65,17 +81,16 @@
     const canvas = document.getElementById('board');
     const ctx = canvas.getContext('2d');
     
-    // Идентификация доски
     const boardId = window.location.pathname.substring(1) || 'main';
     document.getElementById('id-val').innerText = boardId;
     const socket = io({ query: { boardId } });
 
-    // Состояние
     let objects = [], remoteDrawings = {};
     let currentTool = 'pen', isDrawing = false, currentObj = null;
     let selectedObjects = [], selectionRect = null;
     let scale = 1.0, offsetX = 0, offsetY = 0;
     let dragStartX, dragStartY, clipboard = [];
+    let isTyping = false; // Блокировка рисования при вводе текста
 
     // --- SOCKET LOGIC ---
 
@@ -109,7 +124,7 @@
         return obj;
     }
 
-    // --- CORE DRAWING ENGINE ---
+    // --- DRAWING ENGINE ---
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -131,7 +146,7 @@
         const yMax = Math.max(obj.y, obj.ey ?? obj.y + 20);
         
         if (obj.type === 'pen' || obj.type === 'eraser') {
-            return obj.points.some(p => Math.hypot(p.x - coords.x, p.y - coords.y) < m);
+            return obj.points?.some(p => Math.hypot(p.x - coords.x, p.y - coords.y) < m);
         }
         return coords.x >= xMin - m && coords.x <= xMax + m && coords.y >= yMin - m && coords.y <= yMax + m;
     }
@@ -180,6 +195,12 @@
                 ctx.moveTo(obj.x, obj.y); ctx.lineTo(obj.ex, obj.ey); ctx.stroke();
             } else if (obj.type === 'rect') {
                 ctx.strokeRect(obj.x, obj.y, obj.ex - obj.x, obj.ey - obj.y);
+            } else if (obj.type === 'text') {
+                ctx.font = `${obj.fontSize}px Arial`;
+                const lines = obj.text.split('\n');
+                lines.forEach((line, i) => {
+                    ctx.fillText(line, obj.x, obj.y + (i * obj.fontSize * 1.2));
+                });
             } else if (obj.type === 'image' && obj.img) {
                 ctx.drawImage(obj.img, obj.x, obj.y, obj.ex - obj.x, obj.ey - obj.y);
             }
@@ -214,9 +235,16 @@
     }
 
     canvas.onmousedown = (e) => {
+        if (isTyping) return;
         const coords = getCoords(e);
         isDrawing = true;
         dragStartX = coords.x; dragStartY = coords.y;
+
+        if (currentTool === 'text') {
+            createTextInput(e.clientX, e.clientY, coords.x, coords.y);
+            isDrawing = false;
+            return;
+        }
 
         if (currentTool === 'select') {
             const hit = [...objects].reverse().find(o => isPointInObj(coords, o));
@@ -237,8 +265,58 @@
         };
     };
 
+    function createTextInput(clientX, clientY, worldX, worldY) {
+        isTyping = true;
+        const fontSize = 20 * scale;
+        const input = document.createElement('div');
+        input.className = 'dynamic-text-input';
+        input.contentEditable = true;
+        input.style.left = clientX + 'px';
+        input.style.top = clientY + 'px';
+        input.style.fontSize = fontSize + 'px';
+        input.style.color = document.getElementById('colorPicker').value;
+        input.style.fontFamily = 'Arial';
+        
+        document.body.appendChild(input);
+        input.focus();
+
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                // Если просто Enter - завершаем ввод (опционально)
+                // Если хотим перенос - браузер сделает его сам через contenteditable
+            }
+            if (e.key === 'Escape') {
+                finishText();
+            }
+        };
+
+        const finishText = () => {
+            if (!isTyping) return;
+            const text = input.innerText.trim();
+            if (text) {
+                const obj = {
+                    type: 'text',
+                    x: worldX,
+                    y: worldY,
+                    text: text,
+                    fontSize: 20, // Базовый размер
+                    color: document.getElementById('colorPicker').value,
+                    ex: worldX + input.offsetWidth / scale,
+                    ey: worldY + input.offsetHeight / scale
+                };
+                objects.push(obj);
+                socket.emit('new-object', obj);
+                draw();
+            }
+            document.body.removeChild(input);
+            isTyping = false;
+        };
+
+        input.onblur = finishText;
+    }
+
     window.onmousemove = (e) => {
-        if (!isDrawing) return;
+        if (!isDrawing || isTyping) return;
         const coords = getCoords(e);
 
         if (currentTool === 'hand') {
@@ -265,6 +343,7 @@
     };
 
     window.onmouseup = () => {
+        if (isTyping) return;
         if (selectionRect) {
             const x1 = Math.min(selectionRect.x, selectionRect.x + selectionRect.w);
             const x2 = Math.max(selectionRect.x, selectionRect.x + selectionRect.w);
@@ -281,6 +360,7 @@
     };
 
     canvas.onwheel = (e) => {
+        if (isTyping) return;
         e.preventDefault();
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
         const oldScale = scale;
@@ -292,6 +372,7 @@
     };
 
     window.onkeydown = (e) => {
+        if (isTyping) return;
         const ctrl = e.ctrlKey || e.metaKey;
         if (ctrl && e.key === 'a') { e.preventDefault(); selectedObjects = [...objects]; draw(); }
         if (ctrl && e.key === 'c') clipboard = JSON.parse(JSON.stringify(selectedObjects));
@@ -309,6 +390,7 @@
     };
 
     window.onpaste = (e) => {
+        if (isTyping) return;
         const item = Array.from(e.clipboardData.items).find(i => i.type.includes('image'));
         if (item) {
             const reader = new FileReader();
