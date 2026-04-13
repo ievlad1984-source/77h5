@@ -1,196 +1,164 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Інтерактивна Дошка Pro + Math</title>
-    <!-- Подключаем MathLive для ввода и KaTeX для отрисовки -->
-    <script src="https://unpkg.com"></script>
-    <link rel="stylesheet" href="https://jsdelivr.net">
-    <script src="https://jsdelivr.net"></script>
-    
+    <title>Совместная доска</title>
+    <!-- Подключаем библиотеку через локальный путь сервера -->
+    <script src="/socket.io/socket.io.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #fff; }
-        #toolbar {
-            position: absolute; top: 10px; left: 10px; background: white; padding: 10px;
-            display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.2); z-index: 1000; align-items: center;
-        }
-        .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 4px; transition: 0.2s; }
-        .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
-        #canvas-container { width: 100vw; height: 100vh; background: white; position: relative; overflow: hidden; }
-        canvas { display: block; cursor: crosshair; }
-        
-        /* Динамический текст */
-        .text-input-div {
-            position: absolute; border: 1px dashed #007bff; min-width: 20px; min-height: 24px; outline: none;
-            background: rgba(255,255,255,0.8); white-space: pre-wrap; padding: 2px; line-height: 1.2; z-index: 2000;
-            font-family: Arial, sans-serif; cursor: text; overflow: visible;
-        }
-
-        /* Поле ввода формул */
-        #math-input-container {
-            position: absolute; z-index: 2000; background: white; border: 1px solid #007bff;
-            padding: 5px; border-radius: 4px; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-        math-field { font-size: 20px; min-width: 200px; border: none; outline: none; }
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; overflow: hidden; background: #f0f0f0; }
+        .toolbar { background: #2c3e50; padding: 10px; display: flex; gap: 8px; align-items: center; z-index: 10; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; border: none; background: #ecf0f1; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #bdc3c7; }
+        button.active { background: #3498db; color: white; }
+        #canvas-container { flex-grow: 1; position: relative; background: #fff; }
+        canvas { display: block; cursor: crosshair; background-color: #ffffff; }
     </style>
 </head>
 <body>
 
-<div id="toolbar">
-    <button class="tool-btn" data-tool="select">Виділення</button>
-    <button class="tool-btn active" data-tool="pen">Ручка</button>
-    <button class="tool-btn" data-tool="text">Текст</button>
-    <button class="tool-btn" data-tool="math">f(x) Формула</button>
-    <input type="color" id="colorPicker" value="#000000" title="Колір">
-    <input type="range" id="lineWidth" min="1" max="20" value="3" title="Товщина">
-    <button class="tool-btn" id="btn-delete-board" style="color:red">Видалити все</button>
+<div class="toolbar">
+    <button onclick="setTool('pen')" id="penBtn" class="active">✏️ Ручка</button>
+    <button onclick="setTool('text')" id="textBtn">Текст</button>
+    <button onclick="setTool('rect')" id="rectBtn">⬜ Прямоугольник</button>
+    <input type="color" id="colorPicker" value="#000000">
+    <button onclick="clearBoard()" style="background:#e74c3c; color:white; margin-left: auto;">Очистить всё</button>
 </div>
 
-<div id="math-input-container"><math-field id="math-field"></math-field></div>
-<div id="canvas-container"><canvas id="board"></canvas></div>
+<div id="canvas-container"><canvas id="canvas"></canvas></div>
 
-<script src="/socket.io/socket.io.js"></script>
 <script>
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
-const colorPicker = document.getElementById('colorPicker');
-const lineWidthInput = document.getElementById('lineWidth');
-const mathContainer = document.getElementById('math-input-container');
-const mathField = document.getElementById('math-field');
-
-const boardId = window.location.pathname.split('/').pop() || 'main';
-const socket = io({ query: { boardId } });
-
-let scale = 1.0, offsetX = 0, offsetY = 0;
-let objects = [], currentTool = 'pen', isDrawing = false, currentObj = null;
-
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; draw(); }
-window.addEventListener('resize', resize);
-resize();
-
-// Кэш для отрисованных формул
-const mathCache = new Map();
-
-async function renderMathToImage(latex, color, fontSize) {
-    const key = `${latex}-${color}-${fontSize}`;
-    if (mathCache.has(key)) return mathCache.get(key);
-
-    const container = document.createElement('div');
-    katex.render(latex, container, { displayMode: true, throwOnError: false });
-    const svg = container.querySelector('svg');
-    if (!svg) return null;
+    // Подключение к серверу
+    const socket = io(); // Автоматически подключается к текущему домену
     
-    svg.setAttribute('fill', color);
-    svg.style.color = color;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const img = new Image();
-    const url = URL.createObjectURL(new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'}));
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    
+    let tool = 'pen', isDrawing = false, objects = [], currentObj = null;
 
-    return new Promise(resolve => {
-        img.onload = () => { mathCache.set(key, img); resolve(img); };
-        img.src = url;
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight - 50;
+        render();
+    }
+    window.onresize = resize;
+    resize();
+
+    function setTool(t) {
+        tool = t;
+        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+        if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
+    }
+
+    // --- СИНХРОНИЗАЦИЯ ---
+
+    // 1. Получаем всю историю при входе
+    socket.on('init-history', (history) => {
+        objects = history;
+        render();
     });
-}
 
-async function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const all = objects.concat(currentObj ? [currentObj] : []);
-    
-    for (const obj of all) {
-        ctx.lineWidth = obj.width * scale;
+    // 2. Получаем новые объекты от других в реальном времени
+    socket.on('new-object', (obj) => {
+        objects.push(obj);
+        render();
+    });
+
+    // 3. Слушаем очистку доски
+    socket.on('clear-board', () => {
+        objects = [];
+        render();
+    });
+
+    // --- ЛОГИКА РИСОВАНИЯ ---
+
+    function addText(x, y) {
+        const content = prompt("Введите текст:");
+        if (!content) return;
+        const textObj = { type: 'text', content, x, y, color: colorPicker.value };
+        
+        objects.push(textObj);
+        socket.emit('new-object', textObj); // Отправляем на сервер
+        render();
+    }
+
+    function render() {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        objects.forEach(draw);
+        if (currentObj) draw(currentObj);
+    }
+
+    function draw(obj) {
         ctx.strokeStyle = obj.color;
         ctx.fillStyle = obj.color;
-        const sX = obj.x * scale + offsetX, sY = obj.y * scale + offsetY;
-
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
         if (obj.type === 'pen') {
-            ctx.beginPath(); ctx.moveTo(sX, sY);
-            if(obj.points) obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
+            ctx.beginPath();
+            obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
             ctx.stroke();
+        } else if (obj.type === 'rect') {
+            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
         } else if (obj.type === 'text') {
-            ctx.font = `${obj.size * scale}px Arial`;
-            obj.text.split('\n').forEach((line, i) => ctx.fillText(line, sX, sY + (i * obj.size * 1.2 * scale)));
-        } else if (obj.type === 'math') {
-            const img = await renderMathToImage(obj.text, obj.color, obj.size);
-            if (img) ctx.drawImage(img, sX, sY - (obj.size * scale), img.width * scale * 0.6, img.height * scale * 0.6);
+            ctx.font = "20px Arial";
+            ctx.fillText(obj.content, obj.x, obj.y);
         }
     }
-}
 
-function getCoords(e) { return { x: (e.clientX - offsetX) / scale, y: (e.clientY - offsetY) / scale }; }
+    canvas.onmousedown = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mX = e.clientX - rect.left;
+        const mY = e.clientY - rect.top;
 
-// Ввод обычного текста (с переносом строки по Enter)
-function createTextInput(x, y) {
-    if (document.querySelector('.text-input-div')) return;
-    const coords = getCoords({clientX: x, clientY: y});
-    const input = document.createElement('div');
-    input.className = 'text-input-div';
-    input.contentEditable = true;
-    input.style.left = x + 'px'; input.style.top = y + 'px';
-    input.style.fontSize = (20 * scale) + 'px';
-    input.style.color = colorPicker.value;
-    document.body.appendChild(input);
-    setTimeout(() => input.focus(), 10);
-
-    input.onblur = () => {
-        const text = input.innerText.trim();
-        if (text) {
-            const textObj = { type: 'text', text: text, x: coords.x, y: coords.y, color: colorPicker.value, size: 20, width: 2 };
-            objects.push(textObj); socket.emit('new-object', textObj);
+        if (tool === 'text') {
+            addText(mX, mY);
+            return;
         }
-        document.body.removeChild(input); draw();
-    };
-}
 
-// Ввод математических формул
-function openMathInput(x, y) {
-    const coords = getCoords({clientX: x, clientY: y});
-    mathContainer.style.display = 'block';
-    mathContainer.style.left = x + 'px'; mathContainer.style.top = y + 'px';
-    
-    mathField.setOptions({ virtualKeyboardMode: 'onfocus', virtualKeyboards: 'all' });
-    setTimeout(() => mathField.focus(), 50);
-
-    const finishMath = () => {
-        const val = mathField.getValue('latex-simplified');
-        if (val && mathContainer.style.display === 'block') {
-            const mathObj = { type: 'math', text: val, x: coords.x, y: coords.y, color: colorPicker.value, size: 35 };
-            objects.push(mathObj); socket.emit('new-object', mathObj);
+        isDrawing = true;
+        if (tool === 'pen') {
+            currentObj = { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] };
+        } else if (tool === 'rect') {
+            currentObj = { type: 'rect', color: colorPicker.value, x: mX, y: mY, w: 0, h: 0 };
         }
-        mathContainer.style.display = 'none'; mathField.value = ''; draw();
     };
 
-    mathField.onblur = (e) => { if(!mathContainer.contains(e.relatedTarget)) finishMath(); };
-    mathField.addEventListener('keydown', (e) => { if (e.key === 'Enter') finishMath(); });
-}
+    window.onmousemove = (e) => {
+        if (!isDrawing || !currentObj) return;
+        const rect = canvas.getBoundingClientRect();
+        const mX = e.clientX - rect.left;
+        const mY = e.clientY - rect.top;
 
-socket.on('init-history', h => { objects = h; draw(); });
-socket.on('new-object', o => { objects.push(o); draw(); });
+        if (tool === 'pen') {
+            currentObj.points.push({x: mX, y: mY});
+        } else if (tool === 'rect') {
+            currentObj.w = mX - currentObj.x;
+            currentObj.h = mY - currentObj.y;
+        }
+        render();
+    };
 
-document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.onclick = () => {
-    document.querySelector('.tool-btn.active').classList.remove('active');
-    b.classList.add('active'); currentTool = b.dataset.tool; draw();
-});
+    window.onmouseup = () => {
+        if (isDrawing && currentObj) {
+            objects.push(currentObj);
+            socket.emit('new-object', currentObj); // Синхронизируем с сервером
+        }
+        isDrawing = false;
+        currentObj = null;
+        render();
+    };
 
-canvas.onmousedown = (e) => {
-    if (document.querySelector('.text-input-div') || mathContainer.style.display === 'block') return;
-    const c = getCoords(e);
-    if (currentTool === 'text') { createTextInput(e.clientX, e.clientY); return; }
-    if (currentTool === 'math') { openMathInput(e.clientX, e.clientY); return; }
-    
-    isDrawing = true;
-    currentObj = { type: currentTool, color: colorPicker.value, width: lineWidthInput.value, x: c.x, y: c.y, points: [{x:c.x, y:c.y}] };
-};
-
-window.onmousemove = (e) => {
-    if (!isDrawing || !currentObj || currentTool !== 'pen') return;
-    currentObj.points.push(getCoords(e));
-    draw();
-};
-
-window.onmouseup = () => {
-    if (isDrawing && currentObj) { objects.push(currentObj); socket.emit('new-object', currentObj); }
-    isDrawing = false; currentObj = null; draw();
-};
+    function clearBoard() {
+        if(confirm("Очистить доску для всех пользователей?")) {
+            objects = [];
+            render();
+            socket.emit('clear-board');
+        }
+    }
 </script>
 </body>
 </html>
