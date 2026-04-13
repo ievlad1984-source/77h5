@@ -3,84 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro+</title>
+    <title>Математична Дошка Pro 2026</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; }
         
-        /* Панель інструментів */
         #toolbar {
             position: absolute; top: 15px; left: 15px; background: white; padding: 10px;
-            display: flex; gap: 8px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
-            z-index: 100; align-items: center; flex-wrap: wrap;
+            display: flex; gap: 8px; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.2); 
+            z-index: 100; align-items: center; flex-wrap: wrap; max-width: 95vw;
         }
 
         .tool-btn { 
-            padding: 8px 12px; cursor: pointer; border: 1px solid #e0e0e0; 
+            padding: 10px 14px; cursor: pointer; border: 1px solid #e0e0e0; 
             background: #fff; border-radius: 8px; font-size: 14px; transition: 0.2s;
-            display: flex; align-items: center; gap: 5px;
+            display: flex; align-items: center; gap: 5px; user-select: none;
         }
         
         .tool-btn:hover { background: #f8f9fa; border-color: #007bff; }
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
 
-        /* Випадаюче меню фігур */
+        /* Панель фігур */
         .shapes-wrapper { position: relative; }
         #shapes-menu {
-            position: absolute; top: 45px; left: 0; background: white; border-radius: 10px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.2); display: none; padding: 15px;
-            width: 280px; z-index: 101; border: 1px solid #ddd;
+            position: absolute; top: 50px; left: 0; background: white; border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.25); display: none; padding: 15px;
+            width: 320px; z-index: 101; border: 1px solid #ddd;
         }
         #shapes-menu.show { display: block; }
         
         .shape-category { margin-bottom: 15px; }
-        .category-title { font-size: 11px; font-weight: bold; color: #888; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
-        .shape-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .category-title { font-size: 11px; font-weight: bold; color: #999; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.8px; }
+        .shape-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
         
         .shape-item { 
             aspect-ratio: 1; border: 1px solid #eee; border-radius: 6px; 
             cursor: pointer; display: flex; align-items: center; justify-content: center; 
-            font-size: 18px; transition: 0.1s; background: #fafafa;
+            font-size: 20px; transition: 0.15s; background: #fafafa;
         }
-        .shape-item:hover { background: #eef6ff; border-color: #007bff; transform: scale(1.05); }
-        .shape-item.selected { border-color: #007bff; background: #eef6ff; }
+        .shape-item:hover { background: #eef6ff; border-color: #007bff; transform: translateY(-2px); }
+        .shape-item.selected { border-color: #007bff; background: #eef6ff; box-shadow: 0 0 0 2px rgba(0,123,255,0.2); }
+
+        /* Текстовий ввід */
+        .text-input-div {
+            position: absolute; min-width: 50px; outline: none; background: white;
+            white-space: pre-wrap; word-wrap: break-word; padding: 6px; line-height: 1.2; 
+            z-index: 1000; border: 2px solid #007bff; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
 
         #zoom-display { 
-            position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); 
-            padding: 6px 15px; border-radius: 20px; font-weight: bold; font-size: 13px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100;
+            position: absolute; bottom: 25px; right: 25px; background: white; 
+            padding: 8px 18px; border-radius: 30px; font-weight: bold; font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 100; border: 1px solid #eee;
         }
 
-        canvas { display: block; touch-action: none; cursor: crosshair; background: #fff; }
-        .separator { width: 1px; height: 25px; background: #eee; margin: 0 5px; }
+        canvas { display: block; touch-action: none; background: #fff; }
+        .separator { width: 1px; height: 30px; background: #eee; margin: 0 5px; }
     </style>
 </head>
 <body>
 
 <div id="toolbar">
-    <button class="tool-btn" data-tool="select" title="Виділення">↖️</button>
+    <button class="tool-btn" data-tool="select" id="selectBtn">↖️ Виділення</button>
     <button class="tool-btn active" data-tool="pen">✏️ Перо</button>
     
     <div class="shapes-wrapper">
         <button class="tool-btn" id="shapesBtn">🔷 Фігури ▾</button>
         <div id="shapes-menu">
             <div class="shape-category">
-                <div class="category-title">Базові багатокутники</div>
+                <div class="category-title">2D Фігури</div>
                 <div class="shape-grid">
-                    <div class="shape-item" data-shape="rect" title="Прямокутник">⬜</div>
-                    <div class="shape-item" data-shape="triangle" title="Трикутник">🔺</div>
-                    <div class="shape-item" data-shape="right-triangle" title="Прямокутний трикутник">📐</div>
-                    <div class="shape-item" data-shape="parallelogram" title="Паралелограм">▱</div>
-                    <div class="shape-item" data-shape="rhombus" title="Ромб">💠</div>
+                    <div class="shape-item" data-shape="rect">⬜</div>
+                    <div class="shape-item" data-shape="circle">⭕</div>
+                    <div class="shape-item" data-shape="triangle">🔺</div>
+                    <div class="shape-item" data-shape="rhombus">💠</div>
+                    <div class="shape-item" data-shape="line">📏</div>
+                    <div class="shape-item" data-shape="arrow">➡️</div>
                 </div>
             </div>
             
             <div class="shape-category">
-                <div class="category-title">Лінії та вказівки</div>
+                <div class="category-title">3D Тіла</div>
                 <div class="shape-grid">
-                    <div class="shape-item" data-shape="line" title="Лінія">📏</div>
-                    <div class="shape-item" data-shape="arrow" title="Стрілка">➡️</div>
-                    <div class="shape-item" data-shape="circle" title="Коло">⭕</div>
+                    <div class="shape-item" data-shape="cube" title="Куб">🧊</div>
+                    <div class="shape-item" data-shape="cylinder" title="Циліндр">🛢️</div>
+                    <div class="shape-item" data-shape="cone" title="Конус">🍦</div>
+                </div>
+            </div>
+
+            <div class="shape-category">
+                <div class="category-title">Інструменти</div>
+                <div class="shape-grid">
+                    <div class="shape-item" data-shape="ruler" title="Лінійка">📐</div>
                 </div>
             </div>
         </div>
@@ -91,8 +105,9 @@
     
     <div class="separator"></div>
     <input type="color" id="colorPicker" value="#212529">
-    <input type="range" id="lineWidth" min="1" max="15" value="3">
-    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
+    <input type="range" id="lineWidth" min="1" max="20" value="3">
+    <div class="separator"></div>
+    <button class="tool-btn" id="clearBtn" style="color: #dc3545; border-color: #f8d7da;">🗑️ Очистити</button>
 </div>
 
 <div id="zoom-display">100%</div>
@@ -109,6 +124,7 @@ let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'pen', activeShape = 'rect', isDrawing = false, currentObj = null;
 let selectedObj = null, dragStartX, dragStartY;
 
+// Ініціалізація
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -117,7 +133,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Керування меню фігур
+// --- Робота з меню ---
 document.getElementById('shapesBtn').onclick = (e) => {
     e.stopPropagation();
     shapesMenu.classList.toggle('show');
@@ -126,28 +142,34 @@ document.getElementById('shapesBtn').onclick = (e) => {
 document.querySelectorAll('.shape-item').forEach(item => {
     item.onclick = (e) => {
         e.stopPropagation();
-        currentTool = 'shape';
-        activeShape = item.dataset.shape;
-        
-        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('shapesBtn').classList.add('active');
-        document.querySelectorAll('.shape-item').forEach(i => i.classList.remove('selected'));
-        item.classList.add('selected');
-        
+        setTool('shape', item.dataset.shape);
         shapesMenu.classList.remove('show');
     };
 });
 
 window.onclick = () => shapesMenu.classList.remove('show');
 
+function setTool(tool, shape = null) {
+    currentTool = tool;
+    if (shape) activeShape = shape;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    if (tool === 'shape') document.getElementById('shapesBtn').classList.add('active');
+    else document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
+    selectedObj = null;
+    draw();
+}
+
+// --- Рендеринг ---
 function drawGrid() {
     const size = 50 * scale;
+    ctx.save();
     ctx.beginPath();
-    ctx.strokeStyle = '#f0f0f0';
+    ctx.strokeStyle = '#f0f2f5';
     ctx.lineWidth = 1;
     for (let x = offsetX % size; x < canvas.width; x += size) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
     for (let y = offsetY % size; y < canvas.height; y += size) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
     ctx.stroke();
+    ctx.restore();
 }
 
 function draw() {
@@ -157,6 +179,7 @@ function draw() {
     const all = currentObj ? [...objects, currentObj] : objects;
 
     all.forEach(obj => {
+        ctx.save();
         ctx.lineWidth = obj.width * scale;
         ctx.strokeStyle = (obj === selectedObj) ? '#007bff' : obj.color;
         ctx.fillStyle = obj.color;
@@ -175,64 +198,114 @@ function draw() {
             ctx.moveTo(sX, sY);
             obj.points?.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
             ctx.stroke();
-        } else if (obj.shape === 'rect') {
-            ctx.strokeRect(sX, sY, w, h);
-        } else if (obj.shape === 'circle') {
-            ctx.arc(sX + w/2, sY + h/2, Math.abs(w/2), 0, Math.PI * 2);
-            ctx.stroke();
-        } else if (obj.shape === 'line' || obj.shape === 'arrow') {
-            ctx.moveTo(sX, sY); ctx.lineTo(eX, eY); ctx.stroke();
-            if (obj.shape === 'arrow') {
-                const angle = Math.atan2(eY - sY, eX - sX);
-                const hl = 15 * scale;
-                ctx.lineTo(eX - hl * Math.cos(angle - Math.PI/6), eY - hl * Math.sin(angle - Math.PI/6));
-                ctx.moveTo(eX, eY);
-                ctx.lineTo(eX - hl * Math.cos(angle + Math.PI/6), eY - hl * Math.sin(angle + Math.PI/6));
-                ctx.stroke();
-            }
-        } else if (obj.shape === 'triangle') {
-            ctx.moveTo(sX + w/2, sY); ctx.lineTo(sX + w, sY + h); ctx.lineTo(sX, sY + h); ctx.closePath(); ctx.stroke();
-        } else if (obj.shape === 'right-triangle') {
-            ctx.moveTo(sX, sY); ctx.lineTo(sX, sY + h); ctx.lineTo(sX + w, sY + h); ctx.closePath(); ctx.stroke();
-        } else if (obj.shape === 'parallelogram') {
-            const shift = w * 0.25;
-            ctx.moveTo(sX + shift, sY); ctx.lineTo(sX + w, sY); ctx.lineTo(sX + w - shift, sY + h); ctx.lineTo(sX, sY + h); ctx.closePath(); ctx.stroke();
-        } else if (obj.shape === 'rhombus') {
-            ctx.moveTo(sX + w/2, sY); ctx.lineTo(sX + w, sY + h/2); ctx.lineTo(sX + w/2, sY + h); ctx.lineTo(sX, sY + h/2); ctx.closePath(); ctx.stroke();
-        } else if (obj.type === 'text') {
-            ctx.font = `${obj.size * scale}px Arial`;
+        } 
+        else if (obj.type === 'text') {
+            ctx.font = `${20 * scale}px Arial`;
             ctx.fillText(obj.text, sX, sY);
         }
+        else if (obj.type === 'shape') {
+            switch(obj.shape) {
+                case 'rect': ctx.strokeRect(sX, sY, w, h); break;
+                case 'circle': 
+                    ctx.arc(sX + w/2, sY + h/2, Math.abs(w/2), 0, Math.PI * 2); 
+                    ctx.stroke(); break;
+                case 'line':
+                case 'arrow':
+                    ctx.moveTo(sX, sY); ctx.lineTo(eX, eY); ctx.stroke();
+                    if (obj.shape === 'arrow') {
+                        const angle = Math.atan2(eY - sY, eX - sX);
+                        ctx.lineTo(eX - 15*scale * Math.cos(angle - 0.5), eY - 15*scale * Math.sin(angle - 0.5));
+                        ctx.moveTo(eX, eY);
+                        ctx.lineTo(eX - 15*scale * Math.cos(angle + 0.5), eY - 15*scale * Math.sin(angle + 0.5));
+                        ctx.stroke();
+                    } break;
+                case 'triangle':
+                    ctx.moveTo(sX + w/2, sY); ctx.lineTo(sX + w, sY + h); ctx.lineTo(sX, sY + h);
+                    ctx.closePath(); ctx.stroke(); break;
+                case 'cube':
+                    const d = w * 0.3;
+                    ctx.strokeRect(sX, sY + d, w - d, h - d);
+                    ctx.strokeRect(sX + d, sY, w - d, h - d);
+                    ctx.moveTo(sX, sY + d); ctx.lineTo(sX + d, sY);
+                    ctx.moveTo(sX + w - d, sY + d); ctx.lineTo(sX + w, sY);
+                    ctx.moveTo(sX, sY + h); ctx.lineTo(sX + d, sY + h - d);
+                    ctx.moveTo(sX + w - d, sY + h); ctx.lineTo(sX + w, sY + h - d);
+                    ctx.stroke(); break;
+                case 'cylinder':
+                    ctx.ellipse(sX + w/2, sY, Math.abs(w/2), Math.abs(h * 0.1), 0, 0, Math.PI * 2);
+                    ctx.ellipse(sX + w/2, sY + h, Math.abs(w/2), Math.abs(h * 0.1), 0, 0, Math.PI * 2);
+                    ctx.moveTo(sX, sY); ctx.lineTo(sX, sY + h);
+                    ctx.moveTo(sX + w, sY); ctx.lineTo(sX + w, sY + h);
+                    ctx.stroke(); break;
+                case 'ruler':
+                    ctx.strokeRect(sX, sY, w, h);
+                    for(let i=0; i<Math.abs(w); i+=10*scale) {
+                        ctx.moveTo(sX + i * Math.sign(w), sY);
+                        ctx.lineTo(sX + i * Math.sign(w), sY + (i % 50 === 0 ? 15 : 7) * scale);
+                    }
+                    ctx.stroke(); break;
+            }
+        }
+        ctx.restore();
     });
 }
 
+// --- Події та логіка ---
 function getCoords(e) {
-    const cx = e.touches ? e.touches[0].clientX : e.clientX;
-    const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: (cx - offsetX) / scale, y: (cy - offsetY) / scale, rawX: cx, rawY: cy };
+    const t = (e.touches && e.touches[0]) || e;
+    return { 
+        x: (t.clientX - offsetX) / scale, 
+        y: (t.clientY - offsetY) / scale,
+        clientX: t.clientX, clientY: t.clientY
+    };
 }
 
-canvas.onmousedown = (e) => {
-    const c = getCoords(e); isDrawing = true;
+const startHandler = (e) => {
+    if (e.target.closest('#toolbar')) return;
+    isDrawing = true;
+    const c = getCoords(e);
+
+    if (currentTool === 'text') {
+        createTextInput(c);
+        isDrawing = false; return;
+    }
+
     if (currentTool === 'eraser') {
-        objects = objects.filter(o => Math.hypot(o.x - c.x, o.y - c.y) > 25/scale);
-        socket.emit('update-all', objects); isDrawing = false; draw(); return;
+        const initialLen = objects.length;
+        objects = objects.filter(obj => {
+            const dist = Math.hypot(obj.x - c.x, obj.y - c.y);
+            return dist > 25/scale;
+        });
+        if (objects.length !== initialLen) {
+            socket.emit('update-all', objects);
+            draw();
+        }
+        isDrawing = false; return;
     }
+
     if (currentTool === 'select') {
-        selectedObj = [...objects].reverse().find(o => Math.hypot(o.x - c.x, o.y - c.y) < 30/scale);
-        dragStartX = c.x; dragStartY = c.y; draw(); return;
+        selectedObj = [...objects].reverse().find(obj => {
+            return Math.hypot(obj.x - c.x, obj.y - c.y) < 30/scale;
+        });
+        if (selectedObj) {
+            dragStartX = c.x; dragStartY = c.y;
+        }
+        draw(); return;
     }
-    currentObj = { 
+
+    currentObj = {
         type: currentTool, shape: activeShape,
-        color: document.getElementById('colorPicker').value, 
-        width: document.getElementById('lineWidth').value, 
-        x: c.x, y: c.y, ex: c.x, ey: c.y, points: [{x: c.x, y: c.y}], size: 24 
+        x: c.x, y: c.y, ex: c.x, ey: c.y,
+        color: document.getElementById('colorPicker').value,
+        width: document.getElementById('lineWidth').value,
+        points: [{x: c.x, y: c.y}]
     };
 };
 
-window.onmousemove = (e) => {
+const moveHandler = (e) => {
     if (!isDrawing) return;
     const c = getCoords(e);
+
     if (currentTool === 'select' && selectedObj) {
         const dx = c.x - dragStartX, dy = c.y - dragStartY;
         selectedObj.x += dx; selectedObj.y += dy;
@@ -247,42 +320,83 @@ window.onmousemove = (e) => {
     draw();
 };
 
-window.onmouseup = () => {
+const endHandler = () => {
     if (isDrawing && currentObj) {
         objects.push(currentObj);
         socket.emit('new-object', currentObj);
     }
+    if (currentTool === 'select' && selectedObj) socket.emit('update-all', objects);
     isDrawing = false; currentObj = null; draw();
 };
 
-// Робота кнопок інструментів
-document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
-    btn.onclick = () => {
-        currentTool = btn.dataset.tool;
-        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        selectedObj = null; draw();
+// Динамічний текст
+function createTextInput(c) {
+    const div = document.createElement('div');
+    div.className = 'text-input-div';
+    div.contentEditable = true;
+    div.style.left = c.clientX + 'px';
+    div.style.top = c.clientY + 'px';
+    div.style.color = document.getElementById('colorPicker').value;
+    div.style.fontSize = (20 * scale) + 'px';
+    
+    document.body.appendChild(div);
+    setTimeout(() => div.focus(), 10);
+
+    div.onblur = () => {
+        if (div.innerText.trim()) {
+            const obj = { 
+                type: 'text', x: c.x, y: c.y, 
+                text: div.innerText, color: div.style.color, 
+                width: 2, size: 20 
+            };
+            objects.push(obj);
+            socket.emit('new-object', obj);
+        }
+        document.body.removeChild(div); draw();
     };
-});
+}
+
+// Очищення (Виправлено)
+document.getElementById('clearBtn').onclick = () => {
+    if (confirm("Очистити дошку для всіх учасників?")) {
+        objects = [];
+        socket.emit('delete-board');
+        draw();
+    }
+};
+
+// Слухачі подій
+canvas.addEventListener('mousedown', startHandler);
+window.addEventListener('mousemove', moveHandler);
+window.addEventListener('mouseup', endHandler);
+
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startHandler(e); }, {passive: false});
+window.addEventListener('touchmove', (e) => { if(isDrawing) e.preventDefault(); moveHandler(e); }, {passive: false});
+window.addEventListener('touchend', endHandler);
 
 // Масштабування
 window.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const oldScale = scale;
-    scale = Math.min(Math.max(scale * delta, 0.3), 3.0);
-    offsetX = e.clientX - (e.clientX - offsetX) * (scale / oldScale);
-    offsetY = e.clientY - (e.clientY - offsetY) * (scale / oldScale);
-    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
-    draw();
+    if (e.ctrlKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const oldScale = scale;
+        scale = Math.min(Math.max(scale * delta, 0.2), 4);
+        offsetX = e.clientX - (e.clientX - offsetX) * (scale / oldScale);
+        offsetY = e.clientY - (e.clientY - offsetY) * (scale / oldScale);
+        document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
+        draw();
+    }
 }, { passive: false });
 
-document.getElementById('clearBtn').onclick = () => { if(confirm("Очистити дошку?")) socket.emit('delete-board'); };
+// Панель інструментів
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+    btn.onclick = () => setTool(btn.dataset.tool);
+});
 
-// Socket Events
+// Сокети
 socket.on('init-history', h => { objects = h; draw(); });
 socket.on('new-object', o => { objects.push(o); draw(); });
-socket.on('update-all', o => { objects = o; draw(); });
+socket.on('update-all', newObjs => { objects = newObjs; draw(); });
 socket.on('board-deleted', () => { objects = []; draw(); });
 
 </script>
