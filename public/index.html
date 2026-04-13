@@ -18,10 +18,6 @@
             padding: 8px 15px; border-radius: 8px; font-size: 14px; font-weight: bold; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; 
         }
-        .text-input-div {
-            position: absolute; border: 1px dashed #007bff; min-width: 10px; outline: none;
-            background: transparent; white-space: pre-wrap; padding: 2px; line-height: 1.2; z-index: 200;
-        }
     </style>
 </head>
 <body>
@@ -37,7 +33,8 @@
     <input type="color" id="colorPicker" value="#000000">
     <input type="range" id="lineWidth" min="1" max="20" value="3">
     <div style="width:1px; height:25px; background:#ccc; margin:0 5px;"></div>
-    <button class="tool-btn" onclick="location.href='/'">Новая доска</button>
+    <!-- Кнопка создания новой доски -->
+    <button class="tool-btn" id="btn-new-board" style="background: #e7f3ff;">+ Новая доска</button>
     <button class="tool-btn" onclick="socket.emit('delete-board', boardId)" style="color:red">Удалить</button>
 </div>
 
@@ -48,6 +45,7 @@
 <script>
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
+// Извлекаем ID доски из URL или ставим 'main'
 const boardId = window.location.pathname.split('/').pop() || 'main';
 const socket = io({ query: { boardId } });
 
@@ -87,7 +85,7 @@ function draw() {
             ctx.strokeRect(sX, sY, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
         } else if (obj.type === 'text') {
             ctx.fillStyle = obj.color; ctx.font = `${obj.size * scale}px Arial`;
-            obj.text.split('\n').forEach((l, i) => ctx.fillText(l, sX, sY + (i * obj.size * 1.2 * scale)));
+            if(obj.text) obj.text.split('\n').forEach((l, i) => ctx.fillText(l, sX, sY + (i * obj.size * 1.2 * scale)));
         } else if (obj.type === 'image') {
             const img = new Image(); img.src = obj.src;
             if (img.complete) ctx.drawImage(img, sX, sY, obj.w * scale, obj.h * scale);
@@ -100,10 +98,16 @@ function getCoords(e) { return { x: (e.clientX - offsetX) / scale, y: (e.clientY
 
 function findObj(c) {
     return objects.findLast(obj => {
-        const minX = Math.min(obj.x, obj.ex || obj.x), minY = Math.min(obj.y, obj.ey || obj.y);
-        return c.x >= minX && c.x <= (obj.ex || obj.x + 100) && c.y >= minY && c.y <= (obj.ey || obj.y + 50);
+        const minX = Math.min(obj.x, obj.ex || obj.x);
+        return c.x >= minX && c.x <= (obj.ex || obj.x + 100) && c.y >= obj.y && c.y <= (obj.ey || obj.y + 50);
     });
 }
+
+// Logic for New Board
+document.getElementById('btn-new-board').onclick = () => {
+    const newBoardId = Math.random().toString(36).substring(2, 10);
+    window.location.href = '/' + newBoardId;
+};
 
 // Socket Events
 socket.on('init-history', h => { objects = h; draw(); });
@@ -112,15 +116,24 @@ socket.on('board-deleted', () => window.location.href = '/');
 
 // Toolbar
 document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.onclick = () => {
-    document.querySelector('.tool-btn.active').classList.remove('active');
+    const active = document.querySelector('.tool-btn.active');
+    if(active) active.classList.remove('active');
     b.classList.add('active'); currentTool = b.dataset.tool;
 });
 
 canvas.onmousedown = (e) => {
     const c = getCoords(e); isDrawing = true; dragStartX = c.x; dragStartY = c.y;
     if (currentTool === 'select') { selectedObj = findObj(c); draw(); return; }
-    if (currentTool === 'text') { createText(e); isDrawing = false; return; }
-    currentObj = { type: currentTool, color: document.getElementById('colorPicker').value, width: document.getElementById('lineWidth').value, x: c.x, y: c.y, points: [{x:c.x, y:c.y}], ex: c.x, ey: c.y };
+    
+    currentObj = { 
+        type: currentTool, 
+        color: document.getElementById('colorPicker').value, 
+        width: document.getElementById('lineWidth').value, 
+        x: c.x, y: c.y, 
+        points: [{x:c.x, y:c.y}], 
+        ex: c.x, ey: c.y,
+        size: 20 // default for text
+    };
 };
 
 window.onmousemove = (e) => {
@@ -138,7 +151,10 @@ window.onmousemove = (e) => {
 };
 
 window.onmouseup = () => {
-    if (isDrawing && currentObj) { objects.push(currentObj); socket.emit('new-object', currentObj); }
+    if (isDrawing && currentObj && currentTool !== 'select' && currentTool !== 'hand') { 
+        objects.push(currentObj); 
+        socket.emit('new-object', currentObj); 
+    }
     isDrawing = false; currentObj = null; draw();
 };
 
@@ -150,40 +166,22 @@ window.addEventListener('wheel', e => {
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`; draw();
 }, { passive: false });
 
-window.onkeydown = e => {
-    if (e.ctrlKey && e.code === 'KeyZ') { socket.emit('undo'); }
-    if (e.ctrlKey && e.code === 'KeyA') { e.preventDefault(); alert("Выделено всё"); }
-};
-
 window.onpaste = e => {
     const item = Array.from(e.clipboardData.items).find(x => x.type.includes('image'));
     if (item) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-            const imgObj = { type: 'image', src: ev.target.result, x: (innerWidth/2-offsetX)/scale, y: (innerHeight/2-offsetY)/scale, w: 200, h: 200 };
+            const imgObj = { 
+                type: 'image', src: ev.target.result, 
+                x: (innerWidth/2-offsetX)/scale, y: (innerHeight/2-offsetY)/scale, 
+                w: 200, h: 200 
+            };
             imgObj.ex = imgObj.x + 200; imgObj.ey = imgObj.y + 200;
             objects.push(imgObj); socket.emit('new-object', imgObj); draw();
         };
         reader.readAsDataURL(item.getAsFile());
     }
 };
-
-function createText(e) {
-    const c = getCoords(e), div = document.createElement('div');
-    div.className = 'text-input-div'; div.contentEditable = true;
-    div.style.left = e.clientX + 'px'; div.style.top = e.clientY + 'px';
-    div.style.color = document.getElementById('colorPicker').value;
-    div.style.fontSize = (20 * scale) + 'px'; document.body.appendChild(div);
-    setTimeout(() => div.focus(), 10);
-    div.onkeydown = ev => { if(ev.key === 'Enter' && !ev.shiftKey) { div.blur(); ev.preventDefault(); } };
-    div.onblur = () => {
-        if(div.innerText.trim()){
-            const t = { type: 'text', x: c.x, y: c.y, text: div.innerText, color: div.style.color, size: 20 };
-            objects.push(t); socket.emit('new-object', t);
-        }
-        document.body.removeChild(div); draw();
-    };
-}
 </script>
 </body>
 </html>
