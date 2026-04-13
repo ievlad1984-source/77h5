@@ -1,78 +1,63 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>iDroo Clone Pro - Multi-Board Realtime</title>
+    <title>iDroo Clone Pro - Clean Realtime</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', sans-serif; background: #f0f0f0; }
         
-        /* Панель інструментів */
+        /* Панель инструментов */
         #toolbar {
             position: absolute; top: 0; left: 0; width: 100%; background: #f5f6f7; 
             padding: 5px 15px; display: flex; gap: 12px; border-bottom: 1px solid #ccc;
-            z-index: 100; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            z-index: 100; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             box-sizing: border-box;
         }
 
-        /* Бічна панель дошок */
-        #side-panel {
-            position: absolute; top: 50px; left: 10px; width: 200px; background: white;
-            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 90;
-            padding: 10px; display: flex; flex-direction: column; gap: 8px;
-        }
-        .board-list-header { font-weight: bold; font-size: 11px; color: #888; margin-bottom: 5px; text-transform: uppercase; }
-        #boards-list { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
-        .board-item { 
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 8px; background: #f8f9fa; border: 1px solid #ddd;
-            border-radius: 4px; cursor: pointer; font-size: 13px; transition: 0.2s;
-        }
-        .board-item:hover { background: #e9ecef; }
-        .board-item.active { border-color: #007bff; background: #e7f1ff; font-weight: bold; }
-        .del-board-btn { color: #d93025; font-weight: bold; padding: 0 5px; cursor: pointer; font-size: 16px; }
-        .del-board-btn:hover { color: #ff0000; }
-
-        .tool-group { display: flex; gap: 4px; border-right: 1px solid #ddd; padding-right: 10px; align-items: center; }
-        .tool-btn { padding: 6px 10px; cursor: pointer; border: 1px solid transparent; background: transparent; border-radius: 3px; font-size: 13px; }
-        .tool-btn:hover { background: #e5f1fb; border-color: #a5d7ff; }
-        .tool-btn.active { background: #cce4f7; border-color: #0056b3; }
+        .tool-group { display: flex; gap: 6px; border-right: 2px solid #e0e0e0; padding-right: 12px; align-items: center; }
         
-        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: white; padding: 5px 12px; border: 1px solid #ccc; z-index: 100; border-radius: 4px; font-size: 12px; }
+        .tool-btn { 
+            padding: 8px 12px; cursor: pointer; border: 1px solid transparent; 
+            background: transparent; border-radius: 4px; font-size: 14px; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        .tool-btn:hover { background: #e5f1fb; border-color: #a5d7ff; }
+        .tool-btn.active { background: #cce4f7; border-color: #0056b3; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+        
+        #zoom-display { position: absolute; bottom: 25px; right: 25px; background: white; padding: 6px 15px; border: 1px solid #ccc; z-index: 100; border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        
         canvas { display: block; background: #fff; touch-action: none; }
+        
+        #status-info { position: absolute; bottom: 10px; left: 10px; font-size: 11px; color: #999; z-index: 10; }
     </style>
 </head>
 <body>
 
 <div id="toolbar">
     <div class="tool-group">
-        <button class="tool-btn" onclick="createNewBoard()" style="background: #28a745; color: white;">+ Нова дошка</button>
+        <button class="tool-btn" onclick="createNewBoard()" style="background: #28a745; color: white; font-weight: bold;">+ НОВАЯ ДОСКА</button>
     </div>
     <div class="tool-group">
-        <button class="tool-btn" data-tool="select">🔍 Виділення</button>
-        <button class="tool-btn" data-tool="hand">✋ Рука</button>
+        <button class="tool-btn" data-tool="select" title="Выделение (V)">🔍</button>
+        <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
     </div>
     <div class="tool-group">
-        <button class="tool-btn active" data-tool="pen">✏️ Олівець</button>
-        <button class="tool-btn" data-tool="line">📏 Лінія</button>
-        <button class="tool-btn" data-tool="rect">⬜ Прямокутник</button>
-        <button class="tool-btn" data-tool="eraser">🧽 Ластик</button>
+        <button class="tool-btn active" data-tool="pen" title="Карандаш (P)">✏️</button>
+        <button class="tool-btn" data-tool="line" title="Линия (L)">📏</button>
+        <button class="tool-btn" data-tool="rect" title="Прямоугольник (R)">⬜</button>
+        <button class="tool-btn" data-tool="eraser" title="Ластик (E)">🧽</button>
     </div>
     <div class="tool-group">
-        <input type="color" id="colorPicker" value="#000000">
-        <input type="range" id="lineWidth" min="1" max="20" value="3">
+        <input type="color" id="colorPicker" value="#000000" style="width:30px; height:30px; border:none; cursor:pointer;">
+        <input type="range" id="lineWidth" min="1" max="30" value="3" style="width:80px;">
     </div>
     <div class="tool-group">
-        <button class="tool-btn" onclick="socket.emit('undo')">↩ Undo</button>
+        <button class="tool-btn" onclick="socket.emit('undo')" title="Отмена (Ctrl+Z)">↩</button>
     </div>
-    <button class="tool-btn" onclick="copyInvite()" style="margin-left: auto;">🔗 Копіювати посилання</button>
 </div>
 
-<div id="side-panel">
-    <div class="board-list-header">Мої дошки</div>
-    <div id="boards-list"></div>
-</div>
-
+<div id="status-info">ID доски: <span id="id-val"></span></div>
 <div id="zoom-display">100%</div>
 <canvas id="board"></canvas>
 
@@ -80,69 +65,27 @@
     const canvas = document.getElementById('board');
     const ctx = canvas.getContext('2d');
     
-    // Отримання ID з URL
+    // Идентификация доски
     const boardId = window.location.pathname.substring(1) || 'main';
+    document.getElementById('id-val').innerText = boardId;
     const socket = io({ query: { boardId } });
 
+    // Состояние
     let objects = [], remoteDrawings = {};
     let currentTool = 'pen', isDrawing = false, currentObj = null;
     let selectedObjects = [], selectionRect = null;
     let scale = 1.0, offsetX = 0, offsetY = 0;
-    let dragStartX, dragStartY;
+    let dragStartX, dragStartY, clipboard = [];
 
-    // --- ЛОГІКА КЕРУВАННЯ СПИСКОМ ДОШОК (Локальний індекс) ---
-
-    function updateBoardsRegistry() {
-        let registry = JSON.parse(localStorage.getItem('boards_registry')) || [];
-        if (!registry.includes(boardId)) {
-            registry.push(boardId);
-            localStorage.setItem('boards_registry', JSON.stringify(registry));
-        }
-        renderBoardsList();
-    }
-
-    function renderBoardsList() {
-        const listContainer = document.getElementById('boards-list');
-        const registry = JSON.parse(localStorage.getItem('boards_registry')) || [];
-        
-        listContainer.innerHTML = registry.map(id => `
-            <div class="board-item ${id === boardId ? 'active' : ''}" onclick="window.location.pathname='/${id}'">
-                <span>Дошка ${id.substring(0,6)}</span>
-                <span class="del-board-btn" onclick="removeBoardFromList('${id}', event)">×</span>
-            </div>
-        `).join('');
-    }
-
-    function createNewBoard() {
-        const newId = Math.random().toString(36).substring(2, 9);
-        window.location.pathname = '/' + newId;
-    }
-
-    function removeBoardFromList(id, event) {
-        event.stopPropagation();
-        if (confirm(`Видалити дошку ${id} зі списку? (Дані на сервері залишаться, якщо їх не очистити)`)) {
-            let registry = JSON.parse(localStorage.getItem('boards_registry')) || [];
-            registry = registry.filter(b => b !== id);
-            localStorage.setItem('boards_registry', JSON.stringify(registry));
-            
-            // Якщо видаляємо поточну, переходимо на головну або першу в списку
-            if (id === boardId) {
-                window.location.pathname = registry.length > 0 ? '/' + registry[0] : '/main';
-            } else {
-                renderBoardsList();
-            }
-        }
-    }
-
-    // --- SOCKET EVENTS ---
+    // --- SOCKET LOGIC ---
 
     socket.on('init-history', (data) => {
-        objects = data.map(processObj);
+        objects = data.map(o => processObject(o));
         draw();
     });
 
     socket.on('new-object', (obj) => {
-        objects.push(processObj(obj));
+        objects.push(processObject(obj));
         draw();
     });
 
@@ -156,7 +99,7 @@
         draw();
     });
 
-    function processObj(obj) {
+    function processObject(obj) {
         if (obj.type === 'image') {
             const img = new Image();
             img.src = obj.imgSrc;
@@ -166,7 +109,7 @@
         return obj;
     }
 
-    // --- DRAWING ENGINE ---
+    // --- CORE DRAWING ENGINE ---
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -180,29 +123,52 @@
         return { x: (e.clientX - offsetX) / scale, y: (e.clientY - offsetY) / scale };
     }
 
+    function isPointInObj(coords, obj) {
+        const m = 15;
+        const xMin = Math.min(obj.x, obj.ex ?? obj.x);
+        const xMax = Math.max(obj.x, obj.ex ?? obj.x + 50);
+        const yMin = Math.min(obj.y, obj.ey ?? obj.y);
+        const yMax = Math.max(obj.y, obj.ey ?? obj.y + 20);
+        
+        if (obj.type === 'pen' || obj.type === 'eraser') {
+            return obj.points.some(p => Math.hypot(p.x - coords.x, p.y - coords.y) < m);
+        }
+        return coords.x >= xMin - m && coords.x <= xMax + m && coords.y >= yMin - m && coords.y <= yMax + m;
+    }
+
+    function drawGrid() {
+        const step = 50;
+        ctx.beginPath();
+        ctx.strokeStyle = '#f2f2f2';
+        ctx.lineWidth = 1 / scale;
+        const startX = Math.floor((-offsetX / scale) / step) * step;
+        const endX = startX + (canvas.width / scale) + step;
+        const startY = Math.floor((-offsetY / scale) / step) * step;
+        const endY = startY + (canvas.height / scale) + step;
+
+        for (let x = startX; x <= endX; x += step) { ctx.moveTo(x, startY); ctx.lineTo(x, endY); }
+        for (let y = startY; y <= endY; y += step) { ctx.moveTo(startX, y); ctx.lineTo(endX, y); }
+        ctx.stroke();
+    }
+
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.save();
         ctx.translate(offsetX, offsetY);
         ctx.scale(scale, scale);
 
-        // Малюємо сітку
-        ctx.beginPath();
-        ctx.strokeStyle = '#f0f0f0';
-        ctx.lineWidth = 1/scale;
-        for(let x=-2000; x<5000; x+=50) { ctx.moveTo(x, -2000); ctx.lineTo(x, 5000); }
-        for(let y=-2000; y<5000; y+=50) { ctx.moveTo(-2000, y); ctx.lineTo(5000, y); }
-        ctx.stroke();
+        drawGrid();
 
-        const all = [...objects, ...Object.values(remoteDrawings)];
-        if (currentObj) all.push(currentObj);
+        const renderQueue = [...objects, ...Object.values(remoteDrawings)];
+        if (currentObj) renderQueue.push(currentObj);
 
-        all.forEach(obj => {
-            const isSel = selectedObjects.includes(obj);
+        renderQueue.forEach(obj => {
+            const isSelected = selectedObjects.includes(obj);
             ctx.lineWidth = obj.width || 3;
             ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            ctx.strokeStyle = isSel ? '#007bff' : (obj.type === 'eraser' ? '#fff' : obj.color);
-            
+            ctx.strokeStyle = isSelected ? '#007bff' : (obj.type === 'eraser' ? '#fff' : obj.color);
+            ctx.fillStyle = obj.color;
+
             ctx.beginPath();
             if (obj.type === 'pen' || obj.type === 'eraser') {
                 if (obj.points?.length > 0) {
@@ -218,21 +184,34 @@
                 ctx.drawImage(obj.img, obj.x, obj.y, obj.ex - obj.x, obj.ey - obj.y);
             }
 
-            if (isSel) {
+            if (isSelected) {
+                ctx.save();
                 ctx.setLineDash([5/scale, 5/scale]);
-                ctx.strokeRect(Math.min(obj.x, obj.ex??obj.x)-5, Math.min(obj.y, obj.ey??obj.y)-5, Math.abs((obj.ex??obj.x+100)-obj.x)+10, Math.abs((obj.ey??obj.y+30)-obj.y)+10);
-                ctx.setLineDash([]);
+                ctx.lineWidth = 1/scale;
+                ctx.strokeStyle = '#007bff';
+                const x = Math.min(obj.x, obj.ex ?? obj.x) - 8;
+                const y = Math.min(obj.y, obj.ey ?? obj.y) - 8;
+                const w = Math.abs((obj.ex ?? obj.x + 100) - obj.x) + 16;
+                const h = Math.abs((obj.ey ?? obj.y + 30) - obj.y) + 16;
+                ctx.strokeRect(x, y, w, h);
+                ctx.restore();
             }
         });
 
         if (selectionRect) {
-            ctx.strokeStyle = 'rgba(0, 123, 255, 0.5)';
+            ctx.strokeStyle = 'rgba(0, 123, 255, 0.6)';
+            ctx.setLineDash();
             ctx.strokeRect(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
         }
         ctx.restore();
     }
 
-    // --- INTERACTION ---
+    // --- ACTIONS ---
+
+    function createNewBoard() {
+        const newId = Math.random().toString(36).substring(2, 10);
+        window.location.pathname = '/' + newId;
+    }
 
     canvas.onmousedown = (e) => {
         const coords = getCoords(e);
@@ -240,9 +219,13 @@
         dragStartX = coords.x; dragStartY = coords.y;
 
         if (currentTool === 'select') {
-            const hit = [...objects].reverse().find(o => coords.x >= o.x-10 && coords.x <= (o.ex||o.x+100)+10);
-            if (hit) selectedObjects = [hit];
-            else { selectedObjects = []; selectionRect = {x: coords.x, y: coords.y, w: 0, h: 0}; }
+            const hit = [...objects].reverse().find(o => isPointInObj(coords, o));
+            if (hit) {
+                if(!selectedObjects.includes(hit)) selectedObjects = [hit];
+            } else {
+                selectedObjects = [];
+                selectionRect = { x: coords.x, y: coords.y, w: 0, h: 0 };
+            }
             draw(); return;
         }
 
@@ -268,7 +251,7 @@
                 const dx = coords.x - dragStartX, dy = coords.y - dragStartY;
                 selectedObjects.forEach(obj => {
                     obj.x += dx; obj.y += dy;
-                    if (obj.ex) obj.ex += dx; if (obj.ey) obj.ey += dy;
+                    if(obj.ex !== undefined) { obj.ex += dx; obj.ey += dy; }
                     obj.points?.forEach(p => { p.x += dx; p.y += dy; });
                 });
                 dragStartX = coords.x; dragStartY = coords.y;
@@ -282,7 +265,13 @@
     };
 
     window.onmouseup = () => {
-        if (currentObj) {
+        if (selectionRect) {
+            const x1 = Math.min(selectionRect.x, selectionRect.x + selectionRect.w);
+            const x2 = Math.max(selectionRect.x, selectionRect.x + selectionRect.w);
+            const y1 = Math.min(selectionRect.y, selectionRect.y + selectionRect.h);
+            const y2 = Math.max(selectionRect.y, selectionRect.y + selectionRect.h);
+            selectedObjects = objects.filter(o => o.x >= x1 && o.x <= x2 && o.y >= y1 && o.y <= y2);
+        } else if (currentObj) {
             socket.emit('new-object', currentObj);
             objects.push(currentObj);
         } else if (currentTool === 'select' && selectedObjects.length > 0) {
@@ -294,15 +283,48 @@
     canvas.onwheel = (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        scale *= delta;
+        const oldScale = scale;
+        scale = Math.min(Math.max(scale * delta, 0.1), 10);
+        offsetX = e.clientX - (e.clientX - offsetX) * (scale / oldScale);
+        offsetY = e.clientY - (e.clientY - offsetY) * (scale / oldScale);
         document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
         draw();
     };
 
-    function copyInvite() {
-        navigator.clipboard.writeText(window.location.href);
-        alert("Посилання скопійовано!");
-    }
+    window.onkeydown = (e) => {
+        const ctrl = e.ctrlKey || e.metaKey;
+        if (ctrl && e.key === 'a') { e.preventDefault(); selectedObjects = [...objects]; draw(); }
+        if (ctrl && e.key === 'c') clipboard = JSON.parse(JSON.stringify(selectedObjects));
+        if (ctrl && e.key === 'v') {
+            const pasted = clipboard.map(o => ({ ...o, x: o.x+30, y: o.y+30, ex: o.ex?o.ex+30:undefined, ey: o.ey?o.ey+30:undefined, points: o.points?o.points.map(p=>({x:p.x+30,y:p.y+30})):undefined }));
+            pasted.forEach(p => socket.emit('new-object', p));
+            objects.push(...pasted); draw();
+        }
+        if (ctrl && e.key === 'z') { e.preventDefault(); socket.emit('undo'); }
+        if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjects.length > 0) {
+            objects = objects.filter(o => !selectedObjects.includes(o));
+            socket.emit('update-all', objects);
+            selectedObjects = []; draw();
+        }
+    };
+
+    window.onpaste = (e) => {
+        const item = Array.from(e.clipboardData.items).find(i => i.type.includes('image'));
+        if (item) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    const obj = { type: 'image', x: -offsetX/scale+100, y: -offsetY/scale+100, imgSrc: ev.target.result, ex: -offsetX/scale+100+img.width/2, ey: -offsetY/scale+100+img.height/2 };
+                    socket.emit('new-object', obj);
+                    objects.push({ ...obj, img });
+                    draw();
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(item.getAsFile());
+        }
+    };
 
     document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         btn.onclick = () => {
@@ -311,8 +333,6 @@
             currentTool = btn.dataset.tool;
         };
     });
-
-    updateBoardsRegistry();
 </script>
 </body>
 </html>
