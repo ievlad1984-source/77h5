@@ -27,14 +27,9 @@ io.on('connection', (socket) => {
         socket.to(boardId).emit('new-object', obj);
     });
 
-    socket.on('update-objects', (data) => {
+    socket.on('update-all', (data) => {
         boardsData[boardId] = data;
         socket.to(boardId).emit('init-history', data);
-    });
-
-    socket.on('delete-board', () => {
-        boardsData[boardId] = [];
-        io.in(boardId).emit('board-deleted');
     });
 
     socket.on('undo', () => {
@@ -43,6 +38,10 @@ io.on('connection', (socket) => {
             io.in(boardId).emit('init-history', boardsData[boardId]);
         }
     });
-});
 
-http.listen(PORT, () => console.log(`Сервер: ${PORT}`));
+    socket.on('delete-board', () => {
+        boardsData[boardId] = [];
+        io.in(boardId).emit('board-deleted');
+    });
+});
+http.listen(PORT, () => console.log(`Сервер запущен: порт ${PORT}`));
