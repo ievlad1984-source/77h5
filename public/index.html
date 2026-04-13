@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Інтерактивна Дошка Pro (Vector Engine)</title>
+    <title>Інтерактивна Дошка Pro (Vector & Selection)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: sans-serif; background: #f0f0f0; }
@@ -10,8 +10,10 @@
             position: absolute; top: 10px; left: 10px; background: white; padding: 10px;
             display: flex; gap: 8px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100; align-items: center;
         }
-        .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 4px; font-size: 13px; }
+        .tool-btn { padding: 8px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 4px; font-size: 13px; transition: 0.2s; }
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
+        .tool-btn:hover { background: #f8f9fa; }
+        .tool-btn.active:hover { background: #0056b3; }
         #zoom-display { position: absolute; bottom: 20px; right: 20px; background: white; padding: 8px 15px; border-radius: 8px; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; }
         .text-input-div {
             position: absolute; min-width: 10px; outline: none; background: transparent;
@@ -43,13 +45,23 @@
 
 <script>
 const boardId = window.location.pathname.replace('/', '') || 'main';
-const socket = io({ query: { boardId } });
+const socket = (typeof io !== 'undefined') ? io({ query: { boardId } }) : { emit: () => {} };
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'pen', isDrawing = false, currentObj = null;
-let selectedObj = null, dragStartX, dragStartY;
+let selectedObjects = []; // Список выделенных объектов
+let selectionRect = null; // Рамка выделения
+let dragStartX, dragStartY;
+
+// --- LocalStorage ---
+const savedData = localStorage.getItem('board_' + boardId);
+if (savedData) objects = JSON.parse(savedData);
+
+function save() {
+    localStorage.setItem('board_' + boardId, JSON.stringify(objects));
+}
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -59,7 +71,6 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Малювання сітки, яка враховує нескінченне полотно
 function drawGrid() {
     const size = 40;
     const worldLeft = -offsetX / scale;
@@ -82,19 +93,33 @@ function drawGrid() {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
     ctx.save();
     ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
 
     drawGrid();
 
+    // Рисуем основные объекты
     objects.concat(currentObj ? [currentObj] : []).forEach(obj => {
+        const isSelected = selectedObjects.includes(obj);
+        
         ctx.lineWidth = obj.width;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = (obj === selectedObj) ? '#007bff' : (obj.type === 'eraser' ? '#fff' : obj.color);
+        ctx.strokeStyle = isSelected ? '#007bff' : (obj.type === 'eraser' ? '#fff' : obj.color);
         ctx.fillStyle = obj.color;
+
+        // Рамка вокруг выделенного объекта (как на скриншоте)
+        if (isSelected) {
+            ctx.save();
+            ctx.setLineDash([5 / scale, 5 / scale]);
+            ctx.lineWidth = 1 / scale;
+            ctx.strokeStyle = '#007bff';
+            // Вычисляем примерные границы для рамки
+            let x2 = obj.ex || obj.x + 50, y2 = obj.ey || obj.y + 20;
+            ctx.strokeRect(obj.x - 5, obj.y - 5, x2 - obj.x + 10, y2 - obj.y + 10);
+            ctx.restore();
+        }
 
         ctx.beginPath();
         if (obj.type === 'pen' || obj.type === 'eraser') {
@@ -109,45 +134,48 @@ function draw() {
             ctx.strokeRect(obj.x, obj.y, obj.ex - obj.x, obj.ey - obj.y);
         } else if (obj.type === 'text') {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size}px Arial`;
-            const lines = obj.text.split('\n');
-            lines.forEach((line, i) => ctx.fillText(line, obj.x, obj.y + (i * obj.size * 1.2)));
+            obj.text.split('\n').forEach((line, i) => ctx.fillText(line, obj.x, obj.y + (i * obj.size * 1.2)));
         } else if (obj.type === 'image') {
             if (!obj._img) { obj._img = new Image(); obj._img.src = obj.src; obj._img.onload = draw; }
             if (obj._img.complete) ctx.drawImage(obj._img, obj.x, obj.y, obj.w, obj.h);
         }
     });
+
+    // Рисуем рамку выбора (синий прямоугольник)
+    if (selectionRect) {
+        ctx.lineWidth = 1 / scale;
+        ctx.strokeStyle = 'rgba(0, 123, 255, 0.8)';
+        ctx.fillStyle = 'rgba(0, 123, 255, 0.1)';
+        ctx.fillRect(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
+        ctx.strokeRect(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
+    }
     
     ctx.restore();
 }
 
 function getCoords(e) {
-    return { 
-        x: (e.clientX - offsetX) / scale, 
-        y: (e.clientY - offsetY) / scale 
-    };
+    return { x: (e.clientX - offsetX) / scale, y: (e.clientY - offsetY) / scale };
 }
 
-// Масштабування (векторний зум)
+// Зум
 window.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const oldScale = scale;
-    scale = Math.min(Math.max(scale * delta, 0.1), 5.0);
-    
+    scale = Math.min(Math.max(scale * delta, 0.1), 10.0);
     offsetX = e.clientX - (e.clientX - offsetX) * (scale / oldScale);
     offsetY = e.clientY - (e.clientY - offsetY) * (scale / oldScale);
-    
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
     draw();
 }, { passive: false });
 
-// Інструменти
+// Инструменты
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
     btn.onclick = () => {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentTool = btn.dataset.tool;
-        selectedObj = null;
+        selectedObjects = []; // Сброс выделения при смене инструмента
         draw();
     };
 });
@@ -157,6 +185,12 @@ canvas.onmousedown = (e) => {
     isDrawing = true;
     dragStartX = coords.x;
     dragStartY = coords.y;
+
+    if (currentTool === 'select') {
+        selectedObjects = []; 
+        selectionRect = { x: coords.x, y: coords.y, w: 0, h: 0 };
+        return;
+    }
 
     if (currentTool === 'hand') return;
 
@@ -168,6 +202,7 @@ canvas.onmousedown = (e) => {
         div.style.top = e.clientY + 'px';
         div.style.fontSize = (20 * scale) + 'px';
         div.style.color = document.getElementById('colorPicker').value;
+        if(document.getElementById('boldText').checked) div.style.fontWeight = 'bold';
         document.body.appendChild(div);
         setTimeout(() => div.focus(), 10);
         div.onblur = () => {
@@ -176,7 +211,7 @@ canvas.onmousedown = (e) => {
                     type: 'text', x: coords.x, y: coords.y, text: div.innerText, 
                     color: div.style.color, size: 20, isBold: document.getElementById('boldText').checked 
                 };
-                objects.push(obj); socket.emit('new-object', obj);
+                objects.push(obj); socket.emit('new-object', obj); save();
             }
             document.body.removeChild(div); draw();
         };
@@ -184,18 +219,10 @@ canvas.onmousedown = (e) => {
         return;
     }
 
-    if (currentTool === 'select') {
-        selectedObj = [...objects].reverse().find(obj => {
-            return Math.abs(obj.x - coords.x) < 20 && Math.abs(obj.y - coords.y) < 20;
-        });
-        draw();
-        return;
-    }
-
     currentObj = { 
         type: currentTool, color: document.getElementById('colorPicker').value, 
         width: parseInt(document.getElementById('lineWidth').value), 
-        x: coords.x, y: coords.y, points: [], ex: coords.x, ey: coords.y 
+        x: coords.x, y: coords.y, points: [{x: coords.x, y: coords.y}], ex: coords.x, ey: coords.y 
     };
 };
 
@@ -206,13 +233,9 @@ window.onmousemove = (e) => {
     if (currentTool === 'hand') {
         offsetX += e.movementX;
         offsetY += e.movementY;
-    } else if (currentTool === 'select' && selectedObj) {
-        const dx = coords.x - dragStartX;
-        const dy = coords.y - dragStartY;
-        selectedObj.x += dx; selectedObj.y += dy;
-        if (selectedObj.points) selectedObj.points.forEach(p => { p.x += dx; p.y += dy; });
-        if (selectedObj.ex !== undefined) { selectedObj.ex += dx; selectedObj.ey += dy; }
-        dragStartX = coords.x; dragStartY = coords.y;
+    } else if (currentTool === 'select' && selectionRect) {
+        selectionRect.w = coords.x - selectionRect.x;
+        selectionRect.h = coords.y - selectionRect.y;
     } else if (currentObj) {
         if (currentTool === 'pen' || currentTool === 'eraser') {
             currentObj.points.push({x: coords.x, y: coords.y});
@@ -224,17 +247,39 @@ window.onmousemove = (e) => {
 };
 
 window.onmouseup = () => {
-    if (isDrawing && currentObj) {
+    if (currentTool === 'select' && selectionRect) {
+        const x1 = Math.min(selectionRect.x, selectionRect.x + selectionRect.w);
+        const x2 = Math.max(selectionRect.x, selectionRect.x + selectionRect.w);
+        const y1 = Math.min(selectionRect.y, selectionRect.y + selectionRect.h);
+        const y2 = Math.max(selectionRect.y, selectionRect.y + selectionRect.h);
+
+        // Простая проверка вхождения точки начала объекта в рамку
+        selectedObjects = objects.filter(obj => 
+            obj.x >= x1 && obj.x <= x2 && obj.y >= y1 && obj.y <= y2
+        );
+        selectionRect = null;
+    } else if (isDrawing && currentObj) {
         objects.push(currentObj);
         socket.emit('new-object', currentObj);
+        save();
     }
     isDrawing = false;
     currentObj = null;
     draw();
 };
 
+// Удаление выделенного
+window.addEventListener('keydown', (e) => {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjects.length > 0) {
+        objects = objects.filter(obj => !selectedObjects.includes(obj));
+        selectedObjects = [];
+        save();
+        draw();
+    }
+});
+
 document.getElementById('clearBtn').onclick = () => {
-    if(confirm('Очистити дошку?')) { objects = []; socket.emit('clear'); draw(); }
+    if(confirm('Очистити дошку?')) { objects = []; save(); draw(); }
 };
 
 // Paste image
@@ -247,7 +292,7 @@ window.addEventListener('paste', (e) => {
             img.src = ev.target.result;
             img.onload = () => {
                 const obj = { type: 'image', src: img.src, x: (canvas.width/2-offsetX)/scale, y: (canvas.height/2-offsetY)/scale, w: img.width/2, h: img.height/2 };
-                objects.push(obj); socket.emit('new-object', obj); draw();
+                objects.push(obj); save(); draw();
             };
         };
         reader.readAsDataURL(item.getAsFile());
