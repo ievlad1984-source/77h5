@@ -1,7 +1,10 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { cors: { origin: "*" } });
+const io = require('socket.io')(http, { 
+    cors: { origin: "*" },
+    maxHttpBufferSize: 1e7 // Збільшено ліміт до 10МБ для великих картинок
+});
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
@@ -9,7 +12,11 @@ const boardsData = {};
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/', (req, res) => {
+    const id = Math.random().toString(36).substring(2, 8);
+    res.redirect(`/${id}`);
+});
+
 app.get('/:boardId', (req, res) => {
     if (req.params.boardId.includes('.')) return res.status(404).send('Not found');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -22,14 +29,16 @@ io.on('connection', (socket) => {
     if (!boardsData[boardId]) boardsData[boardId] = [];
     socket.emit('init-history', boardsData[boardId]);
 
+    // Трансляція "процесу" (лінія, що малюється прямо зараз)
+    socket.on('drawing-progress', (data) => {
+        socket.to(boardId).emit('drawing-progress', { ...data, userId: socket.id });
+    });
+
+    // Фіксація готового об'єкта
     socket.on('new-object', (obj) => {
         boardsData[boardId].push(obj);
         socket.to(boardId).emit('new-object', obj);
-    });
-
-    socket.on('update-all', (data) => {
-        boardsData[boardId] = data;
-        socket.to(boardId).emit('init-history', data);
+        socket.to(boardId).emit('clear-progress', socket.id); // Очистити чернетку у інших
     });
 
     socket.on('undo', () => {
@@ -39,9 +48,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('delete-board', () => {
-        boardsData[boardId] = [];
-        io.in(boardId).emit('board-deleted');
+    socket.on('disconnect', () => {
+        io.in(boardId).emit('clear-progress', socket.id);
     });
 });
-http.listen(PORT, () => console.log(`Сервер запущен: порт ${PORT}`));
+
+http.listen(PORT, () => console.log(`Сервер: http://localhost:${PORT}`));
