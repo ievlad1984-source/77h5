@@ -2,36 +2,48 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>iDroo Paint Pro</title>
+    <title>iDroo Paint Multi-Board</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f0f0; }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', sans-serif; background: #f0f0f0; }
         
-        /* Стиль Paint */
+        /* Панель інструментів (Paint Ribbon) */
         #toolbar {
             position: absolute; top: 0; left: 0; width: 100%; background: #f5f6f7; 
             padding: 5px 15px; display: flex; gap: 12px; border-bottom: 1px solid #ccc;
             z-index: 100; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
-        .tool-group { display: flex; gap: 4px; border-right: 1px solid #ddd; padding-right: 10px; align-items: center; }
-        .tool-btn { 
-            padding: 6px 10px; cursor: pointer; border: 1px solid transparent; 
-            background: transparent; border-radius: 3px; font-size: 12px;
+        
+        /* Панель дошок (Зліва) */
+        #boards-panel {
+            position: absolute; top: 50px; left: 10px; width: 180px; background: white;
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 90;
+            padding: 10px; display: flex; flex-direction: column; gap: 8px;
         }
+        .board-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 10px; background: #f8f9fa; border: 1px solid #ddd;
+            border-radius: 4px; cursor: pointer; font-size: 13px;
+        }
+        .board-item:hover { background: #e9ecef; }
+        .board-item.active { border-color: #007bff; background: #e7f1ff; font-weight: bold; }
+        .del-board { color: red; font-weight: bold; padding: 0 5px; cursor: pointer; }
+
+        .tool-group { display: flex; gap: 4px; border-right: 1px solid #ddd; padding-right: 10px; align-items: center; }
+        .tool-btn { padding: 6px 10px; cursor: pointer; border: 1px solid transparent; background: transparent; border-radius: 3px; font-size: 12px; }
         .tool-btn:hover { background: #e5f1fb; border-color: #a5d7ff; }
         .tool-btn.active { background: #cce4f7; border-color: #0056b3; }
         
-        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: white; padding: 5px 12px; border-radius: 4px; font-size: 12px; border: 1px solid #ccc; z-index: 100; }
+        #zoom-display { position: absolute; bottom: 20px; right: 20px; background: white; padding: 5px 12px; border: 1px solid #ccc; z-index: 100; border-radius: 4px; font-size: 12px; }
         canvas { display: block; background: #fff; cursor: crosshair; }
-        
-        .text-input-div {
-            position: absolute; min-width: 10px; outline: 2px dashed #007bff; background: white;
-            white-space: pre; font-family: Arial; padding: 2px; z-index: 1000;
-        }
+        .text-input-div { position: absolute; min-width: 10px; outline: 2px dashed #007bff; background: white; font-family: Arial; padding: 2px; z-index: 1000; }
     </style>
 </head>
 <body>
 
 <div id="toolbar">
+    <div class="tool-group">
+        <button class="tool-btn" onclick="createNewBoard()">+ Нова дошка</button>
+    </div>
     <div class="tool-group">
         <button class="tool-btn" data-tool="select">Виділення</button>
         <button class="tool-btn" data-tool="hand">Рука</button>
@@ -44,10 +56,14 @@
         <button class="tool-btn" data-tool="eraser">Ластик</button>
     </div>
     <div class="tool-group">
-        <input type="color" id="colorPicker" value="#000000" title="Колір">
-        <input type="range" id="lineWidth" min="1" max="20" value="3" title="Товщина">
+        <input type="color" id="colorPicker" value="#000000">
+        <input type="range" id="lineWidth" min="1" max="20" value="3">
     </div>
-    <button class="tool-btn" id="clearBtn" style="color: #d93025;">Очистити все</button>
+</div>
+
+<div id="boards-panel">
+    <div style="font-weight: bold; font-size: 12px; margin-bottom: 5px; color: #666;">МОЇ ДОШКИ:</div>
+    <div id="boards-list"></div>
 </div>
 
 <div id="zoom-display">100%</div>
@@ -56,33 +72,96 @@
 <script>
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
-const boardId = 'paint_pro_v1';
 
 let scale = 1.0, offsetX = 0, offsetY = 0;
-let objects = []; // Об'єкти завантажимо після визначення Image
-let currentTool = 'pen', isDrawing = false, currentObj = null;
-let selectedObjects = [], selectionRect = null;
-let dragStartX, dragStartY, clipboard = [];
+let objects = [], selectedObjects = [], currentObj = null;
+let currentTool = 'pen', isDrawing = false, clipboard = [];
+let dragStartX, dragStartY, selectionRect = null;
 
-// Ініціалізація: завантаження з localStorage (з відновленням Image об'єктів)
-const saved = JSON.parse(localStorage.getItem(boardId)) || [];
-saved.forEach(obj => {
-    if (obj.type === 'image') {
-        const img = new Image();
-        img.src = obj.imgSrc;
-        obj.img = img;
-        img.onload = draw;
+// --- ЛОГІКА КЕРУВАННЯ ДОШКАМИ ---
+
+function getBoardIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id');
+}
+
+function initBoard() {
+    let boardId = getBoardIdFromUrl();
+    if (!boardId) {
+        boardId = Math.random().toString(36).substring(2, 8);
+        window.history.pushState({}, '', '?id=' + boardId);
     }
-    objects.push(obj);
-});
+    
+    // Оновлення списку дошок в пам'яті
+    let boardsList = JSON.parse(localStorage.getItem('all_boards_index')) || [];
+    if (!boardsList.includes(boardId)) {
+        boardsList.push(boardId);
+        localStorage.setItem('all_boards_index', JSON.stringify(boardsList));
+    }
+    
+    loadBoardData(boardId);
+    renderBoardsList();
+}
 
-function save() { 
+function loadBoardData(id) {
+    objects = [];
+    const saved = JSON.parse(localStorage.getItem('board_' + id)) || [];
+    saved.forEach(obj => {
+        if (obj.type === 'image') {
+            const img = new Image();
+            img.src = obj.imgSrc;
+            obj.img = img;
+            img.onload = draw;
+        }
+        objects.push(obj);
+    });
+    draw();
+}
+
+function save() {
+    const id = getBoardIdFromUrl();
     const toSave = objects.map(obj => {
         if (obj.type === 'image') return { ...obj, img: null, imgSrc: obj.img?.src };
         return obj;
     });
-    localStorage.setItem(boardId, JSON.stringify(toSave)); 
+    localStorage.setItem('board_' + id, JSON.stringify(toSave));
 }
+
+function createNewBoard() {
+    const newId = Math.random().toString(36).substring(2, 8);
+    window.location.search = '?id=' + newId;
+}
+
+function deleteBoard(id, e) {
+    e.stopPropagation();
+    if (confirm('Видалити цю дошку назавжди?')) {
+        localStorage.removeItem('board_' + id);
+        let boardsList = JSON.parse(localStorage.getItem('all_boards_index')) || [];
+        boardsList = boardsList.filter(b => b !== id);
+        localStorage.setItem('all_boards_index', JSON.stringify(boardsList));
+        
+        if (getBoardIdFromUrl() === id) {
+            window.location.search = boardsList.length > 0 ? '?id=' + boardsList[0] : '';
+        } else {
+            renderBoardsList();
+        }
+    }
+}
+
+function renderBoardsList() {
+    const list = document.getElementById('boards-list');
+    const boardsList = JSON.parse(localStorage.getItem('all_boards_index')) || [];
+    const current = getBoardIdFromUrl();
+    
+    list.innerHTML = boardsList.map(id => `
+        <div class="board-item ${id === current ? 'active' : ''}" onclick="window.location.search='?id=${id}'">
+            <span>Дошка ${id}</span>
+            <span class="del-board" onclick="deleteBoard('${id}', event)">×</span>
+        </div>
+    `).join('');
+}
+
+// --- ОСНОВНА ЛОГІКА МАЛЮВАННЯ (з попередніх кроків) ---
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -110,19 +189,6 @@ function draw() {
     ctx.save();
     ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
-
-    // Сітка
-    const size = 40;
-    ctx.beginPath();
-    ctx.strokeStyle = '#f0f0f0';
-    ctx.lineWidth = 1/scale;
-    for (let x = (-(offsetX/scale) % size) - size; x < canvas.width/scale; x += size) {
-        ctx.moveTo(x, -offsetY/scale); ctx.lineTo(x, (canvas.height - offsetY)/scale);
-    }
-    for (let y = (-(offsetY/scale) % size) - size; y < canvas.height/scale; y += size) {
-        ctx.moveTo(-offsetX/scale, y); ctx.lineTo((canvas.width - offsetX)/scale, y);
-    }
-    ctx.stroke();
 
     objects.concat(currentObj ? [currentObj] : []).forEach(obj => {
         const isSel = selectedObjects.includes(obj);
@@ -252,7 +318,6 @@ window.onmouseup = () => {
     isDrawing = false; currentObj = null; draw();
 };
 
-// Зум
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -264,7 +329,6 @@ canvas.addEventListener('wheel', (e) => {
     draw();
 }, { passive: false });
 
-// Інструменти
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
     btn.onclick = () => {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
@@ -272,75 +336,38 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
     };
 });
 
-document.getElementById('clearBtn').onclick = () => { if(confirm('Очистити все?')) { objects = []; save(); draw(); } };
-
-// ГАРЯЧІ КЛАВІШІ
 window.onkeydown = (e) => {
     const ctrl = e.ctrlKey || e.metaKey;
-    
-    // Ctrl + A: Виділити все
-    if (ctrl && e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        selectedObjects = [...objects];
-        draw();
+    if (ctrl && e.key === 'a') { e.preventDefault(); selectedObjects = [...objects]; draw(); }
+    if (ctrl && e.key === 'c') clipboard = JSON.parse(JSON.stringify(selectedObjects));
+    if (ctrl && e.key === 'v') {
+        const pasted = clipboard.map(o => ({ ...o, x: o.x+20, y: o.y+20, ex: o.ex?o.ex+20:undefined, ey: o.ey?o.ey+20:undefined, points: o.points?o.points.map(p=>({x:p.x+20,y:p.y+20})):undefined }));
+        objects.push(...pasted); selectedObjects = [...pasted]; save(); draw();
     }
-
-    // Ctrl + C: Копіювати
-    if (ctrl && e.key.toLowerCase() === 'c') {
-        if (selectedObjects.length > 0) {
-            clipboard = JSON.parse(JSON.stringify(selectedObjects));
-        }
-    }
-
-    // Ctrl + V: Вставити
-    if (ctrl && e.key.toLowerCase() === 'v') {
-        if (clipboard.length > 0) {
-            const pasted = clipboard.map(obj => ({
-                ...obj, x: obj.x + 20, y: obj.y + 20,
-                ex: obj.ex ? obj.ex + 20 : undefined,
-                ey: obj.ey ? obj.ey + 20 : undefined,
-                points: obj.points ? obj.points.map(p => ({x: p.x + 20, y: p.y + 20})) : undefined
-            }));
-            objects.push(...pasted);
-            selectedObjects = [...pasted];
-            save(); draw();
-        }
-    }
-
-    // Delete / Backspace: Видалити
     if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjects.length > 0) {
-        objects = objects.filter(o => !selectedObjects.includes(o));
-        selectedObjects = []; save(); draw();
+        objects = objects.filter(o => !selectedObjects.includes(o)); selectedObjects = []; save(); draw();
     }
 };
 
-// ВСТАВКА КАРТИНКИ З БУФЕРА
 window.addEventListener('paste', (e) => {
     const items = e.clipboardData.items;
     for (let item of items) {
         if (item.type.indexOf("image") !== -1) {
-            const blob = item.getAsFile();
             const reader = new FileReader();
-            reader.onload = (event) => {
+            reader.onload = (ev) => {
                 const img = new Image();
                 img.onload = () => {
-                    const worldCoords = { x: -offsetX/scale + 50, y: -offsetY/scale + 50 };
-                    const obj = {
-                        type: 'image', x: worldCoords.x, y: worldCoords.y,
-                        img, imgSrc: event.target.result,
-                        ex: worldCoords.x + img.width/2, ey: worldCoords.y + img.height/2
-                    };
-                    objects.push(obj);
-                    save(); draw();
+                    const obj = { type: 'image', x: -offsetX/scale+50, y: -offsetY/scale+50, img, imgSrc: ev.target.result, ex: -offsetX/scale+50+img.width/2, ey: -offsetY/scale+50+img.height/2 };
+                    objects.push(obj); save(); draw();
                 };
-                img.src = event.target.result;
+                img.src = ev.target.result;
             };
-            reader.readAsDataURL(blob);
+            reader.readAsDataURL(item.getAsFile());
         }
     }
 });
 
-draw();
+initBoard();
 </script>
 </body>
 </html>
