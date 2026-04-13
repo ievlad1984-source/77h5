@@ -986,35 +986,6 @@ socket.on('new-object', (o) => { objects.push(o); draw(); });
 socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
 socket.on('board-deleted', () => { objects = []; draw(); });
 
-</script>
-<script>
-let isMathMode = false;
-const inputDiv = document.querySelector('.text-input-div');
-const formulaBtn = document.getElementById('formula-btn'); // Убедитесь, что у кнопки f(x) именно такой ID
-
-// Переключение режима по нажатию на кнопку f(x)
-formulaBtn.addEventListener('click', () => {
-    isMathMode = !isMathMode;
-    formulaBtn.style.background = isMathMode ? '#007bff' : 'white';
-    formulaBtn.style.color = isMathMode ? 'white' : 'black';
-    inputDiv.focus();
-});
-
-// Обработка ввода
-inputDiv.addEventListener('input', () => {
-    if (isMathMode) {
-        const rawText = inputDiv.innerText;
-        try {
-            // Рендерим формулу прямо внутри дива
-            katex.render(rawText, inputDiv, {
-                throwOnError: false,
-                displayMode: false
-            });
-        } catch (err) {
-            console.error("Ошибка формулы:", err);
-        }
-    }
-});
-</script>    
+</script>   
 </body>
 </html>
