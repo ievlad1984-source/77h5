@@ -583,6 +583,28 @@ let allSelected = false;
 let selectAction = null;
 let resizeState = null;
 
+function sanitizeObject(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    const clean = {};
+    Object.keys(obj).forEach((key) => {
+        // Runtime cache fields (e.g. _img) must not be synced/stored.
+        if (!key.startsWith('_')) clean[key] = obj[key];
+    });
+    return clean;
+}
+
+function sanitizeObjects(list) {
+    return Array.isArray(list) ? list.map(sanitizeObject) : [];
+}
+
+function emitNewObject(obj) {
+    socket.emit('new-object', sanitizeObject(obj));
+}
+
+function emitUpdateAll() {
+    socket.emit('update-all', sanitizeObjects(objects));
+}
+
 // Налаштування канвасу під розмір вікна
 function resize() {
     canvas.width = window.innerWidth;
@@ -871,7 +893,7 @@ window.addEventListener('paste', (e) => {
                         y: (window.innerHeight/2 - offsetY - (img.height/4)*scale)/scale, 
                         w: img.width/2, h: img.height/2 
                     };
-                    objects.push(obj); socket.emit('new-object', obj); draw();
+                    objects.push(obj); emitNewObject(obj); draw();
                 };
             };
             reader.readAsDataURL(blob);
@@ -903,7 +925,7 @@ function createText(e) {
                 text: div.innerText, color: div.style.color, 
                 size: 20, isBold: document.getElementById('boldText').checked 
             };
-            objects.push(obj); socket.emit('new-object', obj);
+            objects.push(obj); emitNewObject(obj);
         }
         document.body.removeChild(div); draw();
     };
@@ -944,7 +966,7 @@ function createFormula(e) {
                 isBold: document.getElementById('boldText').checked
             };
             objects.push(obj);
-            socket.emit('new-object', obj);
+            emitNewObject(obj);
         }
         if (activeFormulaInput === div) activeFormulaInput = null;
         document.body.removeChild(div);
@@ -966,7 +988,7 @@ const startDrawing = (e) => {
             const dist = Math.hypot(obj.x - coords.x, obj.y - coords.y);
             return dist > 20/scale; // Радіус видалення
         });
-        socket.emit('update-all', objects);
+        emitUpdateAll();
         isDrawing = false; draw(); return;
     }
 
@@ -1040,10 +1062,10 @@ const endDrawing = () => {
             currentObj = null;
         } else {
             objects.push(currentObj);
-            socket.emit('new-object', currentObj);
+            emitNewObject(currentObj);
         }
     }
-    if (currentTool === 'select' && selectedObj) socket.emit('update-all', objects);
+    if (currentTool === 'select' && selectedObj) emitUpdateAll();
     isDrawing = false; currentObj = null; selectAction = null; resizeState = null; draw();
 };
 
@@ -1071,12 +1093,12 @@ window.addEventListener('keydown', (e) => {
             objects = [];
             allSelected = false;
             selectedObj = null;
-            socket.emit('update-all', objects);
+            emitUpdateAll();
             draw();
         } else if (selectedObj) {
             objects = objects.filter(o => o !== selectedObj);
             selectedObj = null;
-            socket.emit('update-all', objects);
+            emitUpdateAll();
             draw();
         }
     }
@@ -1164,8 +1186,8 @@ document.getElementById('clearBtn').onclick = () => {
 };
 
 // Події Socket.io
-socket.on('init-history', (h) => { objects = h; draw(); });
-socket.on('new-object', (o) => { objects.push(o); draw(); });
+socket.on('init-history', (h) => { objects = sanitizeObjects(h); draw(); });
+socket.on('new-object', (o) => { objects.push(sanitizeObject(o)); draw(); });
 socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
 socket.on('board-deleted', () => { objects = []; draw(); });
 
