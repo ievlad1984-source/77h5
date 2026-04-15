@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iDroo Clone - Math Editor</title>
+    <title>iDroo Clone - Interactive Whiteboard</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -30,16 +30,16 @@
             z-index: 1000; 
             align-items: center; 
             flex-wrap: wrap; 
-            max-width: 95vw;
+            max-width: 90vw;
         }
 
         .tool-btn { 
-            padding: 8px 12px; 
+            padding: 8px 14px; 
             cursor: pointer; 
             border: 1px solid #e0e0e0; 
             background: #fff; 
             border-radius: 6px; 
-            font-size: 16px; 
+            font-size: 14px; 
             transition: all 0.2s;
             display: flex; 
             align-items: center; 
@@ -54,6 +54,7 @@
             background: #007bff; 
             color: white; 
             border-color: #0056b3; 
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); 
         }
         
         .tool-separator { 
@@ -77,107 +78,40 @@
             border: 1px solid #ddd;
         }
 
-        /* Редактор шаблонів формул */
-        .math-template-editor {
+        /* Текстовий редактор як у iDroo */
+        .text-editor-container {
             position: absolute;
             z-index: 2000;
             border: 2px dashed #4CAF50;
             background: transparent;
-            padding: 4px;
+            min-width: 50px;
+            min-height: 30px;
         }
 
-        .template-container {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
+        .text-editor-content {
+            outline: none;
             background: rgba(255, 255, 255, 0.95);
+            border: none;
             border-radius: 4px;
-            padding: 4px;
+            padding: 8px 12px;
+            font-size: 18px;
+            font-family: 'Segoe UI', sans-serif;
+            color: #333;
+            white-space: pre; /* Не переносити автоматично! */
+            overflow: visible;
+            display: inline-block;
+            min-width: 30px;
+            min-height: 20px;
+            line-height: 1.4;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        /* Базовий елемент (x, ∫ тощо) */
-        .template-base {
-            font-size: 24px;
-            font-family: 'Times New Roman', serif;
-            min-width: 20px;
-            min-height: 30px;
-            outline: none;
-            padding: 0 4px;
+        .text-editor-content:focus {
+            background: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2), 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        /* Верхній індекс (степінь) */
-        .template-sup {
-            position: absolute;
-            top: -20px;
-            right: -10px;
-            font-size: 16px;
-            min-width: 20px;
-            min-height: 20px;
-            outline: none;
-            background: rgba(255,255,255,0.9);
-            border: 1px dashed #2196F3;
-            border-radius: 3px;
-            padding: 2px 4px;
-            text-align: center;
-        }
-
-        /* Нижній індекс */
-        .template-sub {
-            position: absolute;
-            bottom: -20px;
-            right: -10px;
-            font-size: 16px;
-            min-width: 20px;
-            min-height: 20px;
-            outline: none;
-            background: rgba(255,255,255,0.9);
-            border: 1px dashed #2196F3;
-            border-radius: 3px;
-            padding: 2px 4px;
-            text-align: center;
-        }
-
-        /* Для інтеграла - межі */
-        .template-limits {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-right: 4px;
-        }
-
-        .template-limit-up,
-        .template-limit-down {
-            font-size: 14px;
-            min-width: 20px;
-            min-height: 18px;
-            outline: none;
-            border: 1px dashed #ccc;
-            border-radius: 3px;
-            padding: 2px 4px;
-            text-align: center;
-            margin: 2px 0;
-        }
-
-        .integral-sign {
-            font-size: 36px;
-            font-family: 'Times New Roman', serif;
-            line-height: 1;
-            margin: 0 4px;
-        }
-
-        .integral-content {
-            font-size: 20px;
-            min-width: 40px;
-            min-height: 30px;
-            outline: none;
-            border: 1px dashed #ccc;
-            border-radius: 3px;
-            padding: 4px;
-            margin-left: 4px;
-        }
-
-        /* Resize handles */
+        /* Handles для ресайзу */
         .resize-handle {
             position: absolute;
             width: 6px;
@@ -191,7 +125,39 @@
         
         .resize-handle:hover { background: #45a049; transform: scale(1.3); }
         .resize-handle.nw { top: -3px; left: -3px; cursor: nw-resize; }
+        .resize-handle.n { top: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .resize-handle.ne { top: -3px; right: -3px; cursor: ne-resize; }
+        .resize-handle.e { top: 50%; right: -3px; transform: translateY(-50%); cursor: ew-resize; }
         .resize-handle.se { bottom: -3px; right: -3px; cursor: se-resize; }
+        .resize-handle.s { bottom: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .resize-handle.sw { bottom: -3px; left: -3px; cursor: sw-resize; }
+        .resize-handle.w { top: 50%; left: -3px; transform: translateY(-50%); cursor: ew-resize; }
+        
+        .rotate-handle {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 7px;
+            height: 7px;
+            background: #2196F3;
+            border: 1px solid white;
+            border-radius: 50%;
+            cursor: alias;
+            z-index: 2001;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .rotate-line {
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            width: 1px;
+            height: 8px;
+            background: #2196F3;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
 
         input[type="color"] { 
             border: none; 
@@ -212,31 +178,23 @@
             touch-action: none; 
             cursor: crosshair;
         }
-        
-        .placeholder {
-            color: #999;
-            font-style: italic;
-        }
     </style>
 </head>
 <body>
 
 <div id="toolbar">
-    <button class="tool-btn active" data-tool="select" title="Select">↖️</button>
-    <button class="tool-btn" data-tool="hand" title="Pan">✋</button>
+    <button class="tool-btn active" data-tool="select" title="Select (V)">↖️</button>
+    <button class="tool-btn" data-tool="hand" title="Pan (H)">✋</button>
     <div class="tool-separator"></div>
     <button class="tool-btn" data-tool="pen" title="Pen">✏️</button>
     <button class="tool-btn" data-tool="line" title="Line">📏</button>
     <button class="tool-btn" data-tool="arrow" title="Arrow">➡️</button>
     <button class="tool-btn" data-tool="rect" title="Rectangle">⬜</button>
-    <button class="tool-btn" data-tool="text" title="Text">ƒ(x)</button>
-    <div class="tool-separator"></div>
-    <!-- Математичні шаблони -->
-    <button class="tool-btn" data-tool="power" title="Power (x^□)" style="font-size: 14px;">xⁿ</button>
-    <button class="tool-btn" data-tool="index" title="Index (x_□)" style="font-size: 14px;">x₂</button>
-    <button class="tool-btn" data-tool="integral" title="Integral (∫)" style="font-size: 20px;">∫</button>
+    <button class="tool-btn" data-tool="text" title="Text">T</button>
+    <button class="tool-btn" data-tool="eraser" title="Eraser">🧹</button>
     <div class="tool-separator"></div>
     <label title="Bold"><input type="checkbox" id="boldText" style="display:none"><b style="cursor:pointer; padding: 0 4px;">B</b></label>
+    <label title="Math Mode"><input type="checkbox" id="mathMode" checked style="display:none"><span style="cursor:pointer; padding: 0 4px;">𝑥²</span></label>
     <input type="color" id="colorPicker" value="#000000" title="Color">
     <input type="range" id="lineWidth" min="1" max="10" value="2" title="Stroke Width">
     <div class="tool-separator"></div>
@@ -252,23 +210,45 @@ const socket = io({ query: { boardId } });
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
+// State
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [];
 let currentTool = 'select';
 let selectedObj = null;
-let hoveredObj = null;
-let isDragging = false, isResizing = false, isDrawing = false;
-let dragStartX, dragStartY;
-let currentEditor = null; // Для редактора шаблонів
-
+let isDragging = false, isResizing = false, isRotating = false, isDrawing = false;
+let resizeHandle = null;
+let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
+let startResizeState = {};
+let currentPath = null;
 let textEditor = null, editingObject = null;
+let shiftKey = false;
 
 // Math symbols
-const mathSymbols = {
-    sup: {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'},
-    sub: {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'}
-};
+const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
+const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ₒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
 
+// Keyboard shortcuts
+window.addEventListener('keydown', (e) => { 
+    if (e.key === 'Shift') shiftKey = true;
+    if (e.key === 'Delete' && selectedObj && !textEditor) {
+        objects = objects.filter(o => o !== selectedObj);
+        selectedObj = null;
+        socket.emit('update-all', objects);
+        draw();
+    }
+});
+window.addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftKey = false; });
+
+function convertMath(text) {
+    if (!document.getElementById('mathMode')?.checked) return text;
+    return text
+        .replace(/([a-zA-Z0-9])\^([0-9a-zA-Z]+)/g, (m,b,e) => b + e.split('').map(c => superscripts[c] || c).join(''))
+        .replace(/([a-zA-Z0-9])_([0-9a-zA-Z]+)/g, (m,b,s) => b + s.split('').map(c => subscripts[c] || c).join(''))
+        .replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty|approx|leq|geq|neq)\b/gi, m => 
+            ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞',approx:'≈',leq:'≤',geq:'≥',neq:'≠'})[m.toLowerCase()] || m);
+}
+
+// Setup canvas
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -277,7 +257,9 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// iDroo Grid
 function drawGrid() {
+    // Minor grid (20px)
     const minorStep = 20 * scale;
     ctx.beginPath();
     ctx.strokeStyle = '#e8e8e8';
@@ -294,10 +276,11 @@ function drawGrid() {
     }
     ctx.stroke();
     
+    // Major grid (100px) - thinner lines
     const majorStep = 100 * scale;
     ctx.beginPath();
     ctx.strokeStyle = '#cccccc';
-    ctx.lineWidth = 0.5;
+    ctx.lineWidth = 0.5; // Thinner
     
     startX = offsetX % majorStep;
     startY = offsetY % majorStep;
@@ -311,18 +294,9 @@ function drawGrid() {
     ctx.stroke();
 }
 
+// Helper functions
 function getBBox(obj) {
     if (!obj) return null;
-    
-    if (obj.type === 'formula') {
-        // Для формул розмір залежить від шаблону
-        let w = 40, h = 40;
-        if (obj.template === 'integral') {
-            w = 80; h = 60;
-        }
-        return { x: obj.x, y: obj.y - h/2, w: w, h: h };
-    }
-    
     if (obj.type === 'text') {
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
         const lines = obj.text.split('\n');
@@ -350,22 +324,38 @@ function hitTest(obj, mx, my) {
     return mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h;
 }
 
-function drawHoverRect(obj) {
-    if (!obj || obj === selectedObj) return;
+function hitHandle(obj, mx, my) {
+    if (!obj) return null;
     const bbox = getBBox(obj);
-    const sx = bbox.x * scale + offsetX;
-    const sy = bbox.y * scale + offsetY;
-    const sw = bbox.w * scale;
-    const sh = bbox.h * scale;
+    const threshold = 8 / scale;
+    const cx = bbox.x + bbox.w / 2;
+    const cy = bbox.y + bbox.h / 2;
     
-    ctx.save();
-    ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = '#2196F3';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx - 2, sy - 2, sw + 4, sh + 4);
-    ctx.restore();
+    const handles = {
+        nw: { x: bbox.x, y: bbox.y }, n: { x: cx, y: bbox.y }, ne: { x: bbox.x + bbox.w, y: bbox.y },
+        e: { x: bbox.x + bbox.w, y: cy }, se: { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
+        s: { x: cx, y: bbox.y + bbox.h }, sw: { x: bbox.x, y: bbox.y + bbox.h },
+        w: { x: bbox.x, y: cy }, rotate: { x: cx, y: bbox.y - 12 / scale }
+    };
+    
+    for (let [name, pos] of Object.entries(handles)) {
+        if (Math.abs(mx - pos.x) < threshold && Math.abs(my - pos.y) < threshold) return name;
+    }
+    return null;
 }
 
+function distToSegment(px, py, x1, y1, x2, y2) {
+    const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+    const dot = A * C + B * D, len_sq = C * C + D * D;
+    let param = len_sq != 0 ? dot / len_sq : -1;
+    let xx, yy;
+    if (param < 0) { xx = x1; yy = y1; }
+    else if (param > 1) { xx = x2; yy = y2; }
+    else { xx = x1 + param * C; yy = y1 + param * D; }
+    return Math.hypot(px - xx, py - yy);
+}
+
+// Drawing
 function drawSelection(obj) {
     const bbox = getBBox(obj);
     const sx = bbox.x * scale + offsetX;
@@ -373,76 +363,47 @@ function drawSelection(obj) {
     const sw = bbox.w * scale;
     const sh = bbox.h * scale;
     
+    if (sw < 2 || sh < 2) return;
+    
+    // Dashed border
     ctx.setLineDash([6, 4]);
     ctx.strokeStyle = '#4CAF50';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(sx, sy, sw, sh);
     ctx.setLineDash([]);
     
+    // Resize handles (6px)
     const hs = 6;
+    const handles = [
+        [sx, sy], [sx + sw/2, sy], [sx + sw, sy],
+        [sx + sw, sy + sh/2], [sx + sw, sy + sh],
+        [sx + sw/2, sy + sh], [sx, sy + sh], [sx, sy + sh/2]
+    ];
+    
     ctx.fillStyle = '#4CAF50';
-    [[sx, sy], [sx+sw, sy], [sx+sw, sy+sh], [sx, sy+sh]].forEach(([x, y]) => {
+    handles.forEach(([x, y]) => {
         ctx.fillRect(x - hs/2, y - hs/2, hs, hs);
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 1;
         ctx.strokeRect(x - hs/2, y - hs/2, hs, hs);
     });
-}
-
-function renderFormula(obj) {
-    const sx = obj.x * scale + offsetX;
-    const sy = obj.y * scale + offsetY;
     
-    ctx.save();
-    ctx.fillStyle = obj.color || '#000';
+    // Rotate handle
+    ctx.fillStyle = '#2196F3';
+    ctx.beginPath();
+    ctx.arc(sx + sw/2, sy - 10, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
     
-    if (obj.template === 'power') {
-        // x в степені n
-        ctx.font = `italic ${24 * scale}px 'Times New Roman', serif`;
-        ctx.fillText(obj.base || 'x', sx, sy);
-        
-        // Степінь зверху
-        if (obj.sup) {
-            ctx.font = `${16 * scale}px 'Times New Roman', serif`;
-            ctx.fillText(obj.sup, sx + ctx.measureText(obj.base || 'x').width * scale + 2, sy - 10 * scale);
-        }
-    } else if (obj.template === 'index') {
-        // x з індексом
-        ctx.font = `italic ${24 * scale}px 'Times New Roman', serif`;
-        ctx.fillText(obj.base || 'x', sx, sy);
-        
-        // Індекс знизу
-        if (obj.sub) {
-            ctx.font = `${16 * scale}px 'Times New Roman', serif`;
-            ctx.fillText(obj.sub, sx + ctx.measureText(obj.base || 'x').width * scale + 2, sy + 8 * scale);
-        }
-    } else if (obj.template === 'integral') {
-        // Знак інтеграла
-        ctx.font = `${36 * scale}px 'Times New Roman', serif`;
-        ctx.fillText('∫', sx, sy);
-        
-        const integralWidth = ctx.measureText('∫').width * scale;
-        
-        // Верхня межа
-        if (obj.upper) {
-            ctx.font = `${14 * scale}px 'Times New Roman', serif`;
-            ctx.fillText(obj.upper, sx + integralWidth/2, sy - 20 * scale);
-        }
-        
-        // Нижня межа
-        if (obj.lower) {
-            ctx.font = `${14 * scale}px 'Times New Roman', serif`;
-            ctx.fillText(obj.lower, sx + integralWidth/2, sy + 10 * scale);
-        }
-        
-        // Підінтегральна функція
-        if (obj.content) {
-            ctx.font = `${20 * scale}px 'Times New Roman', serif`;
-            ctx.fillText(obj.content, sx + integralWidth + 10, sy);
-        }
-    }
-    
-    ctx.restore();
+    // Line to rotate handle
+    ctx.beginPath();
+    ctx.moveTo(sx + sw/2, sy);
+    ctx.lineTo(sx + sw/2, sy - 6);
+    ctx.strokeStyle = '#2196F3';
+    ctx.lineWidth = 2;
+    ctx.stroke();
 }
 
 function draw() {
@@ -450,45 +411,27 @@ function draw() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     drawGrid();
     
-    if (currentTool === 'select' && hoveredObj && !isDragging && !currentEditor) {
-        drawHoverRect(hoveredObj);
-    }
-    
+    // Draw all objects
     objects.forEach(obj => {
-        if (obj.type === 'formula') {
-            renderFormula(obj);
-        } else if (obj.type === 'text') {
-            ctx.save();
-            const sx = obj.x * scale + offsetX;
-            const sy = obj.y * scale + offsetY;
-            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-            ctx.fillStyle = obj.color || '#000';
-            const lines = obj.text.split('\n');
-            lines.forEach((line, i) => {
-                ctx.fillText(line, sx, sy + i * obj.size * scale * 1.4);
-            });
-            ctx.restore();
-        } else if (obj.type === 'pen') {
-            ctx.save();
-            const sx = obj.x * scale + offsetX;
-            const sy = obj.y * scale + offsetY;
-            ctx.lineWidth = (obj.width || 2) * scale;
-            ctx.strokeStyle = obj.color || '#000';
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(sx, sy);
-            obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
-            ctx.stroke();
-            ctx.restore();
+        ctx.save();
+        const sx = obj.x * scale + offsetX;
+        const sy = obj.y * scale + offsetY;
+        ctx.lineWidth = (obj.width || 2) * scale;
+        ctx.strokeStyle = obj.color || '#000';
+        ctx.fillStyle = obj.color || '#000';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        if (obj.type === 'pen') {
+            if (obj.points?.length) {
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
+                ctx.stroke();
+            }
         } else if (obj.type === 'line' || obj.type === 'arrow') {
-            ctx.save();
-            const sx = obj.x * scale + offsetX;
-            const sy = obj.y * scale + offsetY;
             const ex = obj.ex * scale + offsetX;
             const ey = obj.ey * scale + offsetY;
-            ctx.lineWidth = (obj.width || 2) * scale;
-            ctx.strokeStyle = obj.color || '#000';
-            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(sx, sy);
             ctx.lineTo(ex, ey);
@@ -503,21 +446,61 @@ function draw() {
                 ctx.lineTo(ex - headlen * Math.cos(angle + Math.PI/6), ey - headlen * Math.sin(angle + Math.PI/6));
                 ctx.stroke();
             }
-            ctx.restore();
         } else if (obj.type === 'rect') {
-            ctx.save();
-            const sx = obj.x * scale + offsetX;
-            const sy = obj.y * scale + offsetY;
-            ctx.lineWidth = (obj.width || 2) * scale;
-            ctx.strokeStyle = obj.color || '#000';
             ctx.strokeRect(sx, sy, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
-            ctx.restore();
+        } else if (obj.type === 'text') {
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+            const lines = obj.text.split('\n');
+            lines.forEach((line, i) => {
+                ctx.fillText(line, sx, sy + i * obj.size * scale * 1.4);
+            });
         } else if (obj.type === 'image' && obj._img?.complete) {
-            ctx.drawImage(obj._img, obj.x * scale + offsetX, obj.y * scale + offsetY, obj.w * scale, obj.h * scale);
+            ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
         }
+        ctx.restore();
     });
     
-    if (selectedObj && currentTool === 'select' && !currentEditor) {
+    // Draw current path
+    if (isDrawing && currentPath) {
+        ctx.save();
+        const sx = currentPath.x * scale + offsetX;
+        const sy = currentPath.y * scale + offsetY;
+        ctx.lineWidth = (currentPath.width || 2) * scale;
+        ctx.strokeStyle = currentPath.color;
+        ctx.lineCap = 'round';
+        
+        if (currentPath.type === 'pen') {
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            currentPath.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
+            ctx.stroke();
+        } else {
+            const ex = currentPath.ex * scale + offsetX;
+            const ey = currentPath.ey * scale + offsetY;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            if (currentPath.type === 'rect') {
+                ctx.strokeRect(sx, sy, ex - sx, ey - sy);
+            } else {
+                ctx.lineTo(ex, ey);
+                ctx.stroke();
+                if (currentPath.type === 'arrow') {
+                    const angle = Math.atan2(ey - sy, ex - sx);
+                    const headlen = 12 * scale;
+                    ctx.beginPath();
+                    ctx.moveTo(ex, ey);
+                    ctx.lineTo(ex - headlen * Math.cos(angle - Math.PI/6), ey - headlen * Math.sin(angle - Math.PI/6));
+                    ctx.moveTo(ex, ey);
+                    ctx.lineTo(ex - headlen * Math.cos(angle + Math.PI/6), ey - headlen * Math.sin(angle + Math.PI/6));
+                    ctx.stroke();
+                }
+            }
+        }
+        ctx.restore();
+    }
+    
+    // Draw selection
+    if (selectedObj && currentTool === 'select' && !textEditor) {
         drawSelection(selectedObj);
     }
 }
@@ -533,11 +516,11 @@ function getCoords(e) {
     };
 }
 
-// Створення редактора шаблону формули
-function createFormulaEditor(obj) {
-    if (currentEditor) closeFormulaEditor();
+// Text Editor with auto-expand
+function startTextEdit(obj) {
+    if (textEditor) stopTextEdit();
     
-    currentEditor = obj;
+    editingObject = obj;
     selectedObj = null;
     draw();
     
@@ -545,385 +528,531 @@ function createFormulaEditor(obj) {
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
     
-    const editor = document.createElement('div');
-    editor.className = 'math-template-editor';
-    editor.style.left = (screenX - 10) + 'px';
-    editor.style.top = (screenY - 10) + 'px';
-    
     const container = document.createElement('div');
-    container.className = 'template-container';
+    container.className = 'text-editor-container';
+    container.style.left = (screenX - 2) + 'px';
+    container.style.top = (screenY - 2) + 'px';
     
-    if (obj.template === 'power') {
-        // x ^ n
-        const base = document.createElement('div');
-        base.className = 'template-base';
-        base.contentEditable = true;
-        base.innerText = obj.base || 'x';
-        base.style.color = obj.color || '#000';
-        
-        const sup = document.createElement('div');
-        sup.className = 'template-sup';
-        sup.contentEditable = true;
-        sup.innerText = obj.sup || '';
-        sup.dataset.placeholder = 'n';
-        if (!obj.sup) sup.classList.add('placeholder');
-        
-        container.appendChild(base);
-        container.appendChild(sup);
-        
-        // Обробники
-        base.addEventListener('input', () => { obj.base = base.innerText; draw(); });
-        sup.addEventListener('input', () => { 
-            obj.sup = sup.innerText; 
-            sup.classList.remove('placeholder');
-            draw(); 
-        });
-        sup.addEventListener('focus', () => { sup.classList.remove('placeholder'); });
-        sup.addEventListener('blur', () => { if (!sup.innerText) sup.classList.add('placeholder'); });
-        
-        // Фокус на степінь автоматично
-        setTimeout(() => sup.focus(), 100);
-        
-    } else if (obj.template === 'index') {
-        // x _ n
-        const base = document.createElement('div');
-        base.className = 'template-base';
-        base.contentEditable = true;
-        base.innerText = obj.base || 'x';
-        base.style.color = obj.color || '#000';
-        
-        const sub = document.createElement('div');
-        sub.className = 'template-sub';
-        sub.contentEditable = true;
-        sub.innerText = obj.sub || '';
-        sub.dataset.placeholder = 'i';
-        if (!obj.sub) sub.classList.add('placeholder');
-        
-        container.appendChild(base);
-        container.appendChild(sub);
-        
-        base.addEventListener('input', () => { obj.base = base.innerText; draw(); });
-        sub.addEventListener('input', () => { 
-            obj.sub = sub.innerText; 
-            sub.classList.remove('placeholder');
-            draw(); 
-        });
-        sub.addEventListener('focus', () => { sub.classList.remove('placeholder'); });
-        sub.addEventListener('blur', () => { if (!sub.innerText) sub.classList.add('placeholder'); });
-        
-        setTimeout(() => sub.focus(), 100);
-        
-    } else if (obj.template === 'integral') {
-        // ∫ limits content
-        const limits = document.createElement('div');
-        limits.className = 'template-limits';
-        
-        const up = document.createElement('div');
-        up.className = 'template-limit-up';
-        up.contentEditable = true;
-        up.innerText = obj.upper || '';
-        up.dataset.placeholder = 'b';
-        
-        const down = document.createElement('div');
-        down.className = 'template-limit-down';
-        down.contentEditable = true;
-        down.innerText = obj.lower || '';
-        down.dataset.placeholder = 'a';
-        
-        limits.appendChild(up);
-        limits.appendChild(down);
-        
-        const sign = document.createElement('div');
-        sign.className = 'integral-sign';
-        sign.innerText = '∫';
-        
-        const content = document.createElement('div');
-        content.className = 'integral-content';
-        content.contentEditable = true;
-        content.innerText = obj.content || '';
-        content.dataset.placeholder = 'f(x)';
-        
-        container.appendChild(limits);
-        container.appendChild(sign);
-        container.appendChild(content);
-        
-        // Placeholders logic
-        [up, down, content].forEach(el => {
-            el.addEventListener('focus', () => el.classList.remove('placeholder'));
-            el.addEventListener('blur', () => { if (!el.innerText) el.classList.add('placeholder'); });
+    // Create handles
+    ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
+        const div = document.createElement('div');
+        div.className = `resize-handle ${h}`;
+        container.appendChild(div);
+    });
+    
+    const rotLine = document.createElement('div');
+    rotLine.className = 'rotate-line';
+    container.appendChild(rotLine);
+    
+    const rotHandle = document.createElement('div');
+    rotHandle.className = 'rotate-handle';
+    container.appendChild(rotHandle);
+    
+    const content = document.createElement('div');
+    content.className = 'text-editor-content';
+    content.contentEditable = true;
+    content.innerText = obj.rawText || obj.text;
+    content.style.color = obj.color;
+    content.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    content.style.fontSize = (obj.size * scale) + 'px';
+    
+    container.appendChild(content);
+    document.body.appendChild(container);
+    textEditor = container;
+    
+    // Focus end
+    setTimeout(() => {
+        content.focus();
+        const range = document.createRange();
+        range.selectNodeContents(content);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }, 0);
+    
+    // Auto-expand function
+    function updateSize() {
+        // Create temp canvas to measure
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        const lines = content.innerText.split('\n');
+        let maxWidth = 0;
+        lines.forEach(line => {
+            const w = ctx.measureText(line).width;
+            if (w > maxWidth) maxWidth = w;
         });
         
-        up.addEventListener('input', () => { obj.upper = up.innerText; draw(); });
-        down.addEventListener('input', () => { obj.lower = down.innerText; draw(); });
-        content.addEventListener('input', () => { 
-            obj.content = content.innerText; 
-            content.classList.remove('placeholder');
-            draw(); 
-        });
+        // Add padding
+        const newWidth = Math.max(maxWidth + 20, 50);
+        const lineHeight = obj.size * 1.4 * scale;
+        const newHeight = Math.max(lines.length * lineHeight + 16, lineHeight + 16);
         
-        setTimeout(() => content.focus(), 100);
+        container.style.width = newWidth + 'px';
+        container.style.height = newHeight + 'px';
     }
     
-    // Handles для ресайзу/переміщення
-    const nw = document.createElement('div');
-    nw.className = 'resize-handle nw';
-    const se = document.createElement('div');
-    se.className = 'resize-handle se';
+    updateSize();
     
-    nw.addEventListener('mousedown', (e) => startEditorDrag(e, editor, obj));
-    se.addEventListener('mousedown', (e) => startEditorResize(e, editor, obj));
-    
-    editor.appendChild(container);
-    editor.appendChild(nw);
-    editor.appendChild(se);
-    document.body.appendChild(editor);
-    
-    // Drag/editor logic
-    function startEditorDrag(e, editorEl, objData) {
-        e.stopPropagation();
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const origX = objData.x;
-        const origY = objData.y;
+    // Input handler with math conversion
+    let converting = false;
+    content.addEventListener('input', () => {
+        if (converting) return;
         
-        function move(e) {
-            const dx = (e.clientX - startX) / scale;
-            const dy = (e.clientY - startY) / scale;
-            objData.x = origX + dx;
-            objData.y = origY + dy;
+        const text = content.innerText;
+        const converted = convertMath(text);
+        
+        if (converted !== text) {
+            converting = true;
+            const sel = window.getSelection();
+            const range = sel.getRangeAt(0);
+            const pos = range.startOffset;
             
-            const bbox = getBBox(objData);
-            editorEl.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-            editorEl.style.top = (bbox.y * scale + offsetY - 10) + 'px';
+            content.innerText = converted;
+            
+            // Restore cursor
+            try {
+                const newRange = document.createRange();
+                newRange.setStart(content.firstChild || content, Math.min(pos + (converted.length - text.length), content.innerText.length));
+                newRange.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(newRange);
+            } catch(e) {}
+            converting = false;
+            
+            obj.rawText = text;
+            obj.text = converted;
+        } else {
+            obj.rawText = text;
+            obj.text = text;
+        }
+        
+        updateSize();
+        draw();
+    });
+    
+    // Resize handlers
+    container.querySelectorAll('.resize-handle, .rotate-handle').forEach(h => {
+        h.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            isResizing = true;
+            resizeHandle = h.className.includes('rotate') ? 'rotate' : 
+                Array.from(h.classList).find(c => ['nw','n','ne','e','se','s','sw','w'].includes(c));
+            
+            const startSize = obj.size;
+            const startX = e.clientX;
+            const startY = e.clientY;
+            
+            function onMove(e) {
+                if (!isResizing) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                if (resizeHandle === 'se' || resizeHandle === 's' || resizeHandle === 'e') {
+                    const factor = 1 + (dx + dy) / 300;
+                    obj.size = Math.max(8, Math.min(120, startSize * factor));
+                }
+                
+                content.style.fontSize = (obj.size * scale) + 'px';
+                updateSize();
+                draw();
+            }
+            
+            function onUp() {
+                isResizing = false;
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                socket.emit('update-all', objects);
+            }
+            
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    });
+    
+    // Drag
+    content.addEventListener('mousedown', (e) => {
+        if (isResizing) return;
+        e.stopPropagation();
+        isDragging = true;
+        const sx = e.clientX;
+        const sy = e.clientY;
+        const ox = obj.x;
+        const oy = obj.y;
+        
+        function onMove(e) {
+            if (!isDragging) return;
+            const dx = (e.clientX - sx) / scale;
+            const dy = (e.clientY - sy) / scale;
+            obj.x = ox + dx;
+            obj.y = oy + dy;
+            
+            const bbox = getBBox(obj);
+            container.style.left = (bbox.x * scale + offsetX - 2) + 'px';
+            container.style.top = (bbox.y * scale + offsetY - 2) + 'px';
             draw();
         }
         
-        function up() {
-            document.removeEventListener('mousemove', move);
-            document.removeEventListener('mouseup', up);
+        function onUp() {
+            isDragging = false;
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
             socket.emit('update-all', objects);
         }
         
-        document.addEventListener('mousemove', move);
-        document.addEventListener('mouseup', up);
-    }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
     
-    function startEditorResize(e, editorEl, objData) {
-        e.stopPropagation();
-        // Зміна розміру шрифта
-        const startSize = objData.size || 24;
-        
-        function move(e) {
-            // Проста логіка - можна розширити
-        }
-        
-        function up() {
-            document.removeEventListener('mousemove', move);
-            document.removeEventListener('mouseup', up);
-        }
-        
-        document.addEventListener('mousemove', move);
-        document.addEventListener('mouseup', up);
-    }
-    
-    // Close on click outside
-    setTimeout(() => {
-        document.addEventListener('click', closeIfOutside);
-    }, 10);
-    
-    function closeIfOutside(e) {
-        if (!editor.contains(e.target)) {
-            closeFormulaEditor();
-            document.removeEventListener('click', closeIfOutside);
-        }
-    }
-    
-    // Save on Enter in last field
-    const fields = editor.querySelectorAll('[contenteditable]');
-    fields[fields.length - 1].addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+    // Save on Enter (single) or blur
+    content.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            closeFormulaEditor();
+            stopTextEdit();
         }
+        if (e.key === 'Escape') {
+            stopTextEdit(true);
+        }
+    });
+    
+    content.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (textEditor && document.activeElement !== content) {
+                stopTextEdit();
+            }
+        }, 200);
     });
 }
 
-function closeFormulaEditor() {
-    if (!currentEditor) return;
-    const editor = document.querySelector('.math-template-editor');
-    if (editor) document.body.removeChild(editor);
-    currentEditor = null;
-    socket.emit('update-all', objects);
+function stopTextEdit(cancel = false) {
+    if (!textEditor) return;
+    const content = textEditor.querySelector('.text-editor-content');
+    if (!cancel && editingObject) {
+        editingObject.text = convertMath(content.innerText);
+        editingObject.rawText = content.innerText;
+        socket.emit('update-all', objects);
+    }
+    document.body.removeChild(textEditor);
+    textEditor = null;
+    editingObject = null;
     draw();
 }
 
-// Event handlers
+// Event Handlers
 canvas.addEventListener('dblclick', (e) => {
-    if (currentEditor) return;
+    if (textEditor) return;
     const coords = getCoords(e);
-    const clicked = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
-    if (clicked && clicked.type === 'formula') {
-        selectedObj = clicked;
-        createFormulaEditor(clicked);
-    } else if (clicked && clicked.type === 'text') {
-        // Regular text edit
+    const clickedText = [...objects].reverse().find(obj => obj.type === 'text' && hitTest(obj, coords.x, coords.y));
+    if (clickedText) {
+        selectedObj = clickedText;
+        draw();
+        startTextEdit(clickedText);
     }
 });
 
 canvas.addEventListener('mousedown', (e) => {
-    if (currentEditor) {
-        // Check if click is inside editor
-        const editor = document.querySelector('.math-template-editor');
-        if (editor && !editor.contains(e.target)) {
-            closeFormulaEditor();
-        }
-        return;
-    }
+    if (textEditor) { stopTextEdit(); return; }
+    if (e.detail === 2) return; // Ignore double-click second event
     
     const coords = getCoords(e);
     
-    // Template tools
-    if (['power', 'index', 'integral'].includes(currentTool)) {
-        const newFormula = {
-            type: 'formula',
-            template: currentTool,
-            x: coords.x,
-            y: coords.y,
-            base: currentTool === 'power' ? 'x' : currentTool === 'index' ? 'x' : '',
-            sup: '',
-            sub: '',
-            upper: '',
-            lower: '',
-            content: '',
-            color: document.getElementById('colorPicker').value,
-            size: 24
-        };
-        objects.push(newFormula);
-        selectedObj = newFormula;
-        socket.emit('new-object', newFormula);
-        draw();
-        createFormulaEditor(newFormula);
-        return;
-    }
-    
-    if (currentTool === 'text') {
-        const newText = {
-            type: 'text',
-            x: coords.x,
-            y: coords.y,
-            text: '',
-            color: document.getElementById('colorPicker').value,
-            size: 20
-        };
-        objects.push(newText);
-        selectedObj = newText;
-        socket.emit('new-object', newText);
-        draw();
-        return;
-    }
-    
-    if (['pen', 'line', 'arrow', 'rect'].includes(currentTool)) {
-        // Start drawing
-        isDrawing = true;
-        const newObj = {
-            type: currentTool,
-            x: coords.x,
-            y: coords.y,
-            ex: coords.x,
-            ey: coords.y,
-            color: document.getElementById('colorPicker').value,
-            width: parseInt(document.getElementById('lineWidth').value),
-            points: currentTool === 'pen' ? [] : undefined
-        };
-        if (currentTool === 'pen') newObj.points = [{x: coords.x, y: coords.y}];
-        
-        function move(e) {
-            if (!isDrawing) return;
-            const c = getCoords(e);
-            if (currentTool === 'pen') {
-                newObj.points.push({x: c.x, y: c.y});
-            } else {
-                newObj.ex = c.x;
-                newObj.ey = c.y;
+    // Non-select tools
+    if (currentTool !== 'select' && currentTool !== 'hand') {
+        if (currentTool === 'eraser') {
+            eraseAt(coords.x, coords.y);
+        } else if (currentTool === 'text') {
+            // Check if clicking on existing text
+            const existing = [...objects].reverse().find(obj => obj.type === 'text' && hitTest(obj, coords.x, coords.y));
+            if (!existing) {
+                createText(coords);
             }
-            // Temporary draw
-            draw();
-            // Draw current object
-            // ... (simplified)
+        } else {
+            startDrawing(coords);
         }
-        
-        function up() {
-            isDrawing = false;
-            if (currentTool === 'pen' && newObj.points.length > 1) {
-                objects.push(newObj);
-            } else if (currentTool !== 'pen' && (Math.abs(newObj.ex - newObj.x) > 2 || Math.abs(newObj.ey - newObj.y) > 2)) {
-                objects.push(newObj);
-            }
-            draw();
-            document.removeEventListener('mousemove', move);
-            document.removeEventListener('mouseup', up);
-        }
-        
-        document.addEventListener('mousemove', move);
-        document.addEventListener('mouseup', up);
         return;
     }
     
     // Select tool
+    if (currentTool === 'select' && selectedObj) {
+        const handle = hitHandle(selectedObj, coords.x, coords.y);
+        if (handle) {
+            if (handle === 'rotate') {
+                // Rotation logic here
+            } else {
+                startObjectResize(selectedObj, handle, coords);
+            }
+            return;
+        }
+    }
+    
+    // Find clicked object
     const clicked = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
-    if (clicked) {
+    
+    if (clicked && currentTool === 'select') {
         selectedObj = clicked;
         isDragging = true;
-        dragStartX = coords.x - clicked.x;
-        dragStartY = coords.y - clicked.y;
+        dragStartX = coords.x;
+        dragStartY = coords.y;
+        dragStartObjX = clicked.x;
+        dragStartObjY = clicked.y;
+        
+        // Save state
+        if (clicked.type === 'pen') {
+            startResizeState = { x: clicked.x, y: clicked.y, points: clicked.points.map(p => ({...p})) };
+        } else if (clicked.type === 'line' || clicked.type === 'arrow' || clicked.type === 'rect') {
+            startResizeState = { x: clicked.x, y: clicked.y, ex: clicked.ex, ey: clicked.ey };
+        } else {
+            startResizeState = { x: clicked.x, y: clicked.y };
+        }
+        draw();
     } else {
         selectedObj = null;
+        draw();
+        if (currentTool === 'hand') {
+            isDragging = true;
+            dragStartX = coords.rawX;
+            dragStartY = coords.rawY;
+        }
     }
-    draw();
 });
 
 canvas.addEventListener('mousemove', (e) => {
     const coords = getCoords(e);
     
-    if (currentTool === 'select' && !isDragging && !currentEditor) {
-        const found = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
-        if (found !== hoveredObj) {
-            hoveredObj = found;
-            draw();
-        }
+    // Cursor
+    if (currentTool === 'select' && selectedObj && !isDragging) {
+        const handle = hitHandle(selectedObj, coords.x, coords.y);
+        if (handle === 'rotate') canvas.style.cursor = 'alias';
+        else if (handle) canvas.style.cursor = handle.includes('n') || handle.includes('s') ? 'ns-resize' : 
+            handle.includes('e') || handle.includes('w') ? 'ew-resize' : 'nwse-resize';
+        else canvas.style.cursor = 'default';
+    } else {
+        canvas.style.cursor = currentTool === 'hand' ? (isDragging ? 'grabbing' : 'grab') : 
+            currentTool === 'eraser' ? 'cell' : 'crosshair';
     }
     
+    if (!isDragging && !isDrawing) return;
+    
     if (isDragging && selectedObj) {
-        selectedObj.x = coords.x - dragStartX;
-        selectedObj.y = coords.y - dragStartY;
+        const dx = coords.x - dragStartX;
+        const dy = coords.y - dragStartY;
+        
+        if (selectedObj.type === 'line' || selectedObj.type === 'arrow' || selectedObj.type === 'rect') {
+            selectedObj.x = dragStartObjX + dx;
+            selectedObj.y = dragStartObjY + dy;
+            selectedObj.ex = startResizeState.ex + dx;
+            selectedObj.ey = startResizeState.ey + dy;
+        } else if (selectedObj.type === 'pen') {
+            selectedObj.x = startResizeState.x + dx;
+            selectedObj.y = startResizeState.y + dy;
+            selectedObj.points = startResizeState.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+        } else {
+            selectedObj.x = dragStartObjX + dx;
+            selectedObj.y = dragStartObjY + dy;
+        }
         draw();
+    } else if (isDragging && currentTool === 'hand') {
+        offsetX += coords.rawX - dragStartX;
+        offsetY += coords.rawY - dragStartY;
+        dragStartX = coords.rawX;
+        dragStartY = coords.rawY;
+        draw();
+    } else if (isDrawing && currentPath) {
+        if (currentPath.type === 'pen') {
+            currentPath.points.push({x: coords.x, y: coords.y});
+        } else {
+            currentPath.ex = coords.x;
+            currentPath.ey = coords.y;
+        }
+        draw();
+    }
+    
+    if (currentTool === 'eraser' && e.buttons === 1) {
+        eraseAt(coords.x, coords.y);
     }
 });
 
 canvas.addEventListener('mouseup', () => {
+    if (isDrawing && currentPath) {
+        if (currentPath.type === 'pen' && currentPath.points.length > 1) {
+            objects.push(currentPath);
+            socket.emit('new-object', currentPath);
+        } else if (currentPath.type !== 'pen' && (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2)) {
+            objects.push(currentPath);
+            socket.emit('new-object', currentPath);
+        }
+        isDrawing = false;
+        currentPath = null;
+        draw();
+    }
     if (isDragging) {
         isDragging = false;
         socket.emit('update-all', objects);
     }
 });
 
+// Drawing functions
+function startDrawing(coords) {
+    isDrawing = true;
+    const color = document.getElementById('colorPicker').value;
+    const width = parseInt(document.getElementById('lineWidth').value);
+    
+    currentPath = {
+        type: currentTool,
+        color: color,
+        width: width,
+        x: coords.x,
+        y: coords.y,
+        ex: coords.x,
+        ey: coords.y
+    };
+    
+    if (currentTool === 'pen') currentPath.points = [];
+}
+
+function createText(coords) {
+    const obj = {
+        type: 'text',
+        x: coords.x,
+        y: coords.y,
+        text: '',
+        rawText: '',
+        color: document.getElementById('colorPicker').value,
+        size: 20,
+        isBold: document.getElementById('boldText').checked
+    };
+    objects.push(obj);
+    selectedObj = obj;
+    socket.emit('new-object', obj);
+    draw();
+    startTextEdit(obj);
+}
+
+function startObjectResize(obj, handle, startCoords) {
+    isResizing = true;
+    resizeHandle = handle;
+    const startX = startCoords.x, startY = startCoords.y;
+    const initial = { ...obj };
+    if (obj.points) initial.points = obj.points.map(p => ({...p}));
+    
+    function onMove(e) {
+        if (!isResizing) return;
+        const coords = getCoords(e);
+        const dx = coords.x - startX;
+        const dy = coords.y - startY;
+        
+        if (obj.type === 'rect') {
+            let nx = initial.x, ny = initial.y, nex = initial.ex, ney = initial.ey;
+            if (handle.includes('e')) nex = initial.ex + dx;
+            if (handle.includes('w')) nx = initial.x + dx;
+            if (handle.includes('s')) ney = initial.ey + dy;
+            if (handle.includes('n')) ny = initial.y + dy;
+            
+            if (shiftKey) {
+                const w = nex - nx, h = ney - ny;
+                const r = (initial.ex - initial.x) / (initial.ey - initial.y);
+                if (Math.abs(w) > Math.abs(h) * r) ney = ny + w / r;
+                else nex = nx + h * r;
+            }
+            
+            obj.x = nx; obj.y = ny; obj.ex = nex; obj.ey = ney;
+        } else if (obj.type === 'line' || obj.type === 'arrow') {
+            if (handle === 'se' || handle === 'e') obj.ex = initial.ex + dx;
+            else if (handle === 's') obj.ey = initial.ey + dy;
+            else if (handle === 'w' || handle === 'sw') obj.x = initial.x + dx;
+            else if (handle === 'n' || handle === 'ne') obj.y = initial.y + dy;
+        } else if (obj.type === 'image') {
+            let nw = initial.w + (handle.includes('e') ? dx : handle.includes('w') ? -dx : 0);
+            let nh = initial.h + (handle.includes('s') ? dy : handle.includes('n') ? -dy : 0);
+            if (shiftKey) { const r = initial.w / initial.h; nh = nw / r; }
+            if (handle.includes('w')) obj.x = initial.x + (initial.w - nw);
+            if (handle.includes('n')) obj.y = initial.y + (initial.h - nh);
+            obj.w = Math.max(10, nw); obj.h = Math.max(10, nh);
+        }
+        draw();
+    }
+    
+    function onUp() {
+        isResizing = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        socket.emit('update-all', objects);
+    }
+    
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+// Eraser
+function eraseAt(mx, my) {
+    const radius = 15 / scale;
+    let changed = false;
+    
+    for (let i = objects.length - 1; i >= 0; i--) {
+        const obj = objects[i];
+        let remove = false;
+        
+        if (obj.type === 'pen') {
+            const pts = [{x: obj.x, y: obj.y}, ...obj.points];
+            const kept = pts.filter(p => Math.hypot(p.x - mx, p.y - my) > radius);
+            if (kept.length < 2) remove = true;
+            else if (kept.length < pts.length) {
+                obj.x = kept[0].x; obj.y = kept[0].y;
+                obj.points = kept.slice(1);
+                changed = true;
+            }
+        } else if (obj.type === 'line' || obj.type === 'arrow') {
+            if (distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < radius) remove = true;
+        } else if (obj.type === 'rect') {
+            const bbox = getBBox(obj);
+            const onEdge = (Math.abs(mx - bbox.x) < radius || Math.abs(mx - (bbox.x + bbox.w)) < radius) && 
+                          my >= bbox.y && my <= bbox.y + bbox.h ||
+                          (Math.abs(my - bbox.y) < radius || Math.abs(my - (bbox.y + bbox.h)) < radius) && 
+                          mx >= bbox.x && mx <= bbox.x + bbox.w;
+            if (onEdge) remove = true;
+        } else {
+            if (hitTest(obj, mx, my)) remove = true;
+        }
+        
+        if (remove) {
+            objects.splice(i, 1);
+            changed = true;
+            if (selectedObj === obj) selectedObj = null;
+        }
+    }
+    
+    if (changed) {
+        socket.emit('update-all', objects);
+        draw();
+    }
+}
+
 // Tool switching
 function setTool(tool) {
     currentTool = tool;
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
+    
+    if (tool !== 'select' && selectedObj) {
+        selectedObj = null;
+        draw();
+    }
+    
+    // Update cursors
+    canvas.style.cursor = tool === 'select' ? 'default' : 
+        tool === 'hand' ? 'grab' : 
+        tool === 'eraser' ? 'cell' : 'crosshair';
 }
 
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
     btn.addEventListener('click', () => setTool(btn.dataset.tool));
 });
 
-// Clear
+// Clear board
 function clearBoard() {
     if (confirm('Очистити дошку?')) {
         objects = [];
         selectedObj = null;
-        if (currentEditor) closeFormulaEditor();
+        if (textEditor) stopTextEdit();
         socket.emit('delete-board');
         draw();
     }
@@ -943,15 +1072,56 @@ window.addEventListener('wheel', (e) => {
     offsetY = e.clientY - my * scale;
     
     document.getElementById('zoom-display').textContent = `${Math.round(scale * 100)}%`;
+    
+    if (textEditor && editingObject) {
+        const bbox = getBBox(editingObject);
+        textEditor.style.left = (bbox.x * scale + offsetX - 2) + 'px';
+        textEditor.style.top = (bbox.y * scale + offsetY - 2) + 'px';
+    }
     draw();
 }, { passive: false });
 
-// Socket
-socket.on('init-history', (h) => { objects = h || []; draw(); });
+// Paste images
+window.addEventListener('paste', (e) => {
+    if (textEditor) return;
+    const items = e.clipboardData.items;
+    for (let item of items) {
+        if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const centerX = (canvas.width/2 - offsetX) / scale;
+                    const centerY = (canvas.height/2 - offsetY) / scale;
+                    const obj = {
+                        type: 'image',
+                        src: img.src,
+                        x: centerX - img.width/4,
+                        y: centerY - img.height/4,
+                        w: img.width/2,
+                        h: img.height/2,
+                        _img: img
+                    };
+                    objects.push(obj);
+                    selectedObj = obj;
+                    socket.emit('new-object', obj);
+                    draw();
+                };
+            };
+            reader.readAsDataURL(blob);
+        }
+    }
+});
+
+// Socket events
+socket.on('init-history', (h) => { objects = h; draw(); });
 socket.on('new-object', (o) => { objects.push(o); draw(); });
-socket.on('update-all', (newObjects) => { objects = newObjects || []; draw(); });
+socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
 socket.on('board-deleted', () => { objects = []; selectedObj = null; draw(); });
 
+// Initial draw
 draw();
 </script>
 </body>
