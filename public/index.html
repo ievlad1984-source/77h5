@@ -42,11 +42,6 @@
         .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
         
         canvas { display: block; touch-action: none; cursor: crosshair; }
-        
-        /* Стиль для математичних символів у тексті */
-        .math-text {
-            font-family: 'Cambria Math', 'Times New Roman', serif;
-        }
     </style>
 </head>
 <body>
@@ -63,7 +58,7 @@
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
     <label title="Жирний текст"><input type="checkbox" id="boldText"> <b>B</b></label>
-    <label title="Математичний режим (x^2→x²)"><input type="checkbox" id="mathMode" checked> 𝑥²</label>
+    <label title="Автозаміна формул (x^2→x²)"><input type="checkbox" id="mathMode" checked> 𝑥² авто</label>
     <input type="color" id="colorPicker" value="#212529" title="Колір">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
@@ -99,7 +94,7 @@ const superscripts = {
     '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾', 'n': 'ⁿ'
 };
 
-// Карта нижніх індексів (додатково)
+// Карта нижніх індексів Unicode
 const subscripts = {
     '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
     '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
@@ -110,54 +105,99 @@ const subscripts = {
     '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎'
 };
 
-// Функція конвертації математичних виразів
-function convertMathNotation(text) {
-    if (!document.getElementById('mathMode')?.checked) return text;
+// Функція автозаміни математичних виразів в реальному часі
+function autoConvertMath(div) {
+    if (!document.getElementById('mathMode')?.checked) return;
     
-    let result = text;
+    // Отримуємо поточну позицію курсора
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    const cursorPos = range.startOffset;
+    const text = div.innerText;
     
-    // Заміна x^2, x^3, x^10 → x², x³, x¹⁰
-    // Шаблон: (буква/цифра)(пробіл)^пробіл)(цифри/букви)
-    result = result.replace(/([a-zA-Z0-9])\s*\^\s*([0-9a-zA-Z\+\-\=\(\)]+)/g, (match, base, exp) => {
-        let converted = '';
-        for (let char of exp) {
-            converted += superscripts[char] || char;
+    let newText = text;
+    let cursorOffset = 0; // На скільки зміщується курсор після заміни
+    
+    // 1. Заміна одиночних цифр: x^2 → x² (тільки якщо після цифри не йде ще цифра)
+    newText = newText.replace(/([a-zA-Z0-9])\^([0-9])(?![0-9])/g, (match, base, digit, position) => {
+        const sup = superscripts[digit];
+        if (sup) {
+            // Якщо заміна відбулася до курсора, коригуємо позицію (-1 бо прибрали ^)
+            if (position < cursorPos) cursorOffset -= 1;
+            return base + sup;
         }
+        return match;
+    });
+    
+    // 2. Заміна нижніх індексів: x_2 → x₂
+    newText = newText.replace(/([a-zA-Z0-9])_([0-9])(?![0-9])/g, (match, base, digit, position) => {
+        const sub = subscripts[digit];
+        if (sub) {
+            if (position < cursorPos) cursorOffset -= 1;
+            return base + sub;
+        }
+        return match;
+    });
+    
+    // 3. Заміна дужкових виразів: x^(10) → x¹⁰, x_(max) → xₘₐₓ
+    newText = newText.replace(/([a-zA-Z0-9])\^\(([^)]+)\)/g, (match, base, exp, position) => {
+        const converted = exp.split('').map(c => superscripts[c] || c).join('');
+        if (position < cursorPos) cursorOffset -= (2 + exp.length - converted.length); // -2 для ^( і -... для різниці довжини
         return base + converted;
     });
     
-    // Заміна x_2 → x₂ (нижні індекси)
-    result = result.replace(/([a-zA-Z0-9])\s*_\s*([0-9a-zA-Z\+\-\=\(\)]+)/g, (match, base, sub) => {
-        let converted = '';
-        for (let char of sub) {
-            converted += subscripts[char] || char;
-        }
+    newText = newText.replace(/([a-zA-Z0-9])_\(([^)]+)\)/g, (match, base, sub, position) => {
+        const converted = sub.split('').map(c => subscripts[c] || c).join('');
+        if (position < cursorPos) cursorOffset -= (2 + sub.length - converted.length);
         return base + converted;
     });
     
-    // Спеціальні математичні скорочення
-    result = result
-        .replace(/\bsqrt\(([^)]+)\)/gi, '√($1)')
-        .replace(/\bsqrt\b/gi, '√')
-        .replace(/\binf\b/gi, '∞')
-        .replace(/\bpi\b/gi, 'π')
-        .replace(/\balpha\b/gi, 'α')
-        .replace(/\bbeta\b/gi, 'β')
-        .replace(/\bgamma\b/gi, 'γ')
-        .replace(/\bdelta\b/gi, 'δ')
-        .replace(/\bsum\b/gi, '∑')
-        .replace(/\bint\b/gi, '∫')
-        .replace(/\bpm\b/gi, '±')
-        .replace(/\bleq\b/gi, '≤')
-        .replace(/\bgeq\b/gi, '≥')
-        .replace(/\bneq\b/gi, '≠')
-        .replace(/\bapprox\b/gi, '≈')
-        .replace(/\binfty\b/gi, '∞');
+    // 4. Спеціальні символи
+    const specials = [
+        {regex: /\bsqrt\b/g, char: '√'},
+        {regex: /\bpi\b/g, char: 'π'},
+        {regex: /\binf\b/g, char: '∞'},
+        {regex: /\balpha\b/g, char: 'α'},
+        {regex: /\bbeta\b/g, char: 'β'},
+        {regex: /\bgamma\b/g, char: 'γ'},
+        {regex: /\bdelta\b/g, char: 'δ'},
+        {regex: /\bsum\b/g, char: '∑'},
+        {regex: /\bpm\b/g, char: '±'},
+        {regex: /\bdeg\b/g, char: '°'}
+    ];
     
-    return result;
+    specials.forEach(({regex, char}) => {
+        newText = newText.replace(regex, (match, position) => {
+            if (position < cursorPos) cursorOffset -= (match.length - 1);
+            return char;
+        });
+    });
+    
+    // Якщо текст змінився - оновлюємо і коригуємо курсор
+    if (newText !== text) {
+        div.innerText = newText;
+        
+        // Відновлюємо позицію курсора
+        const newRange = document.createRange();
+        const textNode = div.firstChild;
+        if (textNode) {
+            const newPos = Math.max(0, Math.min(cursorPos + cursorOffset, textNode.length));
+            try {
+                newRange.setStart(textNode, newPos);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            } catch(e) {
+                // Якщо помилка позиції - ставимо в кінець
+                newRange.selectNodeContents(div);
+                newRange.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            }
+        }
+    }
 }
 
-// Налаштування канвасу під розмір вікна
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -166,7 +206,6 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Малювання математичної сітки
 function drawGrid() {
     const size = 50 * scale;
     ctx.beginPath();
@@ -181,22 +220,16 @@ function drawGrid() {
     }
     ctx.stroke();
 
-    // Осі координат
     ctx.beginPath();
     ctx.strokeStyle = '#ddd';
     ctx.lineWidth = 2;
-    const centerX = offsetX;
-    const centerY = offsetY;
-    
-    // Горизонтальна вісь
-    if (centerY >= 0 && centerY <= canvas.height) {
-        ctx.moveTo(0, centerY);
-        ctx.lineTo(canvas.width, centerY);
+    if (offsetY >= 0 && offsetY <= canvas.height) {
+        ctx.moveTo(0, offsetY);
+        ctx.lineTo(canvas.width, offsetY);
     }
-    // Вертикальна вісь
-    if (centerX >= 0 && centerX <= canvas.width) {
-        ctx.moveTo(centerX, 0);
-        ctx.lineTo(centerX, canvas.height);
+    if (offsetX >= 0 && offsetX <= canvas.width) {
+        ctx.moveTo(offsetX, 0);
+        ctx.lineTo(offsetX, canvas.height);
     }
     ctx.stroke();
 }
@@ -249,20 +282,11 @@ function draw() {
         } else if (obj.type === 'rect') {
             ctx.strokeRect(sX, sY, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
         } else if (obj.type === 'text') {
-            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', Arial, sans-serif`;
-            // Використовуємо шрифт з підтримкою математичних символів
-            if (obj.isMath) {
-                ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Cambria Math', 'Times New Roman', serif`;
-            }
-            
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', 'Cambria Math', sans-serif`;
             const lines = obj.text.split('\n');
             lines.forEach((line, i) => ctx.fillText(line, sX, sY + (i * obj.size * scale * 1.2)));
         } else if (obj.type === 'image') {
-            if (!obj._img) { 
-                obj._img = new Image(); 
-                obj._img.src = obj.src; 
-                obj._img.onload = draw; 
-            }
+            if (!obj._img) { obj._img = new Image(); obj._img.src = obj.src; obj._img.onload = draw; }
             if (obj._img.complete) ctx.drawImage(obj._img, sX, sY, obj.w * scale, obj.h * scale);
         }
     });
@@ -280,7 +304,6 @@ function getCoords(e) {
     };
 }
 
-// Масштабування колесом
 window.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -292,7 +315,6 @@ window.addEventListener('wheel', (e) => {
     draw();
 }, { passive: false });
 
-// Вставка зображень
 window.addEventListener('paste', (e) => {
     const items = e.clipboardData.items;
     for (let item of items) {
@@ -317,7 +339,7 @@ window.addEventListener('paste', (e) => {
     }
 });
 
-// Створення текстового блоку з підтримкою формул
+// Створення текстового блоку з автозаміною
 function createText(e) {
     const coords = getCoords(e);
     const div = document.createElement('div');
@@ -329,31 +351,33 @@ function createText(e) {
     div.style.color = document.getElementById('colorPicker').value;
     if(document.getElementById('boldText').checked) div.style.fontWeight = 'bold';
     
-    // Показуємо підказку про формули
+    // Підказка
     if (document.getElementById('mathMode')?.checked) {
-        div.setAttribute('placeholder', 'Наприклад: x^2, E=mc^2, H_2O...');
+        div.setAttribute('placeholder', 'x^2, E=mc^2, H_2O...');
         div.style.minWidth = '150px';
     }
     
     document.body.appendChild(div);
     setTimeout(() => div.focus(), 50);
 
+    // ОБРОБНИК АВТОЗАМІНИ - спрацьовує при кожному вводі символу
+    div.addEventListener('input', (e) => {
+        // Запобігаємо рекурсії (якщо ми самі змінюємо текст)
+        if (e.isTrusted === false) return;
+        
+        autoConvertMath(div);
+    });
+
     div.onblur = () => {
         if (div.innerText.trim()) {
-            const rawText = div.innerText;
-            // Конвертуємо математичні позначення
-            const convertedText = convertMathNotation(rawText);
-            
             const obj = { 
                 type: 'text', 
                 x: coords.x, 
                 y: coords.y, 
-                text: convertedText, 
-                rawText: rawText, // Зберігаємо оригінал для редагування
+                text: div.innerText, // Текст вже сконвертований
                 color: div.style.color, 
                 size: 20, 
-                isBold: document.getElementById('boldText').checked,
-                isMath: document.getElementById('mathMode')?.checked || false
+                isBold: document.getElementById('boldText').checked
             };
             objects.push(obj); 
             socket.emit('new-object', obj);
@@ -362,11 +386,9 @@ function createText(e) {
         draw();
     };
     
-    // Дозволяємо Enter для нового рядка, Escape для відміни
     div.onkeydown = (e) => {
         if (e.key === 'Escape') {
             div.blur();
-            document.body.removeChild(div);
         }
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -375,7 +397,6 @@ function createText(e) {
     };
 }
 
-// Обробка миші та тачу
 const startDrawing = (e) => {
     const coords = getCoords(e);
     isDrawing = true;
@@ -462,7 +483,6 @@ canvas.addEventListener('touchend', endDrawing);
 window.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 'z') { 
         e.preventDefault(); 
-        // Проста реалізація undo
         if (objects.length > 0) {
             objects.pop();
             socket.emit('update-all', objects);
@@ -499,7 +519,7 @@ document.getElementById('clearBtn').onclick = () => {
 
 socket.on('init-history', (h) => { objects = h; draw(); });
 socket.on('new-object', (o) => { objects.push(o); draw(); });
-socket.on('update-all', (newObjects) => { objects = objects = newObjects; draw(); });
+socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
 socket.on('board-deleted', () => { objects = []; draw(); });
 
 </script>
