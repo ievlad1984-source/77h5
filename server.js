@@ -1,47 +1,63 @@
 const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http, { cors: { origin: "*" } });
+const http = require('http');
+const { Server } = require('socket.io');
 const path = require('path');
 
-const PORT = process.env.PORT || 3000;
-const boardsData = {}; 
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/:boardId', (req, res) => {
-    if (req.params.boardId.includes('.')) return res.status(404).send('Not found');
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '11.html'));
 });
+
+const boards = new Map();
 
 io.on('connection', (socket) => {
-    const boardId = socket.handshake.query.boardId || 'main';
-    socket.join(boardId);
-
-    if (!boardsData[boardId]) boardsData[boardId] = [];
-    socket.emit('init-history', boardsData[boardId]);
-
+    console.log('Користувач підключився:', socket.id);
+    
+    socket.on('join-board', (boardId) => {
+        socket.join(boardId);
+        console.log(`Користувач ${socket.id} приєднався до дошки ${boardId}`);
+        
+        if (!boards.has(boardId)) {
+            boards.set(boardId, []);
+        }
+        
+        socket.emit('init-history', boards.get(boardId));
+    });
+    
     socket.on('new-object', (obj) => {
-        boardsData[boardId].push(obj);
-        socket.to(boardId).emit('new-object', obj);
-    });
-
-    socket.on('update-all', (data) => {
-        boardsData[boardId] = data;
-        socket.to(boardId).emit('init-history', data);
-    });
-
-    socket.on('undo', () => {
-        if (boardsData[boardId]?.length > 0) {
-            boardsData[boardId].pop();
-            io.in(boardId).emit('init-history', boardsData[boardId]);
+        const boardId = socket.handshake.query.boardId || 'default';
+        if (boards.has(boardId)) {
+            boards.get(boardId).push(obj);
+            socket.to(boardId).emit('new-object', obj);
         }
     });
-
+    
+    socket.on('update-all', (objects) => {
+        const boardId = socket.handshake.query.boardId || 'default';
+        if (boards.has(boardId)) {
+            boards.set(boardId, objects);
+            socket.to(boardId).emit('update-all', objects);
+        }
+    });
+    
     socket.on('delete-board', () => {
-        boardsData[boardId] = [];
-        io.in(boardId).emit('board-deleted');
+        const boardId = socket.handshake.query.boardId || 'default';
+        boards.set(boardId, []);
+        io.to(boardId).emit('board-deleted');
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Користувач відключився:', socket.id);
     });
 });
-http.listen(PORT, () => console.log(`Сервер запущен: порт ${PORT}`));
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🚀 Сервер запущено на http://localhost:${PORT}`);
+    console.log(`📝 Відкрийте цю адресу в кількох вкладках для тестування`);
+});
