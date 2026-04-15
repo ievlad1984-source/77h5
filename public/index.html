@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Математична Дошка Pro</title>
-    <!-- Підключаємо Socket.io (серверна частина має підтримувати ці події) -->
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; }
@@ -34,6 +33,7 @@
             position: absolute; min-width: 50px; outline: none; background: white;
             white-space: pre-wrap; word-wrap: break-word; padding: 5px; line-height: 1.2; 
             z-index: 1000; border: 2px solid #007bff; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }
@@ -42,6 +42,11 @@
         .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
         
         canvas { display: block; touch-action: none; cursor: crosshair; }
+        
+        /* Стиль для математичних символів у тексті */
+        .math-text {
+            font-family: 'Cambria Math', 'Times New Roman', serif;
+        }
     </style>
 </head>
 <body>
@@ -58,6 +63,7 @@
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
     <label title="Жирний текст"><input type="checkbox" id="boldText"> <b>B</b></label>
+    <label title="Математичний режим (x^2→x²)"><input type="checkbox" id="mathMode" checked> 𝑥²</label>
     <input type="color" id="colorPicker" value="#212529" title="Колір">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
@@ -78,6 +84,79 @@ let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'pen', isDrawing = false, currentObj = null;
 let selectedObj = null, dragStartX, dragStartY;
 
+// Карта верхніх індексів Unicode
+const superscripts = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ',
+    'g': 'ᵍ', 'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'l': 'ˡ',
+    'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ', 'p': 'ᵖ', 'r': 'ʳ', 's': 'ˢ',
+    't': 'ᵗ', 'u': 'ᵘ', 'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ',
+    'A': 'ᴬ', 'B': 'ᴮ', 'C': 'ᶜ', 'D': 'ᴰ', 'E': 'ᴱ', 'F': 'ᶠ',
+    'G': 'ᴳ', 'H': 'ᴴ', 'I': 'ᴵ', 'J': 'ᴶ', 'K': 'ᴷ', 'L': 'ᴸ',
+    'M': 'ᴹ', 'N': 'ᴺ', 'O': 'ᴼ', 'P': 'ᴾ', 'R': 'ᴿ', 'T': 'ᵀ',
+    'U': 'ᵁ', 'V': 'ⱽ', 'W': 'ᵂ', 'X': 'ˣ', 'Y': 'ʸ', 'Z': 'ᶻ',
+    '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾', 'n': 'ⁿ'
+};
+
+// Карта нижніх індексів (додатково)
+const subscripts = {
+    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+    'a': 'ₐ', 'e': 'ₑ', 'h': 'ₕ', 'i': 'ᵢ', 'j': 'ⱼ', 
+    'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'o': 'ₒ', 
+    'p': 'ₚ', 'r': 'ᵣ', 's': 'ₛ', 't': 'ₜ', 'u': 'ᵤ', 
+    'v': 'ᵥ', 'x': 'ₓ', 'y': 'ᵧ', 'z': '₂',
+    '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎'
+};
+
+// Функція конвертації математичних виразів
+function convertMathNotation(text) {
+    if (!document.getElementById('mathMode')?.checked) return text;
+    
+    let result = text;
+    
+    // Заміна x^2, x^3, x^10 → x², x³, x¹⁰
+    // Шаблон: (буква/цифра)(пробіл)^пробіл)(цифри/букви)
+    result = result.replace(/([a-zA-Z0-9])\s*\^\s*([0-9a-zA-Z\+\-\=\(\)]+)/g, (match, base, exp) => {
+        let converted = '';
+        for (let char of exp) {
+            converted += superscripts[char] || char;
+        }
+        return base + converted;
+    });
+    
+    // Заміна x_2 → x₂ (нижні індекси)
+    result = result.replace(/([a-zA-Z0-9])\s*_\s*([0-9a-zA-Z\+\-\=\(\)]+)/g, (match, base, sub) => {
+        let converted = '';
+        for (let char of sub) {
+            converted += subscripts[char] || char;
+        }
+        return base + converted;
+    });
+    
+    // Спеціальні математичні скорочення
+    result = result
+        .replace(/\bsqrt\(([^)]+)\)/gi, '√($1)')
+        .replace(/\bsqrt\b/gi, '√')
+        .replace(/\binf\b/gi, '∞')
+        .replace(/\bpi\b/gi, 'π')
+        .replace(/\balpha\b/gi, 'α')
+        .replace(/\bbeta\b/gi, 'β')
+        .replace(/\bgamma\b/gi, 'γ')
+        .replace(/\bdelta\b/gi, 'δ')
+        .replace(/\bsum\b/gi, '∑')
+        .replace(/\bint\b/gi, '∫')
+        .replace(/\bpm\b/gi, '±')
+        .replace(/\bleq\b/gi, '≤')
+        .replace(/\bgeq\b/gi, '≥')
+        .replace(/\bneq\b/gi, '≠')
+        .replace(/\bapprox\b/gi, '≈')
+        .replace(/\binfty\b/gi, '∞');
+    
+    return result;
+}
+
 // Налаштування канвасу під розмір вікна
 function resize() {
     canvas.width = window.innerWidth;
@@ -94,28 +173,38 @@ function drawGrid() {
     ctx.strokeStyle = '#eef0f2';
     ctx.lineWidth = 1;
     
-    // Вертикальні лінії
     for (let x = offsetX % size; x < canvas.width; x += size) {
         ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
     }
-    // Горизонтальні лінії
     for (let y = offsetY % size; y < canvas.height; y += size) {
         ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
     }
     ctx.stroke();
 
-    // Головні осі (опціонально, можна вивести через центр)
+    // Осі координат
     ctx.beginPath();
     ctx.strokeStyle = '#ddd';
     ctx.lineWidth = 2;
-    // Наприклад, візуальний "центр" координат
+    const centerX = offsetX;
+    const centerY = offsetY;
+    
+    // Горизонтальна вісь
+    if (centerY >= 0 && centerY <= canvas.height) {
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(canvas.width, centerY);
+    }
+    // Вертикальна вісь
+    if (centerX >= 0 && centerX <= canvas.width) {
+        ctx.moveTo(centerX, 0);
+        ctx.lineTo(centerX, canvas.height);
+    }
+    ctx.stroke();
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid();
 
-    // Малюємо всі об'єкти + той, що малюється зараз
     const allToDraw = currentObj ? [...objects, currentObj] : objects;
 
     allToDraw.forEach(obj => {
@@ -123,7 +212,6 @@ function draw() {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Підсвітка вибраного об'єкта
         if (obj === selectedObj) {
             ctx.strokeStyle = '#007bff';
             ctx.shadowBlur = 10;
@@ -161,18 +249,26 @@ function draw() {
         } else if (obj.type === 'rect') {
             ctx.strokeRect(sX, sY, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
         } else if (obj.type === 'text') {
-            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px Arial`;
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', Arial, sans-serif`;
+            // Використовуємо шрифт з підтримкою математичних символів
+            if (obj.isMath) {
+                ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Cambria Math', 'Times New Roman', serif`;
+            }
+            
             const lines = obj.text.split('\n');
             lines.forEach((line, i) => ctx.fillText(line, sX, sY + (i * obj.size * scale * 1.2)));
         } else if (obj.type === 'image') {
-            if (!obj._img) { obj._img = new Image(); obj._img.src = obj.src; obj._img.onload = draw; }
+            if (!obj._img) { 
+                obj._img = new Image(); 
+                obj._img.src = obj.src; 
+                obj._img.onload = draw; 
+            }
             if (obj._img.complete) ctx.drawImage(obj._img, sX, sY, obj.w * scale, obj.h * scale);
         }
     });
-    ctx.shadowBlur = 0; // Скидання тіні
+    ctx.shadowBlur = 0;
 }
 
-// Переклад екранних координат у координати дошки
 function getCoords(e) {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -196,7 +292,7 @@ window.addEventListener('wheel', (e) => {
     draw();
 }, { passive: false });
 
-// Вставка зображень (Ctrl+V)
+// Вставка зображень
 window.addEventListener('paste', (e) => {
     const items = e.clipboardData.items;
     for (let item of items) {
@@ -221,7 +317,7 @@ window.addEventListener('paste', (e) => {
     }
 });
 
-// Створення текстового блоку
+// Створення текстового блоку з підтримкою формул
 function createText(e) {
     const coords = getCoords(e);
     const div = document.createElement('div');
@@ -233,19 +329,49 @@ function createText(e) {
     div.style.color = document.getElementById('colorPicker').value;
     if(document.getElementById('boldText').checked) div.style.fontWeight = 'bold';
     
+    // Показуємо підказку про формули
+    if (document.getElementById('mathMode')?.checked) {
+        div.setAttribute('placeholder', 'Наприклад: x^2, E=mc^2, H_2O...');
+        div.style.minWidth = '150px';
+    }
+    
     document.body.appendChild(div);
     setTimeout(() => div.focus(), 50);
 
     div.onblur = () => {
         if (div.innerText.trim()) {
+            const rawText = div.innerText;
+            // Конвертуємо математичні позначення
+            const convertedText = convertMathNotation(rawText);
+            
             const obj = { 
-                type: 'text', x: coords.x, y: coords.y, 
-                text: div.innerText, color: div.style.color, 
-                size: 20, isBold: document.getElementById('boldText').checked 
+                type: 'text', 
+                x: coords.x, 
+                y: coords.y, 
+                text: convertedText, 
+                rawText: rawText, // Зберігаємо оригінал для редагування
+                color: div.style.color, 
+                size: 20, 
+                isBold: document.getElementById('boldText').checked,
+                isMath: document.getElementById('mathMode')?.checked || false
             };
-            objects.push(obj); socket.emit('new-object', obj);
+            objects.push(obj); 
+            socket.emit('new-object', obj);
         }
-        document.body.removeChild(div); draw();
+        document.body.removeChild(div); 
+        draw();
+    };
+    
+    // Дозволяємо Enter для нового рядка, Escape для відміни
+    div.onkeydown = (e) => {
+        if (e.key === 'Escape') {
+            div.blur();
+            document.body.removeChild(div);
+        }
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            div.blur();
+        }
     };
 }
 
@@ -257,10 +383,9 @@ const startDrawing = (e) => {
     if (currentTool === 'text') { createText(e); isDrawing = false; return; }
     
     if (currentTool === 'eraser') {
-        // Логіка видалення об'єкта (collision detection)
         objects = objects.filter(obj => {
             const dist = Math.hypot(obj.x - coords.x, obj.y - coords.y);
-            return dist > 20/scale; // Радіус видалення
+            return dist > 20/scale;
         });
         socket.emit('update-all', objects);
         isDrawing = false; draw(); return;
@@ -315,7 +440,6 @@ const moveDrawing = (e) => {
 
 const endDrawing = () => {
     if (isDrawing && currentObj) {
-        // Не зберігаємо пусті кліки для олівця
         if (currentObj.type === 'pen' && currentObj.points.length < 2) {
             currentObj = null;
         } else {
@@ -327,19 +451,24 @@ const endDrawing = () => {
     isDrawing = false; currentObj = null; draw();
 };
 
-// Listeners для миші
 canvas.addEventListener('mousedown', startDrawing);
 window.addEventListener('mousemove', moveDrawing);
 window.addEventListener('mouseup', endDrawing);
 
-// Listeners для тачскрінів
 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); }, {passive: false});
 canvas.addEventListener('touchmove', (e) => { e.preventDefault(); moveDrawing(e); }, {passive: false});
 canvas.addEventListener('touchend', endDrawing);
 
-// Гарячі клавіші
 window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); socket.emit('undo'); }
+    if (e.ctrlKey && e.key === 'z') { 
+        e.preventDefault(); 
+        // Проста реалізація undo
+        if (objects.length > 0) {
+            objects.pop();
+            socket.emit('update-all', objects);
+            draw();
+        }
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedObj) {
             objects = objects.filter(o => o !== selectedObj);
@@ -350,7 +479,6 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// Кнопки панелі
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
     btn.onclick = () => {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
@@ -369,10 +497,9 @@ document.getElementById('clearBtn').onclick = () => {
     if(confirm("Очистити дошку для всіх учасників?")) socket.emit('delete-board'); 
 };
 
-// Події Socket.io
 socket.on('init-history', (h) => { objects = h; draw(); });
 socket.on('new-object', (o) => { objects.push(o); draw(); });
-socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
+socket.on('update-all', (newObjects) => { objects = objects = newObjects; draw(); });
 socket.on('board-deleted', () => { objects = []; draw(); });
 
 </script>
