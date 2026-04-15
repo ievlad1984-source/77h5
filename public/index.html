@@ -6,7 +6,7 @@
     <title>Математична Дошка Pro (iDroo Style)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
         
         #toolbar {
             position: absolute; top: 15px; left: 15px; background: white; padding: 8px;
@@ -41,7 +41,7 @@
             width: 100%;
             height: 100%;
             outline: none;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             border: none;
             border-radius: 4px;
             padding: 6px;
@@ -105,7 +105,7 @@
         input[type="range"] { cursor: pointer; }
         .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
         
-        canvas { display: block; touch-action: none; }
+        canvas { display: block; touch-action: none; background: #ffffff; }
         
         .cursor-default { cursor: default !important; }
         .cursor-move { cursor: move !important; }
@@ -154,7 +154,7 @@ let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'select';
 let selectedObj = null;
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
-let isDrawing = false, currentPath = null; // Для малювання
+let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
 let shiftKey = false;
@@ -216,7 +216,6 @@ function getBBox(obj) {
     return { x: obj.x, y: obj.y, w: 0, h: 0 };
 }
 
-// Чи точка всередині bbox (з невеликим відступом)
 function hitTest(obj, mx, my, padding = 0) {
     const bbox = getBBox(obj);
     if (!bbox) return false;
@@ -224,7 +223,6 @@ function hitTest(obj, mx, my, padding = 0) {
            my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
 }
 
-// Чи точка на хендлі
 function hitHandle(obj, mx, my) {
     if (!obj) return null;
     const bbox = getBBox(obj);
@@ -250,7 +248,6 @@ function hitHandle(obj, mx, my) {
     return null;
 }
 
-// Відстань від точки до відрізка (для ластика)
 function distToSegment(px, py, x1, y1, x2, y2) {
     const A = px - x1;
     const B = py - y1;
@@ -285,13 +282,46 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// === СІТКА ЯК НА iDROO (мілліметровий папір) ===
 function drawGrid() {
-    const size = 50 * scale;
+    // Дрібна сітка: крок 20px, дуже світла
+    const smallStep = 20 * scale;
+    const largeStep = 100 * scale; // Кожні 5 дрібних
+    
+    // Малюємо дрібну сітку
     ctx.beginPath();
-    ctx.strokeStyle = '#eef0f2';
+    ctx.strokeStyle = '#e0e0e0'; // Світло-сірий
+    ctx.lineWidth = 0.5;
+    
+    let startX = offsetX % smallStep;
+    let startY = offsetY % smallStep;
+    
+    for (let x = startX; x < canvas.width; x += smallStep) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+    }
+    for (let y = startY; y < canvas.height; y += smallStep) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+    }
+    ctx.stroke();
+    
+    // Малюємо основну сітку (кожні 100px) - темніше
+    ctx.beginPath();
+    ctx.strokeStyle = '#bdbdbd'; // Темніший сірий
     ctx.lineWidth = 1;
-    for (let x = offsetX % size; x < canvas.width; x += size) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
-    for (let y = offsetY % size; y < canvas.height; y += size) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
+    
+    startX = offsetX % largeStep;
+    startY = offsetY % largeStep;
+    
+    for (let x = startX; x < canvas.width; x += largeStep) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+    }
+    for (let y = startY; y < canvas.height; y += largeStep) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+    }
     ctx.stroke();
 }
 
@@ -303,7 +333,7 @@ function drawSelection(obj) {
     const sw = bbox.w * scale;
     const sh = bbox.h * scale;
     
-    if (sw < 5 || sh < 5) return; // Не малюємо для дуже маленьких
+    if (sw < 5 || sh < 5) return;
     
     ctx.save();
     ctx.setLineDash([5, 5]);
@@ -312,7 +342,6 @@ function drawSelection(obj) {
     ctx.strokeRect(sx, sy, sw, sh);
     ctx.restore();
     
-    // Маленькі квадратики 6px
     const handleSize = 6;
     const handles = [
         { x: sx, y: sy }, { x: sx + sw/2, y: sy }, { x: sx + sw, y: sy },
@@ -328,7 +357,6 @@ function drawSelection(obj) {
         ctx.strokeRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
     });
     
-    // Синя точка
     ctx.fillStyle = '#2196F3';
     ctx.beginPath();
     ctx.arc(sx + sw/2, sy - 12, 4, 0, Math.PI * 2);
@@ -347,7 +375,10 @@ function drawSelection(obj) {
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Білий фон
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     drawGrid();
     
     objects.forEach(obj => drawObject(obj));
@@ -427,7 +458,6 @@ function getCoords(e) {
     };
 }
 
-// === РЕДАГУВАННЯ ТЕКСТУ ===
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -596,7 +626,6 @@ function startTextResize(obj, handle, e) {
         const dx = (c.x - dragStartX);
         const dy = (c.y - dragStartY);
         
-        // Логіка resize як у iDroo
         if (handle === 'se' || handle === 's' || handle === 'e') {
             const factor = Math.max(0.5, 1 + (handle === 'se' ? (dx + dy) / 200 : handle === 's' ? dy / 100 : dx / 100));
             obj.size = Math.max(10, Math.min(200, startResizeState.size * factor));
@@ -650,14 +679,11 @@ function startTextDrag(obj, e) {
     document.addEventListener('mouseup', onUp);
 }
 
-// === ГОЛОВНІ ІНТЕРАКЦІЇ ===
-
 canvas.addEventListener('mousedown', (e) => {
     if (textEditor) { stopTextEdit(); return; }
     
     const coords = getCoords(e);
     
-    // Якщо НЕ select і НЕ hand - одразу починаємо малювати (навіть всередині прямокутника!)
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') {
             eraseAt(coords.x, coords.y);
@@ -669,7 +695,6 @@ canvas.addEventListener('mousedown', (e) => {
         return;
     }
     
-    // Тільки для select tool перевіряємо handles
     if (currentTool === 'select' && selectedObj) {
         const handle = hitHandle(selectedObj, coords.x, coords.y);
         if (handle) {
@@ -679,7 +704,6 @@ canvas.addEventListener('mousedown', (e) => {
         }
     }
     
-    // Шукаємо об'єкт під курсором (для select)
     const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
     
     if (clickedObj && currentTool === 'select') {
@@ -690,7 +714,6 @@ canvas.addEventListener('mousedown', (e) => {
         dragStartObjX = clickedObj.x;
         dragStartObjY = clickedObj.y;
         
-        // Зберігаємо відносні зміщення для всіх точок
         if (clickedObj.type === 'pen') {
             startResizeState = {
                 x: clickedObj.x,
@@ -708,7 +731,6 @@ canvas.addEventListener('mousedown', (e) => {
             startResizeState = { x: clickedObj.x, y: clickedObj.y };
         }
         
-        // Подвійний клік на текст - редагування
         if (e.detail === 2 && clickedObj.type === 'text') {
             isDragging = false;
             startTextEdit(clickedObj);
@@ -717,11 +739,9 @@ canvas.addEventListener('mousedown', (e) => {
         
         draw();
     } else {
-        // Клік на порожньому місці - знімаємо вибір
         selectedObj = null;
         draw();
         
-        // Якщо hand tool - починаємо панораму
         if (currentTool === 'hand') {
             isDragging = true;
             dragStartX = coords.rawX;
@@ -733,7 +753,6 @@ canvas.addEventListener('mousedown', (e) => {
 canvas.addEventListener('mousemove', (e) => {
     const coords = getCoords(e);
     
-    // Курсор для handles
     if (currentTool === 'select' && selectedObj && !isDragging && !isResizing && !isRotating) {
         const handle = hitHandle(selectedObj, coords.x, coords.y);
         canvas.style.cursor = getCursor(handle);
@@ -743,10 +762,7 @@ canvas.addEventListener('mousemove', (e) => {
         canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
     } else if (currentTool === 'eraser') {
         canvas.style.cursor = 'cell';
-        // Ластик в реальному часі при зажатій кнопці
-        if (e.buttons === 1) {
-            eraseAt(coords.x, coords.y);
-        }
+        if (e.buttons === 1) eraseAt(coords.x, coords.y);
     } else {
         canvas.style.cursor = 'crosshair';
     }
@@ -793,7 +809,6 @@ canvas.addEventListener('mousemove', (e) => {
 
 canvas.addEventListener('mouseup', () => {
     if (isDrawing && currentPath) {
-        // Зберігаємо намальоване
         if (currentPath.type === 'pen' && currentPath.points.length > 1) {
             objects.push(currentPath);
             socket.emit('new-object', currentPath);
@@ -816,69 +831,41 @@ canvas.addEventListener('mouseup', () => {
     }
 });
 
-// === МАЛЮВАННЯ (pen, line, arrow, rect) ===
-function startDrawing(coords) {
-    isDrawing = true;
-    currentPath = {
-        type: currentTool,
-        color: document.getElementById('colorPicker').value,
-        width: document.getElementById('lineWidth').value,
-        x: coords.x,
-        y: coords.y,
-        ex: coords.x,
-        ey: coords.y
-    };
-    if (currentTool === 'pen') currentPath.points = [];
-}
-
-// === ЛАСТИК ЯК У iDROO (штриховий, стирає частини) ===
 function eraseAt(mx, my) {
-    const eraserRadius = 15 / scale; // Радіус ластика
+    const eraserRadius = 15 / scale;
     let changed = false;
     
-    // Проходимо всі об'єкти з кінця (щоб стирати верхні першими)
     for (let i = objects.length - 1; i >= 0; i--) {
         const obj = objects[i];
         let shouldRemove = false;
         
         if (obj.type === 'pen') {
-            // Для ліній олівцем: видаляємо точки в радіусі
             const newPoints = [];
-            let lastKept = null;
+            let firstKept = null;
             
-            // Перевіряємо початкову точку
-            if (Math.hypot(obj.x - mx, obj.y - my) > eraserRadius) {
-                // Залишаємо
-            } else {
-                changed = true;
-            }
-            
-            // Перевіряємо всі точки
             const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
-            const keptPoints = [];
+            const keptIndices = [];
             
-            for (let p of allPoints) {
+            allPoints.forEach((p, idx) => {
                 if (Math.hypot(p.x - mx, p.y - my) > eraserRadius) {
-                    keptPoints.push(p);
+                    keptIndices.push(idx);
                 } else {
                     changed = true;
                 }
-            }
+            });
             
-            if (keptPoints.length < 2) {
+            if (keptIndices.length < 2) {
                 shouldRemove = true;
             } else if (changed) {
-                // Оновлюємо точки
-                obj.x = keptPoints[0].x;
-                obj.y = keptPoints[0].y;
-                obj.points = keptPoints.slice(1);
+                const kept = keptIndices.map(idx => allPoints[idx]);
+                obj.x = kept[0].x;
+                obj.y = kept[0].y;
+                obj.points = kept.slice(1);
             }
         } else if (obj.type === 'line' || obj.type === 'arrow') {
-            // Відстань від точки до відрізка
             const d = distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey);
             if (d < eraserRadius) shouldRemove = true;
         } else if (obj.type === 'rect') {
-            // Перевіряємо чи точка на межі прямокутника
             const bbox = getBBox(obj);
             const onBorder = (Math.abs(mx - bbox.x) < eraserRadius || Math.abs(mx - (bbox.x + bbox.w)) < eraserRadius) &&
                              my >= bbox.y && my <= bbox.y + bbox.h ||
@@ -886,7 +873,6 @@ function eraseAt(mx, my) {
                              mx >= bbox.x && mx <= bbox.x + bbox.w;
             if (onBorder || hitTest(obj, mx, my)) shouldRemove = true;
         } else if (obj.type === 'text' || obj.type === 'image') {
-            // Для тексту/зображення - видаляємо якщо центр в радіусі
             const cx = obj.x + (obj.w || 0)/2;
             const cy = obj.y + (obj.h || 0)/2;
             if (Math.hypot(cx - mx, cy - my) < eraserRadius) shouldRemove = true;
@@ -903,6 +889,20 @@ function eraseAt(mx, my) {
         socket.emit('update-all', objects);
         draw();
     }
+}
+
+function startDrawing(coords) {
+    isDrawing = true;
+    currentPath = {
+        type: currentTool,
+        color: document.getElementById('colorPicker').value,
+        width: document.getElementById('lineWidth').value,
+        x: coords.x,
+        y: coords.y,
+        ex: coords.x,
+        ey: coords.y
+    };
+    if (currentTool === 'pen') currentPath.points = [];
 }
 
 function startResize(obj, handle, e) {
@@ -931,7 +931,6 @@ function startResize(obj, handle, e) {
             if (handle.includes('s')) newEy = startResizeState.ey + dy;
             if (handle.includes('n')) newY = startResizeState.y + dy;
             
-            // Пропорції через Shift
             if (shiftKey) {
                 const w = newEx - newX;
                 const h = newEy - newY;
@@ -1024,14 +1023,10 @@ function setTool(tool) {
     currentTool = tool;
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
-    
-    // Знімаємо вибір при зміні інструменту (як у iDroo)
     if (tool !== 'select' && selectedObj) {
         selectedObj = null;
         draw();
     }
-    
-    // Оновлюємо курсор
     if (tool === 'select') canvas.style.cursor = 'default';
     else if (tool === 'hand') canvas.style.cursor = 'grab';
     else if (tool === 'eraser') canvas.style.cursor = 'cell';
