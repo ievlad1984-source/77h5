@@ -950,6 +950,15 @@ function createFormula(e) {
     document.body.appendChild(div);
     setTimeout(() => div.focus(), 50);
     autoSizeInput(div, 24);
+    div.addEventListener('beforeinput', (event) => {
+        if (event.inputType !== 'insertText' || !event.data || event.data.length !== 1) return;
+        const insertedChar = event.data;
+        const mappedChar = mapInlineFormulaChar(div, insertedChar);
+        if (!mappedChar) return;
+        event.preventDefault();
+        replaceCaretWithInlineFormulaChar(div, mappedChar);
+        autoSizeInput(div, 24);
+    });
     div.addEventListener('input', () => autoSizeInput(div, 24));
     activeFormulaInput = div;
     div.addEventListener('focus', () => { activeFormulaInput = div; });
@@ -972,6 +981,86 @@ function createFormula(e) {
         document.body.removeChild(div);
         draw();
     };
+}
+
+const INLINE_SUPERSCRIPTS = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
+    'n': 'ⁿ', 'i': 'ⁱ'
+};
+
+const INLINE_SUBSCRIPTS = {
+    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+    '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
+    'a': 'ₐ', 'e': 'ₑ', 'h': 'ₕ', 'i': 'ᵢ', 'j': 'ⱼ',
+    'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'o': 'ₒ',
+    'p': 'ₚ', 'r': 'ᵣ', 's': 'ₛ', 't': 'ₜ', 'u': 'ᵤ',
+    'v': 'ᵥ', 'x': 'ₓ'
+};
+
+function getCaretOffsetInEditable(editableEl) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!editableEl.contains(range.startContainer)) return null;
+    const beforeRange = range.cloneRange();
+    beforeRange.selectNodeContents(editableEl);
+    beforeRange.setEnd(range.startContainer, range.startOffset);
+    return beforeRange.toString().length;
+}
+
+function setCaretOffsetInEditable(editableEl, targetOffset) {
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    let charsLeft = Math.max(0, targetOffset);
+    let targetNode = null;
+    let targetNodeOffset = 0;
+
+    const walker = document.createTreeWalker(editableEl, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+        const textNode = walker.currentNode;
+        const len = textNode.textContent.length;
+        if (charsLeft <= len) {
+            targetNode = textNode;
+            targetNodeOffset = charsLeft;
+            break;
+        }
+        charsLeft -= len;
+    }
+
+    if (!targetNode) {
+        editableEl.focus();
+        range.selectNodeContents(editableEl);
+        range.collapse(false);
+    } else {
+        range.setStart(targetNode, targetNodeOffset);
+        range.collapse(true);
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function mapInlineFormulaChar(editableEl, insertedChar) {
+    const caretOffset = getCaretOffsetInEditable(editableEl);
+    if (caretOffset === null || caretOffset <= 0) return null;
+    const text = editableEl.innerText || '';
+    const trigger = text[caretOffset - 1];
+    if (trigger === '^') return INLINE_SUPERSCRIPTS[insertedChar] || null;
+    if (trigger === '_') return INLINE_SUBSCRIPTS[insertedChar] || null;
+    return null;
+}
+
+function replaceCaretWithInlineFormulaChar(editableEl, mappedChar) {
+    const caretOffset = getCaretOffsetInEditable(editableEl);
+    if (caretOffset === null || caretOffset <= 0) return;
+    const text = editableEl.innerText || '';
+    if (caretOffset - 1 >= text.length) return;
+    const nextText = text.slice(0, caretOffset - 1) + mappedChar + text.slice(caretOffset);
+    editableEl.innerText = nextText;
+    setCaretOffsetInEditable(editableEl, caretOffset);
 }
 
 // Обробка миші та тачу
