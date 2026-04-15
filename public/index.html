@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (iDroo style)</title>
+    <title>Математична Дошка Pro</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; }
@@ -29,75 +29,88 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; border: 1px solid #ddd;
         }
 
-        /* Стилі для редагування тексту з handles (як у iDroo) */
+        /* Обертка для редагування - прозорий фон як при виділенні */
         .text-edit-wrapper {
             position: absolute;
             z-index: 2000;
-            border: 2px dashed #4CAF50;
-            background: transparent;
+            border: 2px dashed #4CAF50; /* Пунктирна рамка як на canvas */
+            background: transparent; /* Повністю прозорий фон */
             box-sizing: border-box;
         }
 
+        /* Контент редагування - напівпрозорий білий для читабельності */
         .text-edit-content {
             width: 100%;
             height: 100%;
             outline: none;
-            background: #fff9c4;
+            background: rgba(255, 255, 255, 0.85); /* Напівпрозорий білий */
             border: none;
             border-radius: 4px;
-            padding: 8px;
+            padding: 6px;
             font-size: 18px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
             overflow: hidden;
             resize: none;
             box-sizing: border-box;
+            backdrop-filter: blur(2px); /* Легке розмиття під текстом */
         }
 
-        /* HTML-handles для тексту (як у iDroo) */
+        .text-edit-content:focus {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        }
+
+        /* МАЛЕНЬКІ зелені квадратики (6px замість 12px) */
         .handle {
             position: absolute;
-            width: 12px;
-            height: 12px;
+            width: 6px; /* Було 12px */
+            height: 6px; /* Було 12px */
             background: #4CAF50;
-            border: 2px solid white;
-            border-radius: 2px;
+            border: 1px solid white; /* Тонша обводка */
+            border-radius: 1px;
             z-index: 2001;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3); /* Менша тінь */
         }
         
-        .handle:hover { background: #45a049; transform: scale(1.2); }
-        .handle.nw { top: -6px; left: -6px; cursor: nw-resize; }
-        .handle.n { top: -6px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
-        .handle.ne { top: -6px; right: -6px; cursor: ne-resize; }
-        .handle.e { top: 50%; right: -6px; transform: translateY(-50%); cursor: e-resize; }
-        .handle.se { bottom: -6px; right: -6px; cursor: se-resize; }
-        .handle.s { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
-        .handle.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
-        .handle.w { top: 50%; left: -6px; transform: translateY(-50%); cursor: w-resize; }
+        .handle:hover { 
+            background: #45a049; 
+            transform: scale(1.3); /* Збільшуємо при наведенні для зручності */
+        }
         
-        /* Синя точка для обертання */
+        /* Позиції для 6px квадратиків (половина від 12px) */
+        .handle.nw { top: -3px; left: -3px; cursor: nw-resize; }
+        .handle.n { top: -3px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+        .handle.ne { top: -3px; right: -3px; cursor: ne-resize; }
+        .handle.e { top: 50%; right: -3px; transform: translateY(-50%); cursor: e-resize; }
+        .handle.se { bottom: -3px; right: -3px; cursor: se-resize; }
+        .handle.s { bottom: -3px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+        .handle.sw { bottom: -3px; left: -3px; cursor: sw-resize; }
+        .handle.w { top: 50%; left: -3px; transform: translateY(-50%); cursor: w-resize; }
+        
+        /* Маленька синя точка (7px замість 14px) */
         .rotate-handle {
             position: absolute;
-            top: -25px;
+            top: -15px; /* Було -25px */
             left: 50%;
             transform: translateX(-50%);
-            width: 14px;
-            height: 14px;
+            width: 7px; /* Було 14px */
+            height: 7px; /* Було 14px */
             background: #2196F3;
-            border: 2px solid white;
+            border: 1px solid white;
             border-radius: 50%;
             cursor: alias;
             z-index: 2001;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         
         .rotate-line {
             position: absolute;
-            top: -11px;
+            top: -8px; /* Було -13px */
             left: 50%;
-            width: 2px;
-            height: 11px;
+            width: 1px; /* Тонша лінія */
+            height: 8px; /* Було 11px */
             background: #2196F3;
             transform: translateX(-50%);
             pointer-events: none;
@@ -109,16 +122,13 @@
         
         canvas { display: block; touch-action: none; }
         
-        /* Курсори */
-        .cursor-default { cursor: default; }
-        .cursor-move { cursor: move; }
-        .cursor-nwse { cursor: nwse-resize; }
-        .cursor-nesw { cursor: nesw-resize; }
-        .cursor-ns { cursor: ns-resize; }
-        .cursor-ew { cursor: ew-resize; }
-        .cursor-crosshair { cursor: crosshair; }
-        .cursor-grab { cursor: grab; }
-        .cursor-grabbing { cursor: grabbing; }
+        .cursor-nwse { cursor: nwse-resize !important; }
+        .cursor-nesw { cursor: nesw-resize !important; }
+        .cursor-ns { cursor: ns-resize !important; }
+        .cursor-ew { cursor: ew-resize !important; }
+        .cursor-move { cursor: move !important; }
+        .cursor-grab { cursor: grab !important; }
+        .cursor-grabbing { cursor: grabbing !important; }
     </style>
 </head>
 <body>
@@ -154,21 +164,18 @@ const ctx = canvas.getContext('2d');
 
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'select';
-let selectedObj = null; // Вибраний об'єкт на дошці
+let selectedObj = null;
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
 let shiftKey = false;
 
-// Для редагування тексту
-let textEditor = null; // DOM елемент редагування
-let editingObject = null; // Об'єкт що редагується
+let textEditor = null;
+let editingObject = null;
 
-// Карти індексів для формул
 const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
 const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ₒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
 
-// Клавіші
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'v' || e.key === 'V') setTool('select');
@@ -201,7 +208,6 @@ function convertMath(text) {
             ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
 }
 
-// Отримання bounding box в мирових координатах
 function getBBox(obj) {
     if (!obj) return null;
     if (obj.type === 'text') {
@@ -228,18 +234,16 @@ function getBBox(obj) {
     return { x: obj.x, y: obj.y, w: 0, h: 0 };
 }
 
-// Чи точка всередині bbox
 function hitTest(obj, mx, my) {
     const bbox = getBBox(obj);
     if (!bbox) return false;
     return mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h;
 }
 
-// Чи точка на хендлі (повертає назву хендла або null)
 function hitHandle(obj, mx, my) {
     if (!obj) return null;
     const bbox = getBBox(obj);
-    const h = 10 / scale; // Розмір хендла в мирових координатах
+    const h = 5 / scale; /* Менший радіус захоплення для маленьких квадратиків */
     const cx = bbox.x + bbox.w / 2;
     const cy = bbox.y + bbox.h / 2;
     
@@ -252,7 +256,7 @@ function hitHandle(obj, mx, my) {
         s: { x: cx, y: bbox.y + bbox.h },
         sw: { x: bbox.x, y: bbox.y + bbox.h },
         w: { x: bbox.x, y: cy },
-        rotate: { x: cx, y: bbox.y - 20 / scale } // Синя точка
+        rotate: { x: cx, y: bbox.y - 15 / scale }
     };
     
     for (let [name, pos] of Object.entries(handles)) {
@@ -261,7 +265,6 @@ function hitHandle(obj, mx, my) {
     return null;
 }
 
-// Курсор залежно від хендла
 function getCursor(handle) {
     if (!handle) return currentTool === 'select' ? 'default' : 'crosshair';
     if (handle === 'rotate') return 'alias';
@@ -290,7 +293,7 @@ function drawGrid() {
     ctx.stroke();
 }
 
-// Малювання селекшн боксу (як у iDroo)
+// Маленькі квадратики (4px) на canvas
 function drawSelection(obj) {
     const bbox = getBBox(obj);
     const sx = bbox.x * scale + offsetX;
@@ -298,7 +301,6 @@ function drawSelection(obj) {
     const sw = bbox.w * scale;
     const sh = bbox.h * scale;
     
-    // Пунктирна рамка
     ctx.save();
     ctx.setLineDash([5, 5]);
     ctx.strokeStyle = '#4CAF50';
@@ -306,8 +308,8 @@ function drawSelection(obj) {
     ctx.strokeRect(sx, sy, sw, sh);
     ctx.restore();
     
-    // 8 Зелених квадратиків (handles)
-    const handleSize = 8;
+    // МАЛЕНЬКІ квадратики 4px (було 8px)
+    const handleSize = 4;
     const handles = [
         { x: sx, y: sy }, { x: sx + sw/2, y: sy }, { x: sx + sw, y: sy },
         { x: sx + sw, y: sy + sh/2 }, { x: sx + sw, y: sy + sh },
@@ -322,19 +324,18 @@ function drawSelection(obj) {
         ctx.strokeRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
     });
     
-    // Синя точка зверху (rotate)
+    // Маленька синя точка 5px (було 6px)
     ctx.fillStyle = '#2196F3';
     ctx.beginPath();
-    ctx.arc(sx + sw/2, sy - 15, 6, 0, Math.PI * 2);
+    ctx.arc(sx + sw/2, sy - 10, 3.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'white';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
     ctx.stroke();
     
-    // Лінія до синьої точки
     ctx.beginPath();
     ctx.moveTo(sx + sw/2, sy);
-    ctx.lineTo(sx + sw/2, sy - 9);
+    ctx.lineTo(sx + sw/2, sy - 6.5);
     ctx.strokeStyle = '#2196F3';
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
@@ -345,12 +346,10 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid();
     
-    // Малюємо всі об'єкти
     objects.forEach(obj => {
         drawObject(obj);
     });
     
-    // Малюємо селекшн для вибраного
     if (selectedObj && currentTool === 'select' && !textEditor) {
         drawSelection(selectedObj);
     }
@@ -423,29 +422,27 @@ function getCoords(e) {
     };
 }
 
-// === РЕДАГУВАННЯ ТЕКСТУ З HANDLES (як у iDroo) ===
-
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
     editingObject = obj;
-    selectedObj = null; // Прибираємо селекшн на canvas
+    selectedObj = null;
+    draw();
     
     const bbox = getBBox(obj);
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
-    const screenW = bbox.w * scale;
-    const screenH = bbox.h * scale;
+    const screenW = Math.max(bbox.w * scale, 100);
+    const screenH = Math.max(bbox.h * scale, 40);
     
-    // Створюємо wrapper
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
-    wrapper.style.left = (screenX - 2) + 'px'; // -2 для border
+    wrapper.style.left = (screenX - 2) + 'px';
     wrapper.style.top = (screenY - 2) + 'px';
     wrapper.style.width = (screenW + 4) + 'px';
     wrapper.style.height = (screenH + 4) + 'px';
     
-    // Handles
+    // 8 маленьких handles
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
         div.className = `handle ${h}`;
@@ -453,7 +450,6 @@ function startTextEdit(obj) {
         wrapper.appendChild(div);
     });
     
-    // Rotate handle
     const rotLine = document.createElement('div');
     rotLine.className = 'rotate-line';
     wrapper.appendChild(rotLine);
@@ -463,11 +459,10 @@ function startTextEdit(obj) {
     rotHandle.dataset.handle = 'rotate';
     wrapper.appendChild(rotHandle);
     
-    // Textarea
     const textarea = document.createElement('div');
     textarea.className = 'text-edit-content';
     textarea.contentEditable = true;
-    textarea.innerText = obj.rawText || obj.text; // Показуємо raw текст для редагування
+    textarea.innerText = obj.rawText || obj.text;
     textarea.style.color = obj.color;
     textarea.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     
@@ -475,20 +470,75 @@ function startTextEdit(obj) {
     document.body.appendChild(wrapper);
     textEditor = wrapper;
     
-    // Фокус
-    setTimeout(() => textarea.focus(), 10);
+    setTimeout(() => {
+        textarea.focus();
+        const range = document.createRange();
+        range.selectNodeContents(textarea);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }, 10);
     
-    // Автозаміна при вводі
-    textarea.addEventListener('input', () => {
+    // Автозаміна формул
+    let isConverting = false;
+    
+    textarea.addEventListener('input', (e) => {
+        if (isConverting) return;
+        if (!document.getElementById('mathMode')?.checked) {
+            obj.rawText = textarea.innerText;
+            obj.text = textarea.innerText;
+            return;
+        }
+        
         const text = textarea.innerText;
-        const converted = convertMath(text);
-        // Оновлюємо тимчасовий об'єкт
-        obj.text = converted;
-        obj.rawText = text;
-        // Перераховуємо розмір
-        const newBBox = getBBox(obj);
-        wrapper.style.width = (newBBox.w * scale + 4) + 'px';
-        wrapper.style.height = (newBBox.h * scale + 4) + 'px';
+        
+        if (text.includes('^') || text.includes('_') || /\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/.test(text)) {
+            const selection = window.getSelection();
+            const range = selection.getRangeAt(0);
+            const cursorPos = range.startOffset;
+            const oldLength = text.length;
+            
+            const converted = convertMath(text);
+            
+            if (converted !== text) {
+                isConverting = true;
+                textarea.innerText = converted;
+                
+                const newLength = converted.length;
+                const newPos = Math.max(0, Math.min(cursorPos + (newLength - oldLength), newLength));
+                
+                try {
+                    const newRange = document.createRange();
+                    newRange.setStart(textarea.firstChild || textarea, newPos);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                } catch(err) {
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(textarea);
+                    newRange.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                }
+                
+                isConverting = false;
+                obj.rawText = text;
+                obj.text = converted;
+            } else {
+                obj.rawText = text;
+                obj.text = text;
+            }
+            
+            const newBBox = getBBox(obj);
+            wrapper.style.width = (Math.max(newBBox.w * scale, 100) + 4) + 'px';
+            wrapper.style.height = (Math.max(newBBox.h * scale, 40) + 4) + 'px';
+            
+            draw();
+        } else {
+            obj.rawText = text;
+            obj.text = text;
+        }
     });
     
     // Handles events
@@ -500,29 +550,26 @@ function startTextEdit(obj) {
         });
     });
     
-    // Drag тексту
     textarea.addEventListener('mousedown', (e) => {
-        if (e.target === textarea) {
+        if (e.target === textarea && !isResizing) {
             e.stopPropagation();
             startTextDrag(obj, e);
         }
     });
     
-    // Enter для збереження
     textarea.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             stopTextEdit();
         }
         if (e.key === 'Escape') {
-            stopTextEdit(true); // Cancel
+            stopTextEdit(true);
         }
     });
     
-    // Втрата фокусу
     textarea.addEventListener('blur', () => {
         setTimeout(() => {
-            if (textEditor && document.activeElement !== textEditor.querySelector('.text-edit-content')) {
+            if (textEditor && document.activeElement !== textarea) {
                 stopTextEdit();
             }
         }, 200);
@@ -547,46 +594,32 @@ function stopTextEdit(cancel = false) {
     draw();
 }
 
-// Ресайз тексту через HTML handles
 function startTextResize(obj, handle, e) {
     isResizing = true;
     resizeHandle = handle;
     const coords = getCoords(e);
     dragStartX = coords.x;
     dragStartY = coords.y;
-    startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: obj.w, h: obj.h };
+    startResizeState = { size: obj.size, x: obj.x, y: obj.y };
     
     const onMove = (e) => {
         if (!isResizing) return;
         const c = getCoords(e);
-        const dx = (c.x - dragStartX) * scale;
-        const dy = (c.y - dragStartY) * scale;
+        const dx = c.x - dragStartX;
+        const dy = c.y - dragStartY;
         
-        // Для тексту змінюємо розмір шрифта пропорційно до зміни висоти/ширини
-        const oldBBox = getBBox(obj);
-        const ratio = Math.abs(dy) / oldBBox.h || 1;
-        const newSize = Math.max(10, Math.min(200, startResizeState.size * (1 + (dy / 100))));
-        
-        // Або просто масштабуємо
-        const scaleFactor = Math.max(0.5, (oldBBox.h + dy * (handle.includes('s') ? 1 : handle.includes('n') ? -1 : 0)) / oldBBox.h);
-        
+        // Для тексту змінюємо розмір шрифта
         if (handle === 'se' || handle === 's' || handle === 'e') {
-            obj.size = Math.max(10, startResizeState.size * Math.max(1, (c.y - dragStartY) / 10));
+            const scaleFactor = Math.max(0.5, 1 + dy / 100);
+            obj.size = Math.max(10, Math.min(200, startResizeState.size * scaleFactor));
+        } else if (handle === 'n') {
+            obj.size = Math.max(10, startResizeState.size - dy / 2);
         }
         
-        // Оновлюємо позицію для 'n' та 'w' handles
-        if (handle.includes('n')) {
-            // Змінюємо y і size
-        }
-        if (handle.includes('w')) {
-            // Змінюємо x
-        }
-        
-        // Оновлюємо DOM
-        const bbox = getBBox(obj);
+        const newBBox = getBBox(obj);
         if (textEditor) {
-            textEditor.style.width = (bbox.w * scale + 4) + 'px';
-            textEditor.style.height = (bbox.h * scale + 4) + 'px';
+            textEditor.style.width = (Math.max(newBBox.w * scale, 100) + 4) + 'px';
+            textEditor.style.height = (Math.max(newBBox.h * scale, 40) + 4) + 'px';
         }
         
         draw();
@@ -619,7 +652,6 @@ function startTextDrag(obj, e) {
         obj.x = c.x - dragStartX;
         obj.y = c.y - dragStartY;
         
-        // Оновлюємо позицію DOM
         const bbox = getBBox(obj);
         textEditor.style.left = (bbox.x * scale + offsetX - 2) + 'px';
         textEditor.style.top = (bbox.y * scale + offsetY - 2) + 'px';
@@ -639,8 +671,7 @@ function startTextDrag(obj, e) {
     document.addEventListener('mouseup', onUp);
 }
 
-// === КАНВАС ІНТЕРАКЦІЯ ===
-
+// Canvas interactions
 canvas.addEventListener('mousedown', (e) => {
     if (textEditor) {
         stopTextEdit();
@@ -649,7 +680,6 @@ canvas.addEventListener('mousedown', (e) => {
     
     const coords = getCoords(e);
     
-    // Перевірка чи клік по handles вибраного об'єкта
     if (selectedObj && currentTool === 'select') {
         const handle = hitHandle(selectedObj, coords.x, coords.y);
         if (handle) {
@@ -662,29 +692,42 @@ canvas.addEventListener('mousedown', (e) => {
         }
     }
     
-    // Перевірка чи клік по об'єкту
     const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
     
     if (clickedObj) {
         if (currentTool === 'select') {
             selectedObj = clickedObj;
             
-            // Подвійний клік для редагування тексту
             if (clickedObj.type === 'text' && e.detail === 2) {
                 startTextEdit(clickedObj);
                 return;
             }
             
-            // Звичайний клік - починаємо drag
             isDragging = true;
             dragStartX = coords.x;
             dragStartY = coords.y;
             dragStartObjX = clickedObj.x;
             dragStartObjY = clickedObj.y;
+            
+            // Зберігаємо початковий стан для pen
+            if (clickedObj.type === 'pen') {
+                startResizeState = {
+                    x: clickedObj.x,
+                    y: clickedObj.y,
+                    points: JSON.parse(JSON.stringify(clickedObj.points))
+                };
+            } else if (clickedObj.type === 'line' || clickedObj.type === 'arrow' || clickedObj.type === 'rect') {
+                startResizeState = {
+                    x: clickedObj.x,
+                    y: clickedObj.y,
+                    ex: clickedObj.ex,
+                    ey: clickedObj.ey
+                };
+            }
+            
             draw();
         }
     } else {
-        // Клік по порожньому місцю
         selectedObj = null;
         
         if (currentTool === 'hand') {
@@ -693,10 +736,9 @@ canvas.addEventListener('mousedown', (e) => {
             dragStartY = coords.rawY;
         } else if (currentTool === 'text') {
             createNewText(coords);
-        } else if (currentTool === 'pen' || currentTool === 'line' || currentTool === 'arrow' || currentTool === 'rect') {
+        } else if (['pen','line','arrow','rect'].includes(currentTool)) {
             startDrawingObject(coords);
         } else if (currentTool === 'eraser') {
-            // Видаляємо об'єкти під курсором
             const toDelete = objects.filter(obj => {
                 const d = Math.hypot(obj.x - coords.x, obj.y - coords.y);
                 return d < 30/scale;
@@ -713,7 +755,6 @@ canvas.addEventListener('mousedown', (e) => {
 canvas.addEventListener('mousemove', (e) => {
     const coords = getCoords(e);
     
-    // Оновлення курсора
     if (currentTool === 'select' && selectedObj && !isDragging && !isResizing && !isRotating) {
         const handle = hitHandle(selectedObj, coords.x, coords.y);
         canvas.style.cursor = getCursor(handle);
@@ -724,7 +765,6 @@ canvas.addEventListener('mousemove', (e) => {
     if (!isDragging && !isResizing && !isRotating) return;
     
     if (isDragging && selectedObj) {
-        // Переміщення об'єкта
         const dx = coords.x - dragStartX;
         const dy = coords.y - dragStartY;
         
@@ -734,9 +774,6 @@ canvas.addEventListener('mousemove', (e) => {
             selectedObj.ex = startResizeState.ex + dx;
             selectedObj.ey = startResizeState.ey + dy;
         } else if (selectedObj.type === 'pen') {
-            // Для pen треба зсунути всі точки
-            const dx = coords.x - dragStartX;
-            const dy = coords.y - dragStartY;
             selectedObj.x = startResizeState.x + dx;
             selectedObj.y = startResizeState.y + dy;
             selectedObj.points = startResizeState.points.map(p => ({
@@ -749,7 +786,6 @@ canvas.addEventListener('mousemove', (e) => {
         }
         draw();
     } else if (isDragging && currentTool === 'hand') {
-        // Панорама
         offsetX += coords.rawX - dragStartX;
         offsetY += coords.rawY - dragStartY;
         dragStartX = coords.rawX;
@@ -767,10 +803,8 @@ canvas.addEventListener('mouseup', () => {
     }
 });
 
-// Ресайз об'єктів на canvas (не тексту - текст через DOM)
 function startResize(obj, handle, e) {
     if (obj.type === 'text') {
-        // Для тексту відкриваємо редактор з handles
         startTextEdit(obj);
         return;
     }
@@ -781,7 +815,6 @@ function startResize(obj, handle, e) {
     dragStartX = coords.x;
     dragStartY = coords.y;
     
-    // Зберігаємо початковий стан
     startResizeState = { ...obj };
     if (obj.points) startResizeState.points = JSON.parse(JSON.stringify(obj.points));
     
@@ -791,24 +824,18 @@ function startResize(obj, handle, e) {
         const dx = c.x - dragStartX;
         const dy = c.y - dragStartY;
         
-        // Логіка ресайзу для різних типів
         if (obj.type === 'rect') {
             applyResizeToRect(obj, handle, dx, dy);
         } else if (obj.type === 'line' || obj.type === 'arrow') {
-            if (handle === 'se' || handle === 'e') {
-                obj.ex = startResizeState.ex + dx;
-            } else if (handle === 's' || handle === 'se') {
-                obj.ey = startResizeState.ey + dy;
-            } else if (handle === 'w' || handle === 'sw') {
-                obj.x = startResizeState.x + dx;
-            } else if (handle === 'n' || handle === 'ne') {
-                obj.y = startResizeState.y + dy;
-            } else if (handle === 'nw') {
+            if (handle === 'se' || handle === 'e') obj.ex = startResizeState.ex + dx;
+            else if (handle === 's' || handle === 'se') obj.ey = startResizeState.ey + dy;
+            else if (handle === 'w' || handle === 'sw') obj.x = startResizeState.x + dx;
+            else if (handle === 'n' || handle === 'ne') obj.y = startResizeState.y + dy;
+            else if (handle === 'nw') {
                 obj.x = startResizeState.x + dx;
                 obj.y = startResizeState.y + dy;
             }
         } else if (obj.type === 'image') {
-            // Для зображень зберігаємо пропорції якщо shift
             let newW = startResizeState.w + (handle.includes('e') ? dx : handle.includes('w') ? -dx : 0);
             let newH = startResizeState.h + (handle.includes('s') ? dy : handle.includes('n') ? -dy : 0);
             
@@ -819,23 +846,8 @@ function startResize(obj, handle, e) {
             
             if (handle.includes('w')) obj.x = startResizeState.x + (startResizeState.w - newW);
             if (handle.includes('n')) obj.y = startResizeState.y + (startResizeState.h - newH);
-            obj.w = newW;
-            obj.h = newH;
-        } else if (obj.type === 'pen') {
-            // Масштабування всіх точок pen відносно центру
-            const bbox = getBBox(startResizeState);
-            const cx = bbox.x + bbox.w/2;
-            const cy = bbox.y + bbox.h/2;
-            
-            const scaleX = 1 + (handle.includes('e') ? dx/bbox.w : handle.includes('w') ? -dx/bbox.w : 0);
-            const scaleY = 1 + (handle.includes('s') ? dy/bbox.h : handle.includes('n') ? -dy/bbox.h : 0);
-            
-            const s = shiftKey ? Math.max(scaleX, scaleY) : 1; // Просто переміщення для pen
-            
-            // Для pen зручніше просто переміщати bounds
-            if (handle === 'se') {
-                // Розширюємо область
-            }
+            obj.w = Math.max(20, newW);
+            obj.h = Math.max(20, newH);
         }
         
         draw();
@@ -884,14 +896,10 @@ function applyResizeToRect(obj, handle, dx, dy) {
 
 function startRotate(obj, e) {
     isRotating = true;
-    // TODO: реалізація обертання
-    const onMove = () => {};
     const onUp = () => {
         isRotating = false;
-        document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
     };
-    document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
 
@@ -928,10 +936,10 @@ function startDrawingObject(coords) {
         newObj.points = [];
     }
     
-    let isDrawing = true;
+    let drawing = true;
     
     const onMove = (e) => {
-        if (!isDrawing) return;
+        if (!drawing) return;
         const c = getCoords(e);
         if (currentTool === 'pen') {
             newObj.points.push({x: c.x, y: c.y});
@@ -939,18 +947,13 @@ function startDrawingObject(coords) {
             newObj.ex = c.x;
             newObj.ey = c.y;
         }
-        // Тимчасове малювання
-        const tempObjects = [...objects, newObj];
-        // Перемалювати з тимчасовим об'єктом
         draw();
         drawObject(newObj);
     };
     
     const onUp = () => {
-        isDrawing = false;
-        if (currentTool === 'pen' && newObj.points.length < 2) {
-            // Не зберігаємо короткі лінії
-        } else {
+        drawing = false;
+        if (currentTool !== 'pen' || newObj.points.length > 1) {
             objects.push(newObj);
             socket.emit('new-object', newObj);
             selectedObj = newObj;
@@ -968,12 +971,9 @@ function setTool(tool) {
     currentTool = tool;
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
-    if (tool === 'select') canvas.style.cursor = 'default';
-    else if (tool === 'hand') canvas.style.cursor = 'grab';
-    else canvas.style.cursor = 'crosshair';
+    canvas.style.cursor = tool === 'select' ? 'default' : tool === 'hand' ? 'grab' : 'crosshair';
 }
 
-// Ініціалізація кнопок
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
     btn.onclick = () => setTool(btn.dataset.tool);
 });
@@ -992,7 +992,6 @@ function createNewBoard() {
     window.location.href = '/' + newId; 
 }
 
-// Масштабування колесом
 window.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -1007,21 +1006,19 @@ window.addEventListener('wheel', (e) => {
     
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
     
-    // Оновлюємо позицію редактора якщо є
     if (textEditor && editingObject) {
         const bbox = getBBox(editingObject);
         textEditor.style.left = (bbox.x * scale + offsetX - 2) + 'px';
         textEditor.style.top = (bbox.y * scale + offsetY - 2) + 'px';
-        textEditor.style.width = (bbox.w * scale + 4) + 'px';
-        textEditor.style.height = (bbox.h * scale + 4) + 'px';
+        textEditor.style.width = (Math.max(bbox.w * scale, 100) + 4) + 'px';
+        textEditor.style.height = (Math.max(bbox.h * scale, 40) + 4) + 'px';
     }
     
     draw();
 }, { passive: false });
 
-// Вставка зображень
 window.addEventListener('paste', (e) => {
-    if (textEditor) return; // Не вставляємо якщо редагуємо текст
+    if (textEditor) return;
     const items = e.clipboardData.items;
     for (let item of items) {
         if (item.type.indexOf('image') !== -1) {
@@ -1052,7 +1049,6 @@ window.addEventListener('paste', (e) => {
     }
 });
 
-// Socket
 socket.on('init-history', (h) => { objects = h; draw(); });
 socket.on('new-object', (o) => { objects.push(o); draw(); });
 socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
