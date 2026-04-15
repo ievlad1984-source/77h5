@@ -29,11 +29,113 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; border: 1px solid #ddd;
         }
 
+        /* Стилі для контейнера вводу з превью */
+        .text-input-container {
+            position: absolute;
+            z-index: 1000;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
+        }
+
         .text-input-div {
-            position: absolute; min-width: 50px; outline: none; background: white;
-            white-space: pre-wrap; word-wrap: break-word; padding: 5px; line-height: 1.2; 
-            z-index: 1000; border: 2px solid #007bff; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            min-width: 150px;
+            min-height: 30px;
+            outline: none;
+            background: #fff9c4; /* Жовтий фон як стікер */
+            border: 2px solid #fbc02d;
+            border-radius: 8px;
+            padding: 8px 12px;
+            line-height: 1.4;
+            font-size: 18px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .text-input-div:focus {
+            background: #fff59d;
+            border-color: #f57f17;
+            box-shadow: 0 0 0 4px rgba(251, 192, 45, 0.3);
+        }
+
+        /* Підсвітка математичних патернів всередині поля */
+        .math-pattern {
+            background: #ffeb3b;
+            border-radius: 3px;
+            padding: 0 2px;
+            color: #d84315;
+            font-weight: 600;
+        }
+
+        /* Попередній перегляд результату */
+        .math-preview {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2c3e50;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 16px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .math-preview::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #2c3e50;
+        }
+
+        .math-preview.visible {
+            opacity: 1;
+        }
+
+        .math-preview-label {
+            font-size: 11px;
+            color: #bdc3c7;
+            margin-right: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Кнопка підтвердження */
+        .text-confirm-btn {
+            position: absolute;
+            right: -35px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            background: #4caf50;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .text-input-container:hover .text-confirm-btn {
+            opacity: 1;
+        }
+
+        .text-confirm-btn:hover {
+            background: #45a049;
+            transform: translateY(-50%) scale(1.1);
         }
 
         input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }
@@ -58,7 +160,7 @@
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
     <label title="Жирний текст"><input type="checkbox" id="boldText"> <b>B</b></label>
-    <label title="Автозаміна формул (x^2→x²)"><input type="checkbox" id="mathMode" checked> 𝑥² авто</label>
+    <label title="Автозаміна формул"><input type="checkbox" id="mathMode" checked> 𝑥² авто</label>
     <input type="color" id="colorPicker" value="#212529" title="Колір">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
@@ -79,123 +181,43 @@ let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'pen', isDrawing = false, currentObj = null;
 let selectedObj = null, dragStartX, dragStartY;
 
-// Карта верхніх індексів Unicode
-const superscripts = {
-    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-    'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ',
-    'g': 'ᵍ', 'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'l': 'ˡ',
-    'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ', 'p': 'ᵖ', 'r': 'ʳ', 's': 'ˢ',
-    't': 'ᵗ', 'u': 'ᵘ', 'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ',
-    'A': 'ᴬ', 'B': 'ᴮ', 'C': 'ᶜ', 'D': 'ᴰ', 'E': 'ᴱ', 'F': 'ᶠ',
-    'G': 'ᴳ', 'H': 'ᴴ', 'I': 'ᴵ', 'J': 'ᴶ', 'K': 'ᴷ', 'L': 'ᴸ',
-    'M': 'ᴹ', 'N': 'ᴺ', 'O': 'ᴼ', 'P': 'ᴾ', 'R': 'ᴿ', 'T': 'ᵀ',
-    'U': 'ᵁ', 'V': 'ⱽ', 'W': 'ᵂ', 'X': 'ˣ', 'Y': 'ʸ', 'Z': 'ᶻ',
-    '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾', 'n': 'ⁿ'
-};
+// Карти індексів
+const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
+const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ₒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
 
-// Карта нижніх індексів Unicode
-const subscripts = {
-    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
-    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
-    'a': 'ₐ', 'e': 'ₑ', 'h': 'ₕ', 'i': 'ᵢ', 'j': 'ⱼ', 
-    'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'o': 'ₒ', 
-    'p': 'ₚ', 'r': 'ᵣ', 's': 'ₛ', 't': 'ₜ', 'u': 'ᵤ', 
-    'v': 'ᵥ', 'x': 'ₓ', 'y': 'ᵧ', 'z': '₂',
-    '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎'
-};
-
-// Функція автозаміни математичних виразів в реальному часі
-function autoConvertMath(div) {
-    if (!document.getElementById('mathMode')?.checked) return;
+// Конвертація математичних виразів
+function convertMathNotation(text, preview = false) {
+    if (!document.getElementById('mathMode')?.checked) return text;
+    let result = text;
     
-    // Отримуємо поточну позицію курсора
-    const selection = window.getSelection();
-    const range = selection.getRangeAt(0);
-    const cursorPos = range.startOffset;
-    const text = div.innerText;
-    
-    let newText = text;
-    let cursorOffset = 0; // На скільки зміщується курсор після заміни
-    
-    // 1. Заміна одиночних цифр: x^2 → x² (тільки якщо після цифри не йде ще цифра)
-    newText = newText.replace(/([a-zA-Z0-9])\^([0-9])(?![0-9])/g, (match, base, digit, position) => {
-        const sup = superscripts[digit];
-        if (sup) {
-            // Якщо заміна відбулася до курсора, коригуємо позицію (-1 бо прибрали ^)
-            if (position < cursorPos) cursorOffset -= 1;
-            return base + sup;
-        }
-        return match;
-    });
-    
-    // 2. Заміна нижніх індексів: x_2 → x₂
-    newText = newText.replace(/([a-zA-Z0-9])_([0-9])(?![0-9])/g, (match, base, digit, position) => {
-        const sub = subscripts[digit];
-        if (sub) {
-            if (position < cursorPos) cursorOffset -= 1;
-            return base + sub;
-        }
-        return match;
-    });
-    
-    // 3. Заміна дужкових виразів: x^(10) → x¹⁰, x_(max) → xₘₐₓ
-    newText = newText.replace(/([a-zA-Z0-9])\^\(([^)]+)\)/g, (match, base, exp, position) => {
-        const converted = exp.split('').map(c => superscripts[c] || c).join('');
-        if (position < cursorPos) cursorOffset -= (2 + exp.length - converted.length); // -2 для ^( і -... для різниці довжини
-        return base + converted;
-    });
-    
-    newText = newText.replace(/([a-zA-Z0-9])_\(([^)]+)\)/g, (match, base, sub, position) => {
-        const converted = sub.split('').map(c => subscripts[c] || c).join('');
-        if (position < cursorPos) cursorOffset -= (2 + sub.length - converted.length);
-        return base + converted;
-    });
-    
-    // 4. Спеціальні символи
-    const specials = [
-        {regex: /\bsqrt\b/g, char: '√'},
-        {regex: /\bpi\b/g, char: 'π'},
-        {regex: /\binf\b/g, char: '∞'},
-        {regex: /\balpha\b/g, char: 'α'},
-        {regex: /\bbeta\b/g, char: 'β'},
-        {regex: /\bgamma\b/g, char: 'γ'},
-        {regex: /\bdelta\b/g, char: 'δ'},
-        {regex: /\bsum\b/g, char: '∑'},
-        {regex: /\bpm\b/g, char: '±'},
-        {regex: /\bdeg\b/g, char: '°'}
-    ];
-    
-    specials.forEach(({regex, char}) => {
-        newText = newText.replace(regex, (match, position) => {
-            if (position < cursorPos) cursorOffset -= (match.length - 1);
-            return char;
+    // Зберігаємо оригінал для preview mode
+    if (preview) {
+        result = result.replace(/([a-zA-Z0-9])\^([0-9]+)/g, (m, b, e) => b + e.split('').map(c => superscripts[c] || c).join(''));
+        result = result.replace(/([a-zA-Z0-9])_([0-9]+)/g, (m, b, s) => b + s.split('').map(c => subscripts[c] || c).join(''));
+        result = result.replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|leq|geq|neq|approx|infty)\b/gi, m => {
+            const map = {sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',leq:'≤',geq:'≥',neq:'≠',approx:'≈',infty:'∞'};
+            return map[m.toLowerCase()] || m;
         });
-    });
-    
-    // Якщо текст змінився - оновлюємо і коригуємо курсор
-    if (newText !== text) {
-        div.innerText = newText;
-        
-        // Відновлюємо позицію курсора
-        const newRange = document.createRange();
-        const textNode = div.firstChild;
-        if (textNode) {
-            const newPos = Math.max(0, Math.min(cursorPos + cursorOffset, textNode.length));
-            try {
-                newRange.setStart(textNode, newPos);
-                newRange.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-            } catch(e) {
-                // Якщо помилка позиції - ставимо в кінець
-                newRange.selectNodeContents(div);
-                newRange.collapse(false);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-            }
-        }
+        return result;
     }
+    
+    // Реальна заміна (не використовується тут, бо ми робимо це в oninput)
+    return result;
+}
+
+// Підсвітка патернів у тексті
+function highlightMathPatterns(text) {
+    if (!document.getElementById('mathMode')?.checked) return text;
+    
+    // Екранування HTML
+    let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
+    // Підсвітка патернів x^2, x_2, sqrt і т.д.
+    html = html.replace(/([a-zA-Z0-9]\^[0-9]+)/g, '<span class="math-pattern">$1</span>');
+    html = html.replace(/([a-zA-Z0-9]_[0-9]+)/g, '<span class="math-pattern">$1</span>');
+    html = html.replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum)\b/gi, '<span class="math-pattern">$1</span>');
+    
+    return html;
 }
 
 function resize() {
@@ -211,40 +233,19 @@ function drawGrid() {
     ctx.beginPath();
     ctx.strokeStyle = '#eef0f2';
     ctx.lineWidth = 1;
-    
-    for (let x = offsetX % size; x < canvas.width; x += size) {
-        ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
-    }
-    for (let y = offsetY % size; y < canvas.height; y += size) {
-        ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
-    }
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.strokeStyle = '#ddd';
-    ctx.lineWidth = 2;
-    if (offsetY >= 0 && offsetY <= canvas.height) {
-        ctx.moveTo(0, offsetY);
-        ctx.lineTo(canvas.width, offsetY);
-    }
-    if (offsetX >= 0 && offsetX <= canvas.width) {
-        ctx.moveTo(offsetX, 0);
-        ctx.lineTo(offsetX, canvas.height);
-    }
+    for (let x = offsetX % size; x < canvas.width; x += size) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
+    for (let y = offsetY % size; y < canvas.height; y += size) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
     ctx.stroke();
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid();
-
     const allToDraw = currentObj ? [...objects, currentObj] : objects;
-
     allToDraw.forEach(obj => {
         ctx.lineWidth = obj.width * scale;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        
         if (obj === selectedObj) {
             ctx.strokeStyle = '#007bff';
             ctx.shadowBlur = 10;
@@ -253,9 +254,7 @@ function draw() {
             ctx.strokeStyle = obj.color;
             ctx.shadowBlur = 0;
         }
-        
         ctx.fillStyle = obj.color;
-
         const sX = obj.x * scale + offsetX;
         const sY = obj.y * scale + offsetY;
 
@@ -270,7 +269,6 @@ function draw() {
             ctx.moveTo(sX, sY);
             ctx.lineTo(eX, eY);
             ctx.stroke();
-            
             if (obj.type === 'arrow') {
                 const headlen = 15 * scale;
                 const angle = Math.atan2(eY - sY, eX - sX);
@@ -282,7 +280,7 @@ function draw() {
         } else if (obj.type === 'rect') {
             ctx.strokeRect(sX, sY, (obj.ex - obj.x) * scale, (obj.ey - obj.y) * scale);
         } else if (obj.type === 'text') {
-            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', 'Cambria Math', sans-serif`;
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
             const lines = obj.text.split('\n');
             lines.forEach((line, i) => ctx.fillText(line, sX, sY + (i * obj.size * scale * 1.2)));
         } else if (obj.type === 'image') {
@@ -296,12 +294,7 @@ function draw() {
 function getCoords(e) {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { 
-        x: (clientX - offsetX) / scale, 
-        y: (clientY - offsetY) / scale,
-        rawX: clientX,
-        rawY: clientY
-    };
+    return { x: (clientX - offsetX) / scale, y: (clientY - offsetY) / scale, rawX: clientX, rawY: clientY };
 }
 
 window.addEventListener('wheel', (e) => {
@@ -325,12 +318,7 @@ window.addEventListener('paste', (e) => {
                 const img = new Image();
                 img.src = event.target.result;
                 img.onload = () => {
-                    const obj = { 
-                        type: 'image', src: img.src, 
-                        x: (window.innerWidth/2 - offsetX - (img.width/4)*scale)/scale, 
-                        y: (window.innerHeight/2 - offsetY - (img.height/4)*scale)/scale, 
-                        w: img.width/2, h: img.height/2 
-                    };
+                    const obj = { type: 'image', src: img.src, x: (window.innerWidth/2 - offsetX - (img.width/4)*scale)/scale, y: (window.innerHeight/2 - offsetY - (img.height/4)*scale)/scale, w: img.width/2, h: img.height/2 };
                     objects.push(obj); socket.emit('new-object', obj); draw();
                 };
             };
@@ -339,70 +327,118 @@ window.addEventListener('paste', (e) => {
     }
 });
 
-// Створення текстового блоку з автозаміною
+// ОНОВЛЕНА ФУНКЦІЯ СТВОРЕННЯ ТЕКСТУ З КРАСИВИМ ВИДІЛЕННЯМ
 function createText(e) {
     const coords = getCoords(e);
+    
+    // Контейнер для поля + превью
+    const container = document.createElement('div');
+    container.className = 'text-input-container';
+    container.style.left = coords.rawX + 'px';
+    container.style.top = coords.rawY + 'px';
+    
+    // Поле вводу
     const div = document.createElement('div');
     div.className = 'text-input-div';
     div.contentEditable = true;
-    div.style.left = coords.rawX + 'px';
-    div.style.top = coords.rawY + 'px';
-    div.style.fontSize = (20 * scale) + 'px';
     div.style.color = document.getElementById('colorPicker').value;
-    if(document.getElementById('boldText').checked) div.style.fontWeight = 'bold';
+    if (document.getElementById('boldText').checked) div.style.fontWeight = 'bold';
     
-    // Підказка
-    if (document.getElementById('mathMode')?.checked) {
-        div.setAttribute('placeholder', 'x^2, E=mc^2, H_2O...');
-        div.style.minWidth = '150px';
-    }
+    // Превью результату
+    const preview = document.createElement('div');
+    preview.className = 'math-preview';
+    preview.innerHTML = '<span class="math-preview-label">Буде:</span> <span class="preview-content"></span>';
     
-    document.body.appendChild(div);
-    setTimeout(() => div.focus(), 50);
-
-    // ОБРОБНИК АВТОЗАМІНИ - спрацьовує при кожному вводі символу
-    div.addEventListener('input', (e) => {
-        // Запобігаємо рекурсії (якщо ми самі змінюємо текст)
-        if (e.isTrusted === false) return;
+    // Кнопка підтвердження (зелена галочка)
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'text-confirm-btn';
+    confirmBtn.innerHTML = '✓';
+    confirmBtn.title = 'Enter';
+    
+    container.appendChild(preview);
+    container.appendChild(div);
+    container.appendChild(confirmBtn);
+    document.body.appendChild(container);
+    
+    // Фокусуємось з затримкою для мобільних
+    setTimeout(() => {
+        div.focus();
+        // Ставимо курсор в кінець
+        const range = document.createRange();
+        range.selectNodeContents(div);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }, 50);
+    
+    // Обробка вводу з підсвіткою
+    let lastText = '';
+    div.addEventListener('input', () => {
+        const text = div.innerText;
+        if (text === lastText) return;
+        lastText = text;
         
-        autoConvertMath(div);
+        // Показуємо превью конвертації
+        const converted = convertMathNotation(text, true);
+        if (converted !== text) {
+            preview.querySelector('.preview-content').textContent = converted;
+            preview.classList.add('visible');
+        } else {
+            preview.classList.remove('visible');
+        }
+        
+        // Підсвітка патернів у тексті (опціонально, може порушувати курсор)
+        // div.innerHTML = highlightMathPatterns(text); // Розкоментуй якщо хочеш кольорову підсвітку всередині
     });
-
-    div.onblur = () => {
-        if (div.innerText.trim()) {
+    
+    // Обробка Enter (збереження)
+    const saveText = () => {
+        const text = div.innerText.trim();
+        if (text) {
+            const convertedText = convertMathNotation(text, true);
             const obj = { 
                 type: 'text', 
                 x: coords.x, 
                 y: coords.y, 
-                text: div.innerText, // Текст вже сконвертований
+                text: convertedText,
                 color: div.style.color, 
                 size: 20, 
                 isBold: document.getElementById('boldText').checked
             };
             objects.push(obj); 
             socket.emit('new-object', obj);
+            draw();
         }
-        document.body.removeChild(div); 
-        draw();
+        document.body.removeChild(container);
     };
     
-    div.onkeydown = (e) => {
-        if (e.key === 'Escape') {
-            div.blur();
-        }
+    div.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            div.blur();
+            saveText();
         }
-    };
+        if (e.key === 'Escape') {
+            document.body.removeChild(container);
+        }
+    });
+    
+    confirmBtn.addEventListener('click', saveText);
+    
+    div.addEventListener('blur', (e) => {
+        // Затримка, щоб встигнути натиснути кнопку підтвердження
+        setTimeout(() => {
+            if (document.body.contains(container)) {
+                saveText();
+            }
+        }, 200);
+    });
 }
 
 const startDrawing = (e) => {
     const coords = getCoords(e);
     isDrawing = true;
-
     if (currentTool === 'text') { createText(e); isDrawing = false; return; }
-    
     if (currentTool === 'eraser') {
         objects = objects.filter(obj => {
             const dist = Math.hypot(obj.x - coords.x, obj.y - coords.y);
@@ -411,16 +447,13 @@ const startDrawing = (e) => {
         socket.emit('update-all', objects);
         isDrawing = false; draw(); return;
     }
-
     if (currentTool === 'select') {
         selectedObj = [...objects].reverse().find(obj => Math.hypot(obj.x - coords.x, obj.y - coords.y) < 30/scale);
         dragStartX = coords.x; dragStartY = coords.y; draw(); return;
     }
-
     if (currentTool === 'hand') {
         dragStartX = coords.rawX; dragStartY = coords.rawY; return;
     }
-
     currentObj = { 
         type: currentTool, 
         color: document.getElementById('colorPicker').value, 
@@ -436,25 +469,20 @@ const startDrawing = (e) => {
 const moveDrawing = (e) => {
     if (!isDrawing) return;
     const coords = getCoords(e);
-
     if (currentTool === 'select' && selectedObj) {
         const dx = coords.x - dragStartX, dy = coords.y - dragStartY;
         selectedObj.x += dx; selectedObj.y += dy;
         if (selectedObj.ex !== undefined) { selectedObj.ex += dx; selectedObj.ey += dy; }
         if (selectedObj.points) selectedObj.points.forEach(p => { p.x += dx; p.y += dy; });
         dragStartX = coords.x; dragStartY = coords.y;
-    } 
-    else if (currentTool === 'hand') {
+    } else if (currentTool === 'hand') {
         offsetX += (coords.rawX - dragStartX);
         offsetY += (coords.rawY - dragStartY);
         dragStartX = coords.rawX; dragStartY = coords.rawY;
-    }
-    else if (currentTool === 'pen') {
+    } else if (currentTool === 'pen') {
         currentObj.points.push({x: coords.x, y: coords.y});
-    } 
-    else if (currentObj) {
-        currentObj.ex = coords.x; 
-        currentObj.ey = coords.y;
+    } else if (currentObj) {
+        currentObj.ex = coords.x; currentObj.ey = coords.y;
     }
     draw();
 };
@@ -475,7 +503,6 @@ const endDrawing = () => {
 canvas.addEventListener('mousedown', startDrawing);
 window.addEventListener('mousemove', moveDrawing);
 window.addEventListener('mouseup', endDrawing);
-
 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); }, {passive: false});
 canvas.addEventListener('touchmove', (e) => { e.preventDefault(); moveDrawing(e); }, {passive: false});
 canvas.addEventListener('touchend', endDrawing);
