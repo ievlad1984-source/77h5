@@ -35,22 +35,32 @@
             border: 2px dashed #4CAF50;
             background: transparent;
             box-sizing: border-box;
+            /* Авто-ширина для розширення по горизонталі */
+            width: auto !important;
+            min-width: 100px;
         }
 
         .text-edit-content {
-            width: 100%;
-            height: 100%;
+            /* Авто-розширення по горизонталі, без переносу */
+            width: auto;
+            min-width: 100px;
+            max-width: none;
+            height: auto;
+            min-height: 30px;
             outline: none;
             background: rgba(255, 255, 255, 0.95);
             border: none;
             border-radius: 4px;
-            padding: 6px;
+            padding: 6px 10px;
             font-size: 18px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            overflow: hidden;
-            resize: none;
+            /* НЕ переносити текст автоматично! Тільки Enter */
+            white-space: pre;
+            overflow: visible;
+            display: inline-block;
             box-sizing: border-box;
+            line-height: 1.4;
         }
 
         .handle {
@@ -282,15 +292,16 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// === СІТКА ЯК НА iDROO (мілліметровий папір) ===
+// === СІТКА iDROO (тонші лінії) ===
 function drawGrid() {
-    // Дрібна сітка: крок 20px, дуже світла
+    // Дрібна сітка: крок 20px
     const smallStep = 20 * scale;
-    const largeStep = 100 * scale; // Кожні 5 дрібних
+    // Основна сітка: крок 100px (кожні 5 дрібних)
+    const largeStep = 100 * scale;
     
     // Малюємо дрібну сітку
     ctx.beginPath();
-    ctx.strokeStyle = '#e0e0e0'; // Світло-сірий
+    ctx.strokeStyle = '#e8e8e8'; // Світліший сірий
     ctx.lineWidth = 0.5;
     
     let startX = offsetX % smallStep;
@@ -306,10 +317,10 @@ function drawGrid() {
     }
     ctx.stroke();
     
-    // Малюємо основну сітку (кожні 100px) - темніше
+    // Малюємо основну сітку (тонше - було 1, стало 0.5)
     ctx.beginPath();
-    ctx.strokeStyle = '#bdbdbd'; // Темніший сірий
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#cccccc'; // Сірий, але не занадто темний
+    ctx.lineWidth = 0.5; // ЗМЕНШЕНО з 1 до 0.5
     
     startX = offsetX % largeStep;
     startY = offsetY % largeStep;
@@ -375,7 +386,6 @@ function drawSelection(obj) {
 }
 
 function draw() {
-    // Білий фон
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
@@ -458,6 +468,7 @@ function getCoords(e) {
     };
 }
 
+// === РЕДАГУВАННЯ ТЕКСТУ З АВТО-РОЗШИРЕННЯМ ===
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -468,15 +479,19 @@ function startTextEdit(obj) {
     const bbox = getBBox(obj);
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
-    const screenW = Math.max(bbox.w * scale + 20, 100);
-    const screenH = Math.max(bbox.h * scale + 10, 40);
+    
+    // Початкові розміри
+    const startWidth = Math.max(bbox.w * scale + 20, 100);
+    const lineHeight = obj.size * 1.2 * scale;
+    const startHeight = Math.max(bbox.h * scale + 10, lineHeight + 10);
     
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
     wrapper.style.left = (screenX - 10) + 'px';
     wrapper.style.top = (screenY - 5) + 'px';
-    wrapper.style.width = screenW + 'px';
-    wrapper.style.height = screenH + 'px';
+    // Початкова ширина/висота
+    wrapper.style.minWidth = '100px';
+    wrapper.style.minHeight = lineHeight + 'px';
     
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
@@ -500,10 +515,37 @@ function startTextEdit(obj) {
     textarea.innerText = obj.rawText || obj.text;
     textarea.style.color = obj.color;
     textarea.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    // Розмір шрифта в масштабі для правильного відображення
+    textarea.style.fontSize = (obj.size * scale) + 'px';
     
     wrapper.appendChild(textarea);
     document.body.appendChild(wrapper);
     textEditor = wrapper;
+    
+    // Функція оновлення розмірів під контент
+    function updateSize() {
+        // Розраховуємо потрібну ширину на основі найдовшого рядка
+        const lines = textarea.innerText.split('\n');
+        let maxWidth = 0;
+        lines.forEach(line => {
+            const width = ctx.measureText(line).width * scale; // measureText дає розмір при поточному font в canvas
+            maxWidth = Math.max(maxWidth, width);
+        });
+        
+        // Додаємо відступи
+        const newWidth = Math.max(maxWidth + 20, 100);
+        const newHeight = Math.max(lines.length * lineHeight + 10, lineHeight + 10);
+        
+        wrapper.style.width = newWidth + 'px';
+        wrapper.style.height = newHeight + 'px';
+        
+        // Оновлюємо позицію хендлів (вони absolute відносно wrapper)
+        // wrapper сам розширюється, хендли прив'язані до країв через CSS
+    }
+    
+    // Ініціалізація розмірів
+    ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+    updateSize();
     
     setTimeout(() => {
         textarea.focus();
@@ -519,13 +561,18 @@ function startTextEdit(obj) {
     
     textarea.addEventListener('input', () => {
         if (isConverting) return;
+        
+        const text = textarea.innerText;
+        
         if (!document.getElementById('mathMode')?.checked) {
-            obj.rawText = textarea.innerText;
-            obj.text = textarea.innerText;
+            obj.rawText = text;
+            obj.text = text;
+            updateSize();
+            draw();
             return;
         }
         
-        const text = textarea.innerText;
+        // Автозаміна формул
         if (text.includes('^') || text.includes('_') || /\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/.test(text)) {
             const selection = window.getSelection();
             const range = selection.getRangeAt(0);
@@ -536,16 +583,20 @@ function startTextEdit(obj) {
             if (converted !== text) {
                 isConverting = true;
                 textarea.innerText = converted;
+                
+                // Відновлюємо позицію курсору
                 const newLength = converted.length;
-                const newPos = Math.max(0, Math.min(cursorPos + (newLength - oldLength), newLength));
+                const newPos = Math.min(cursorPos + (newLength - oldLength), newLength);
                 
                 try {
                     const newRange = document.createRange();
-                    newRange.setStart(textarea.firstChild || textarea, newPos);
+                    const node = textarea.firstChild || textarea;
+                    newRange.setStart(node, Math.max(0, Math.min(newPos, node.length || 0)));
                     newRange.collapse(true);
                     selection.removeAllRanges();
                     selection.addRange(newRange);
                 } catch(err) {
+                    // У разі помилки - кінець
                     const newRange = document.createRange();
                     newRange.selectNodeContents(textarea);
                     newRange.collapse(false);
@@ -559,35 +610,47 @@ function startTextEdit(obj) {
                 obj.rawText = text;
                 obj.text = text;
             }
-            
-            const newBBox = getBBox(obj);
-            wrapper.style.width = (Math.max(newBBox.w * scale + 20, 100)) + 'px';
-            wrapper.style.height = (Math.max(newBBox.h * scale + 10, 40)) + 'px';
-            draw();
         } else {
             obj.rawText = text;
             obj.text = text;
         }
+        
+        // Оновлюємо розміри під новий контент
+        updateSize();
+        draw();
     });
     
+    // Handles events для ресайзу
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
             e.stopPropagation();
-            startTextResize(obj, h.dataset.handle, e);
+            if (h.dataset.handle === 'e' || h.dataset.handle === 'w') {
+                // Горизонтальний ресайз - змінюємо розмір шрифта пропорційно
+                startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
+            } else {
+                // Вертикальний ресайз - змінюємо розмір шрифта
+                startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
+            }
         });
     });
     
+    // Drag тексту
     textarea.addEventListener('mousedown', (e) => {
-        if (e.target === textarea && !isResizing) {
+        if (e.target === textarea) {
             e.stopPropagation();
-            startTextDrag(obj, e);
+            startTextDrag(obj, e, wrapper);
         }
     });
     
     textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); stopTextEdit(); }
-        if (e.key === 'Escape') { stopTextEdit(true); }
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault(); 
+            stopTextEdit(); 
+        }
+        if (e.key === 'Escape') { 
+            stopTextEdit(true); 
+        }
     });
     
     textarea.addEventListener('blur', () => {
@@ -611,7 +674,7 @@ function stopTextEdit(cancel = false) {
     draw();
 }
 
-function startTextResize(obj, handle, e) {
+function startTextResize(obj, handle, e, wrapper, textarea) {
     isResizing = true;
     resizeHandle = handle;
     const coords = getCoords(e);
@@ -619,23 +682,45 @@ function startTextResize(obj, handle, e) {
     dragStartY = coords.y;
     const bbox = getBBox(obj);
     startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: bbox.w, h: bbox.h };
+    const startFontSize = obj.size;
+    const lineHeight = startFontSize * 1.2;
     
     const onMove = (e) => {
         if (!isResizing) return;
         const c = getCoords(e);
-        const dx = (c.x - dragStartX);
-        const dy = (c.y - dragStartY);
+        const dx = c.x - dragStartX;
+        const dy = c.y - dragStartY;
         
+        // Ресайз змінює розмір шрифта
+        let scaleFactor = 1;
         if (handle === 'se' || handle === 's' || handle === 'e') {
-            const factor = Math.max(0.5, 1 + (handle === 'se' ? (dx + dy) / 200 : handle === 's' ? dy / 100 : dx / 100));
-            obj.size = Math.max(10, Math.min(200, startResizeState.size * factor));
+            scaleFactor = Math.max(0.5, 1 + (dx + dy) / 200);
+        } else if (handle === 'n') {
+            scaleFactor = Math.max(0.5, 1 - dy / 100);
+        } else if (handle === 'w') {
+            scaleFactor = Math.max(0.5, 1 - dx / 100);
         }
         
-        const newBBox = getBBox(obj);
-        if (textEditor) {
-            textEditor.style.width = (newBBox.w * scale + 20) + 'px';
-            textEditor.style.height = (newBBox.h * scale + 10) + 'px';
-        }
+        obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
+        
+        // Оновлюємо font-size в textarea
+        textarea.style.fontSize = (obj.size * scale) + 'px';
+        
+        // Перераховуємо розміри
+        const lines = textarea.innerText.split('\n');
+        let maxWidth = 0;
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        lines.forEach(line => {
+            const w = ctx.measureText(line).width * scale;
+            maxWidth = Math.max(maxWidth, w);
+        });
+        
+        const newWidth = Math.max(maxWidth + 20, 100);
+        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 10, obj.size * 1.2 * scale + 10);
+        
+        wrapper.style.width = newWidth + 'px';
+        wrapper.style.height = newHeight + 'px';
+        
         draw();
     };
     
@@ -649,12 +734,12 @@ function startTextResize(obj, handle, e) {
     document.addEventListener('mouseup', onUp);
 }
 
-function startTextDrag(obj, e) {
+function startTextDrag(obj, e, wrapper) {
     isDragging = true;
     const coords = getCoords(e);
     dragStartX = coords.x - obj.x;
     dragStartY = coords.y - obj.y;
-    const textarea = textEditor.querySelector('.text-edit-content');
+    const textarea = wrapper.querySelector('.text-edit-content');
     textarea.style.cursor = 'grabbing';
     
     const onMove = (e) => {
@@ -663,8 +748,8 @@ function startTextDrag(obj, e) {
         obj.x = c.x - dragStartX;
         obj.y = c.y - dragStartY;
         const bbox = getBBox(obj);
-        textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+        wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
+        wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
         draw();
     };
     
@@ -679,19 +764,16 @@ function startTextDrag(obj, e) {
     document.addEventListener('mouseup', onUp);
 }
 
+// Canvas interactions...
 canvas.addEventListener('mousedown', (e) => {
     if (textEditor) { stopTextEdit(); return; }
     
     const coords = getCoords(e);
     
     if (currentTool !== 'select' && currentTool !== 'hand') {
-        if (currentTool === 'eraser') {
-            eraseAt(coords.x, coords.y);
-        } else if (currentTool === 'text') {
-            createNewText(coords);
-        } else {
-            startDrawing(coords);
-        }
+        if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
+        else if (currentTool === 'text') createNewText(coords);
+        else startDrawing(coords);
         return;
     }
     
@@ -715,18 +797,9 @@ canvas.addEventListener('mousedown', (e) => {
         dragStartObjY = clickedObj.y;
         
         if (clickedObj.type === 'pen') {
-            startResizeState = {
-                x: clickedObj.x,
-                y: clickedObj.y,
-                points: clickedObj.points.map(p => ({x: p.x, y: p.y}))
-            };
+            startResizeState = { x: clickedObj.x, y: clickedObj.y, points: clickedObj.points.map(p => ({x: p.x, y: p.y})) };
         } else if (clickedObj.type === 'line' || clickedObj.type === 'arrow' || clickedObj.type === 'rect') {
-            startResizeState = {
-                x: clickedObj.x,
-                y: clickedObj.y,
-                ex: clickedObj.ex,
-                ey: clickedObj.ey
-            };
+            startResizeState = { x: clickedObj.x, y: clickedObj.y, ex: clickedObj.ex, ey: clickedObj.ey };
         } else {
             startResizeState = { x: clickedObj.x, y: clickedObj.y };
         }
@@ -736,12 +809,10 @@ canvas.addEventListener('mousedown', (e) => {
             startTextEdit(clickedObj);
             return;
         }
-        
         draw();
     } else {
         selectedObj = null;
         draw();
-        
         if (currentTool === 'hand') {
             isDragging = true;
             dragStartX = coords.rawX;
@@ -756,23 +827,18 @@ canvas.addEventListener('mousemove', (e) => {
     if (currentTool === 'select' && selectedObj && !isDragging && !isResizing && !isRotating) {
         const handle = hitHandle(selectedObj, coords.x, coords.y);
         canvas.style.cursor = getCursor(handle);
-    } else if (currentTool === 'select') {
-        canvas.style.cursor = 'default';
-    } else if (currentTool === 'hand') {
-        canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
-    } else if (currentTool === 'eraser') {
+    } else if (currentTool === 'select') canvas.style.cursor = 'default';
+    else if (currentTool === 'hand') canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
+    else if (currentTool === 'eraser') {
         canvas.style.cursor = 'cell';
         if (e.buttons === 1) eraseAt(coords.x, coords.y);
-    } else {
-        canvas.style.cursor = 'crosshair';
-    }
+    } else canvas.style.cursor = 'crosshair';
     
     if (!isDragging && !isResizing && !isRotating && !isDrawing) return;
     
     if (isDragging && selectedObj) {
         const dx = coords.x - dragStartX;
         const dy = coords.y - dragStartY;
-        
         if (selectedObj.type === 'line' || selectedObj.type === 'arrow' || selectedObj.type === 'rect') {
             selectedObj.x = dragStartObjX + dx;
             selectedObj.y = dragStartObjY + dy;
@@ -781,10 +847,7 @@ canvas.addEventListener('mousemove', (e) => {
         } else if (selectedObj.type === 'pen') {
             selectedObj.x = startResizeState.x + dx;
             selectedObj.y = startResizeState.y + dy;
-            selectedObj.points = startResizeState.points.map(p => ({
-                x: p.x + dx,
-                y: p.y + dy
-            }));
+            selectedObj.points = startResizeState.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
         } else {
             selectedObj.x = dragStartObjX + dx;
             selectedObj.y = dragStartObjY + dy;
@@ -797,12 +860,8 @@ canvas.addEventListener('mousemove', (e) => {
         dragStartY = coords.rawY;
         draw();
     } else if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen') {
-            currentPath.points.push({x: coords.x, y: coords.y});
-        } else {
-            currentPath.ex = coords.x;
-            currentPath.ey = coords.y;
-        }
+        if (currentPath.type === 'pen') currentPath.points.push({x: coords.x, y: coords.y});
+        else { currentPath.ex = coords.x; currentPath.ey = coords.y; }
         draw();
     }
 });
@@ -822,11 +881,8 @@ canvas.addEventListener('mouseup', () => {
         currentPath = null;
         draw();
     }
-    
     if (isDragging || isResizing || isRotating) {
-        isDragging = false;
-        isResizing = false;
-        isRotating = false;
+        isDragging = false; isResizing = false; isRotating = false;
         socket.emit('update-all', objects);
     }
 });
@@ -840,31 +896,20 @@ function eraseAt(mx, my) {
         let shouldRemove = false;
         
         if (obj.type === 'pen') {
-            const newPoints = [];
-            let firstKept = null;
-            
             const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
-            const keptIndices = [];
-            
+            const kept = [];
             allPoints.forEach((p, idx) => {
-                if (Math.hypot(p.x - mx, p.y - my) > eraserRadius) {
-                    keptIndices.push(idx);
-                } else {
-                    changed = true;
-                }
+                if (Math.hypot(p.x - mx, p.y - my) > eraserRadius) kept.push(idx);
             });
-            
-            if (keptIndices.length < 2) {
-                shouldRemove = true;
-            } else if (changed) {
-                const kept = keptIndices.map(idx => allPoints[idx]);
-                obj.x = kept[0].x;
-                obj.y = kept[0].y;
-                obj.points = kept.slice(1);
+            if (kept.length < 2) shouldRemove = true;
+            else if (kept.length < allPoints.length) {
+                const newPoints = kept.map(idx => allPoints[idx]);
+                obj.x = newPoints[0].x; obj.y = newPoints[0].y;
+                obj.points = newPoints.slice(1);
+                changed = true;
             }
         } else if (obj.type === 'line' || obj.type === 'arrow') {
-            const d = distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey);
-            if (d < eraserRadius) shouldRemove = true;
+            if (distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < eraserRadius) shouldRemove = true;
         } else if (obj.type === 'rect') {
             const bbox = getBBox(obj);
             const onBorder = (Math.abs(mx - bbox.x) < eraserRadius || Math.abs(mx - (bbox.x + bbox.w)) < eraserRadius) &&
@@ -873,8 +918,7 @@ function eraseAt(mx, my) {
                              mx >= bbox.x && mx <= bbox.x + bbox.w;
             if (onBorder || hitTest(obj, mx, my)) shouldRemove = true;
         } else if (obj.type === 'text' || obj.type === 'image') {
-            const cx = obj.x + (obj.w || 0)/2;
-            const cy = obj.y + (obj.h || 0)/2;
+            const cx = obj.x + (obj.w || 0)/2, cy = obj.y + (obj.h || 0)/2;
             if (Math.hypot(cx - mx, cy - my) < eraserRadius) shouldRemove = true;
         }
         
@@ -884,11 +928,7 @@ function eraseAt(mx, my) {
             if (selectedObj === obj) selectedObj = null;
         }
     }
-    
-    if (changed) {
-        socket.emit('update-all', objects);
-        draw();
-    }
+    if (changed) { socket.emit('update-all', objects); draw(); }
 }
 
 function startDrawing(coords) {
@@ -897,123 +937,75 @@ function startDrawing(coords) {
         type: currentTool,
         color: document.getElementById('colorPicker').value,
         width: document.getElementById('lineWidth').value,
-        x: coords.x,
-        y: coords.y,
-        ex: coords.x,
-        ey: coords.y
+        x: coords.x, y: coords.y, ex: coords.x, ey: coords.y
     };
     if (currentTool === 'pen') currentPath.points = [];
 }
 
 function startResize(obj, handle, e) {
+    if (obj.type === 'text') { startTextEdit(obj); return; }
     isResizing = true;
     resizeHandle = handle;
     const coords = getCoords(e);
-    dragStartX = coords.x;
-    dragStartY = coords.y;
+    dragStartX = coords.x; dragStartY = coords.y;
     startResizeState = { ...obj };
     if (obj.points) startResizeState.points = JSON.parse(JSON.stringify(obj.points));
     
     const onMove = (e) => {
         if (!isResizing) return;
         const c = getCoords(e);
-        const dx = c.x - dragStartX;
-        const dy = c.y - dragStartY;
+        const dx = c.x - dragStartX, dy = c.y - dragStartY;
         
         if (obj.type === 'rect') {
-            let newX = startResizeState.x;
-            let newY = startResizeState.y;
-            let newEx = startResizeState.ex;
-            let newEy = startResizeState.ey;
-            
+            let newX = startResizeState.x, newY = startResizeState.y, newEx = startResizeState.ex, newEy = startResizeState.ey;
             if (handle.includes('e')) newEx = startResizeState.ex + dx;
             if (handle.includes('w')) newX = startResizeState.x + dx;
             if (handle.includes('s')) newEy = startResizeState.ey + dy;
             if (handle.includes('n')) newY = startResizeState.y + dy;
-            
             if (shiftKey) {
-                const w = newEx - newX;
-                const h = newEy - newY;
+                const w = newEx - newX, h = newEy - newY;
                 const ratio = (startResizeState.ex - startResizeState.x) / (startResizeState.ey - startResizeState.y);
-                if (Math.abs(w) > Math.abs(h) * ratio) {
-                    newEy = newY + w / ratio * Math.sign(h || 1);
-                } else {
-                    newEx = newX + h * ratio * Math.sign(w || 1);
-                }
+                if (Math.abs(w) > Math.abs(h) * ratio) newEy = newY + w / ratio * Math.sign(h || 1);
+                else newEx = newX + h * ratio * Math.sign(w || 1);
             }
-            
-            obj.x = newX;
-            obj.y = newY;
-            obj.ex = newEx;
-            obj.ey = newEy;
+            obj.x = newX; obj.y = newY; obj.ex = newEx; obj.ey = newEy;
         } else if (obj.type === 'line' || obj.type === 'arrow') {
             if (handle === 'se' || handle === 'e') obj.ex = startResizeState.ex + dx;
-            else if (handle === 's' || handle === 'se') obj.ey = startResizeState.ey + dy;
+            else if (handle === 's') obj.ey = startResizeState.ey + dy;
             else if (handle === 'w' || handle === 'sw') obj.x = startResizeState.x + dx;
             else if (handle === 'n' || handle === 'ne') obj.y = startResizeState.y + dy;
-            else if (handle === 'nw') {
-                obj.x = startResizeState.x + dx;
-                obj.y = startResizeState.y + dy;
-            } else if (handle === 'ne') {
-                obj.ex = startResizeState.ex + dx;
-                obj.y = startResizeState.y + dy;
-            } else if (handle === 'sw') {
-                obj.x = startResizeState.x + dx;
-                obj.ey = startResizeState.ey + dy;
-            } else if (handle === 'se') {
-                obj.ex = startResizeState.ex + dx;
-                obj.ey = startResizeState.ey + dy;
-            }
+            else if (handle === 'nw') { obj.x = startResizeState.x + dx; obj.y = startResizeState.y + dy; }
+            else if (handle === 'ne') { obj.ex = startResizeState.ex + dx; obj.y = startResizeState.y + dy; }
+            else if (handle === 'sw') { obj.x = startResizeState.x + dx; obj.ey = startResizeState.ey + dy; }
+            else if (handle === 'se') { obj.ex = startResizeState.ex + dx; obj.ey = startResizeState.ey + dy; }
         } else if (obj.type === 'image') {
             let newW = startResizeState.w + (handle.includes('e') ? dx : handle.includes('w') ? -dx : 0);
             let newH = startResizeState.h + (handle.includes('s') ? dy : handle.includes('n') ? -dy : 0);
-            
-            if (shiftKey) {
-                const ratio = startResizeState.w / startResizeState.h;
-                newH = newW / ratio;
-            }
-            
+            if (shiftKey) { const ratio = startResizeState.w / startResizeState.h; newH = newW / ratio; }
             if (handle.includes('w')) obj.x = startResizeState.x + (startResizeState.w - newW);
             if (handle.includes('n')) obj.y = startResizeState.y + (startResizeState.h - newH);
-            obj.w = Math.max(20, newW);
-            obj.h = Math.max(20, newH);
+            obj.w = Math.max(20, newW); obj.h = Math.max(20, newH);
         }
-        
         draw();
     };
-    
-    const onUp = () => {
-        isResizing = false;
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        socket.emit('update-all', objects);
-    };
+    const onUp = () => { isResizing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); socket.emit('update-all', objects); };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
 
 function startRotate(e) {
     isRotating = true;
-    const onUp = () => {
-        isRotating = false;
-        document.removeEventListener('mouseup', onUp);
-    };
+    const onUp = () => { isRotating = false; document.removeEventListener('mouseup', onUp); };
     document.addEventListener('mouseup', onUp);
 }
 
 function createNewText(coords) {
     const obj = {
-        type: 'text',
-        x: coords.x,
-        y: coords.y,
-        text: '',
-        rawText: '',
+        type: 'text', x: coords.x, y: coords.y, text: '', rawText: '',
         color: document.getElementById('colorPicker').value,
-        size: 20,
-        isBold: document.getElementById('boldText').checked
+        size: 20, isBold: document.getElementById('boldText').checked
     };
-    objects.push(obj);
-    selectedObj = obj;
+    objects.push(obj); selectedObj = obj;
     socket.emit('new-object', obj);
     draw();
     startTextEdit(obj);
@@ -1023,24 +1015,18 @@ function setTool(tool) {
     currentTool = tool;
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
-    if (tool !== 'select' && selectedObj) {
-        selectedObj = null;
-        draw();
-    }
+    if (tool !== 'select' && selectedObj) { selectedObj = null; draw(); }
     if (tool === 'select') canvas.style.cursor = 'default';
     else if (tool === 'hand') canvas.style.cursor = 'grab';
     else if (tool === 'eraser') canvas.style.cursor = 'cell';
     else canvas.style.cursor = 'crosshair';
 }
 
-document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
-    btn.onclick = () => setTool(btn.dataset.tool);
-});
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = () => setTool(btn.dataset.tool));
 
 document.getElementById('clearBtn').onclick = () => { 
     if(confirm("Очистити дошку?")) {
-        objects = [];
-        selectedObj = null;
+        objects = []; selectedObj = null;
         if (textEditor) stopTextEdit();
         socket.emit('delete-board');
     }
@@ -1057,20 +1043,16 @@ window.addEventListener('wheel', (e) => {
     const oldScale = scale;
     scale *= delta;
     scale = Math.min(Math.max(scale, 0.2), 5.0);
-    
     const mx = (e.clientX - offsetX) / oldScale;
     const my = (e.clientY - offsetY) / oldScale;
     offsetX = e.clientX - mx * scale;
     offsetY = e.clientY - my * scale;
-    
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
-    
     if (textEditor && editingObject) {
         const bbox = getBBox(editingObject);
         textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
         textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
     }
-    
     draw();
 }, { passive: false });
 
@@ -1087,18 +1069,9 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
-                    const obj = { 
-                        type: 'image', 
-                        src: img.src, 
-                        x: centerX - img.width/4, 
-                        y: centerY - img.height/4, 
-                        w: img.width/2, 
-                        h: img.height/2 
-                    };
-                    objects.push(obj); 
-                    selectedObj = obj;
-                    socket.emit('new-object', obj); 
-                    draw();
+                    const obj = { type: 'image', src: img.src, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2 };
+                    objects.push(obj); selectedObj = obj;
+                    socket.emit('new-object', obj); draw();
                 };
             };
             reader.readAsDataURL(blob);
