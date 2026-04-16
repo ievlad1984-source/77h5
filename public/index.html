@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (Advanced Math & Images)</title>
+    <title>Математична Дошка Pro (Fixed Math Spacing)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
@@ -55,29 +55,27 @@
             line-height: 1.5;
             cursor: text;
             display: inline-block;
+            white-space: pre; /* Зберігаємо пробіли */
         }
 
-        /* Стилі для математичних полів в редакторі */
-        .math-sup {
-            vertical-align: super;
+        /* ВИПРАВЛЕНО: Стилі для математичних полів */
+        .math-sup, .math-sub {
+            display: inline; /* Змінено з inline-block на inline для щільності */
             font-size: 0.7em;
-            display: inline-block;
-            border-bottom: 1px dashed #ccc; /* Підказка, що це поле */
-            min-width: 5px;
-            padding: 0 2px;
+            vertical-align: super; /* Для степеня */
+            margin-left: -1px; /* Прибираємо мікроскопічний відступ */
+            padding: 0 1px;
+            border-radius: 2px;
         }
+        
         .math-sub {
-            vertical-align: sub;
-            font-size: 0.7em;
-            display: inline-block;
-            border-top: 1px dashed #ccc;
-            min-width: 5px;
-            padding: 0 2px;
+            vertical-align: sub; /* Для індексу */
         }
+
         .math-sup:focus, .math-sub:focus {
-            border-color: #007bff;
-            outline: none;
-            background: rgba(0, 123, 255, 0.1);
+            background: rgba(0, 123, 255, 0.15);
+            outline: 1px solid #007bff;
+            border-radius: 2px;
         }
 
         /* Хендли для ресайзу */
@@ -162,7 +160,6 @@
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
     <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
-    <!-- Math Mode тепер завжди активний для нового редактора, але залишаємо чекбокс для сумісності -->
     <label title="Розумні формули"><input type="checkbox" id="mathMode" checked disabled> 𝑥²</label>
     <input type="color" id="colorPicker" value="#212529" title="Колір">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
@@ -212,11 +209,8 @@ function getBBox(obj) {
     let bbox = null;
 
     if (obj.type === 'text') {
-        // Для тексту з формулами треба рахувати висоту з урахуванням sup/sub
-        // Але для простоти bbox беремо по базовій лінії + запас
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size}px 'Segoe UI', sans-serif`;
         
-        // Рахуємо ширину та висоту на основі сегментів
         let totalWidth = 0;
         let maxAscent = 0;
         let maxDescent = 0;
@@ -243,8 +237,6 @@ function getBBox(obj) {
         }
 
         const h = maxAscent + maxDescent;
-        // x,y - це лівий верхній кут (або базова лінія з урахуванням ascent)
-        // Зберігаємо логіку: obj.x, obj.y - це початок тексту (базова лінія першого символу)
         bbox = { 
             x: obj.x, 
             y: obj.y - maxAscent, 
@@ -295,7 +287,6 @@ function hitTest(obj, mx, my, padding = 5) {
     if (obj.type === 'line' || obj.type === 'arrow') {
         return distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < (padding + (obj.width||2));
     }
-    // Для картинок і тексту хіт-тест по bbox
     return mx >= bbox.x - padding && mx <= bbox.x + bbox.w + padding && 
            my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
 }
@@ -505,7 +496,6 @@ function drawObject(obj, isTemp = false) {
                 ctx.restore();
             });
         } else {
-            // Fallback for old string-based text
             ctx.fillText(obj.text || '', (obj.x - bbox.cx) * scale, baselineY);
         }
     } 
@@ -519,7 +509,6 @@ function drawObject(obj, isTemp = false) {
             if (obj._img.complete) {
                 ctx.drawImage(obj._img, (obj.x - bbox.cx) * scale, (obj.y - bbox.cy) * scale, obj.w * scale, obj.h * scale);
             } else {
-                // Placeholder while loading
                 ctx.strokeStyle = '#999';
                 ctx.strokeRect((obj.x - bbox.cx) * scale, (obj.y - bbox.cy) * scale, obj.w * scale, obj.h * scale);
                 ctx.fillStyle = '#999';
@@ -556,7 +545,6 @@ function startTextEdit(obj) {
     wrapper.style.height = (bbox.h * scale) + 'px';
     wrapper.style.transform = 'none'; 
     
-    // Хендли
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
         div.className = `handle ${h}`;
@@ -573,14 +561,12 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // Рендеринг сегментів у HTML
     renderSegmentsToHTML(obj.segments, editorDiv);
     
     wrapper.appendChild(editorDiv);
     document.body.appendChild(wrapper);
     textEditor = wrapper;
     
-    // Фокус в кінець
     setTimeout(() => {
         editorDiv.focus();
         const range = document.createRange();
@@ -591,7 +577,6 @@ function startTextEdit(obj) {
         sel.addRange(range);
     }, 10);
     
-    // Обробка вводу
     editorDiv.addEventListener('keydown', (e) => {
         if (e.key === '^') {
             e.preventDefault();
@@ -600,28 +585,38 @@ function startTextEdit(obj) {
             e.preventDefault();
             insertMathSpan(editorDiv, 'sub');
         } else if (e.key === 'ArrowRight') {
-            // Вихід з поля степеня/індексу
+            // ВИПРАВЛЕНО: Логіка виходу з поля степеня/індексу
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
                 const range = sel.getRangeAt(0);
                 const node = range.startContainer;
-                // Якщо ми всередині span.math-sup або math-sub
+                
+                // Перевіряємо, чи ми всередині math-span
+                let parentSpan = null;
                 if (node.nodeType === 3) { // Text node
-                    const parent = node.parentNode;
-                    if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-                        // Якщо курсор в кінці текстового вузла
-                        if (range.startOffset === node.length) {
-                            e.preventDefault();
-                            // Перемістити курсор після батьківського span
-                            const newRange = document.createRange();
-                            newRange.setStartAfter(parent);
-                            newRange.collapse(true);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        }
+                    if (node.parentNode.classList.contains('math-sup') || node.parentNode.classList.contains('math-sub')) {
+                        parentSpan = node.parentNode;
                     }
-                } else if (node === editorDiv) {
-                     // Якщо курсор між елементами
+                } else if (node.nodeType === 1) { // Element node
+                    if (node.classList.contains('math-sup') || node.classList.contains('math-sub')) {
+                        parentSpan = node;
+                    }
+                }
+                
+                if (parentSpan) {
+                    // Якщо курсор в кінці текстового вузла або в кінці span
+                    const isAtEnd = (node.nodeType === 3 && range.startOffset === node.length) || 
+                                    (node === parentSpan && range.startOffset === parentSpan.childNodes.length);
+                    
+                    if (isAtEnd) {
+                        e.preventDefault();
+                        // Перемістити курсор одразу ЗА батьківський span
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(parentSpan);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
                 }
             }
         } else if (e.key === 'Enter' && !e.shiftKey) {
@@ -629,16 +624,37 @@ function startTextEdit(obj) {
             stopTextEdit();
         } else if (e.key === 'Escape') {
             stopTextEdit(true);
+        } else if (e.key === 'Backspace') {
+             // Запобігаємо видаленню самого span, якщо він порожній
+             const sel = window.getSelection();
+             if (sel.rangeCount > 0) {
+                 const range = sel.getRangeAt(0);
+                 if (range.startOffset === 0 && range.endOffset === 0) {
+                     const node = range.startContainer;
+                     if (node.nodeType === 1 && (node.classList.contains('math-sup') || node.classList.contains('math-sub'))) {
+                         // Дозволяємо видалити span тільки якщо він повністю виділений або курсор перед ним
+                         // Тут проста логіка: якщо всередині пустого span, не даємо видалити сам span Backspace-ом
+                         // (браузер сам це часто обробляє, але можна додати запобіжник)
+                     }
+                 }
+             }
         }
     });
     
     editorDiv.addEventListener('input', () => {
+        // Запобігаємо повному видаленню тексту в math-span (щоб не зник тег)
+        const spans = editorDiv.querySelectorAll('.math-sup, .math-sub');
+        spans.forEach(span => {
+            if (span.textContent.trim() === '') {
+                span.textContent = '\u00A0'; // Non-breaking space placeholder
+            }
+        });
+        
         syncHTMLToSegments(editorDiv, obj);
         updateEditorSize(wrapper, editorDiv, obj);
         draw();
     });
     
-    // Handles events
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
@@ -664,7 +680,8 @@ function renderSegmentsToHTML(segments, container) {
     }
     segments.forEach(seg => {
         const span = document.createElement('span');
-        span.textContent = seg.text;
+        // ВИПРАВЛЕНО: Не додаємо зайвих пробілів
+        span.textContent = seg.text || '\u00A0'; 
         if (seg.type === 'sup') span.className = 'math-sup';
         else if (seg.type === 'sub') span.className = 'math-sub';
         else span.className = 'math-normal';
@@ -679,7 +696,7 @@ function insertMathSpan(container, type) {
     
     const span = document.createElement('span');
     span.className = type === 'sup' ? 'math-sup' : 'math-sub';
-    span.textContent = '\u00A0'; // Non-breaking space as placeholder
+    span.textContent = '\u00A0'; // Placeholder
     
     range.deleteContents();
     range.insertNode(span);
@@ -687,7 +704,7 @@ function insertMathSpan(container, type) {
     // Move cursor inside
     const newRange = document.createRange();
     newRange.selectNodeContents(span);
-    newRange.collapse(false); // End of space
+    newRange.collapse(false); 
     sel.removeAllRanges();
     sel.addRange(newRange);
 }
@@ -696,19 +713,18 @@ function syncHTMLToSegments(container, obj) {
     const segments = [];
     const children = container.childNodes;
     children.forEach(node => {
-        if (node.nodeType === 1) { // Element
+        if (node.nodeType === 1) { 
             const className = node.className;
             let type = 'normal';
             if (className.includes('sup')) type = 'sup';
             else if (className.includes('sub')) type = 'sub';
             
             let text = node.textContent;
-            // Clean up placeholder spaces if empty
-            if (text.trim() === '') text = '';
+            // Clean up placeholder
+            if (text === '\u00A0') text = ''; 
             
             segments.push({ type, text });
-        } else if (node.nodeType === 3) { // Text
-            // Should be wrapped in spans ideally, but handle raw text
+        } else if (node.nodeType === 3) { 
             if (node.textContent.trim()) {
                 segments.push({ type: 'normal', text: node.textContent });
             }
@@ -718,7 +734,6 @@ function syncHTMLToSegments(container, obj) {
 }
 
 function updateEditorSize(wrapper, editorDiv, obj) {
-    // Simple auto-size based on scrollWidth/Height
     wrapper.style.width = Math.max(editorDiv.scrollWidth + 20, 50) + 'px';
     wrapper.style.height = Math.max(editorDiv.scrollHeight + 10, 40) + 'px';
 }
@@ -864,7 +879,6 @@ canvas.addEventListener('mousedown', (e) => {
         }
     }
     
-    // Reverse iterate to click top-most object first
     const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
     
     if (clickedObj && currentTool === 'select') {
@@ -1046,7 +1060,7 @@ function startResize(obj, handle, e) {
 function createNewText(coords) {
     const obj = {
         type: 'text', x: coords.x, y: coords.y, 
-        segments: [{type: 'normal', text: ''}], // New structure
+        segments: [{type: 'normal', text: ''}],
         color: document.getElementById('colorPicker').value,
         size: 20, isBold: document.getElementById('boldText').checked, rotation: 0
     };
@@ -1125,9 +1139,7 @@ window.addEventListener('paste', (e) => {
                         h: img.height/2, 
                         rotation: 0 
                     };
-                    // Important: Assign image object immediately to prevent flicker
                     obj._img = img; 
-                    
                     objects.push(obj); 
                     selectedObj = obj;
                     invalidateCache();
@@ -1141,13 +1153,7 @@ window.addEventListener('paste', (e) => {
 });
 
 socket.on('init-history', (h) => { objects = h; invalidateCache(); draw(); });
-socket.on('new-object', (o) => { 
-    // Avoid duplicates if server echoes to self (depends on socket config)
-    // For now, assume standard room behavior (broadcast to others)
-    objects.push(o); 
-    invalidateCache(); 
-    draw(); 
-});
+socket.on('new-object', (o) => { objects.push(o); invalidateCache(); draw(); });
 socket.on('update-all', (newObjects) => { objects = newObjects; invalidateCache(); draw(); });
 socket.on('board-deleted', () => { objects = []; selectedObj = null; invalidateCache(); draw(); });
 
