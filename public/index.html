@@ -2,141 +2,155 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Математична Дошка (iDroo Style)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Математична Дошка Pro (iDroo Style)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body, html { overflow: hidden; height: 100%; font-family: 'Segoe UI', sans-serif; background: #ffffff; }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
         
         #toolbar {
-            position: absolute; top: 15px; left: 15px; background: white; padding: 10px;
-            display: flex; gap: 8px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-            z-index: 1000; align-items: center; flex-wrap: wrap;
+            position: absolute; top: 15px; left: 15px; background: white; padding: 8px;
+            display: flex; gap: 6px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
+            z-index: 1000; align-items: center; flex-wrap: wrap; max-width: 90vw;
         }
 
         .tool-btn { 
-            padding: 8px 12px; cursor: pointer; border: 1px solid #e0e0e0; 
-            background: #fff; border-radius: 6px; font-size: 14px; 
-            display: flex; align-items: center; justify-content: center;
+            padding: 8px 14px; cursor: pointer; border: 1px solid #e0e0e0; 
+            background: #fff; border-radius: 6px; font-size: 14px; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; user-select: none;
         }
+        
         .tool-btn:hover { background: #f0f7ff; border-color: #007bff; }
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
-        
-        #room-info {
-            position: absolute; top: 15px; right: 15px; background: #e3f2fd;
-            padding: 8px 15px; border-radius: 20px; font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000;
-        }
         
         #zoom-display { 
             position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); 
             padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; border: 1px solid #ddd;
         }
 
         .text-edit-wrapper {
             position: absolute;
             z-index: 2000;
-            border: 1px dashed #ccc;
-            background: rgba(255,255,255,0.95);
-            padding: 5px;
-            min-width: 50px;
-            min-height: 30px;
+            border: 2px dashed #4CAF50;
+            background: transparent;
+            box-sizing: border-box;
+            /* Авто-ширина для розширення по горизонталі */
+            width: auto !important;
+            min-width: 100px;
         }
 
         .text-edit-content {
+            /* Авто-розширення по горизонталі, без переносу */
+            width: auto;
+            min-width: 100px;
+            max-width: none;
+            height: auto;
+            min-height: 30px;
             outline: none;
-            background: transparent;
+            background: rgba(255, 255, 255, 0.95);
             border: none;
-            font-size: 24px;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 18px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            line-height: 1.2;
-            white-space: pre-wrap;
-            cursor: text;
-        }
-
-        .math-sup, .math-sub {
+            /* НЕ переносити текст автоматично! Тільки Enter */
+            white-space: pre;
+            overflow: visible;
             display: inline-block;
-            font-size: 0.6em;
-            vertical-align: baseline;
-            position: relative;
-            background: rgba(255, 255, 200, 0.5);
-            border: 1px solid rgba(0,0,0,0.2);
-            border-radius: 3px;
-            padding: 0 3px;
-            margin: 0 1px;
+            box-sizing: border-box;
+            line-height: 1.4;
         }
-        .math-sup { top: -0.6em; }
-        .math-sub { top: 0.4em; }
 
         .handle {
             position: absolute;
-            width: 10px;
-            height: 10px;
-            background: white;
-            border: 2px solid #4CAF50;
+            width: 6px;
+            height: 6px;
+            background: #4CAF50;
+            border: 1px solid white;
+            border-radius: 1px;
             z-index: 2001;
             cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
-        .handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
-        .handle.n { top: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
-        .handle.e { top: 50%; right: -5px; transform: translateY(-50%); cursor: ew-resize; }
-        .handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
-        .handle.s { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
-        .handle.w { top: 50%; left: -5px; transform: translateY(-50%); cursor: ew-resize; }
+        
+        .handle:hover { background: #45a049; transform: scale(1.3); }
+        .handle.nw { top: -3px; left: -3px; cursor: nw-resize; }
+        .handle.n { top: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.ne { top: -3px; right: -3px; cursor: ne-resize; }
+        .handle.e { top: 50%; right: -3px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle.se { bottom: -3px; right: -3px; cursor: se-resize; }
+        .handle.s { bottom: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.sw { bottom: -3px; left: -3px; cursor: sw-resize; }
+        .handle.w { top: 50%; left: -3px; transform: translateY(-50%); cursor: ew-resize; }
         
         .rotate-handle {
             position: absolute;
-            top: -25px;
+            top: -15px;
             left: 50%;
             transform: translateX(-50%);
-            width: 10px;
-            height: 10px;
+            width: 7px;
+            height: 7px;
             background: #2196F3;
-            border: 2px solid white;
+            border: 1px solid white;
             border-radius: 50%;
             cursor: alias;
             z-index: 2001;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
+        
         .rotate-line {
             position: absolute;
-            top: -15px;
+            top: -8px;
             left: 50%;
-            width: 2px;
-            height: 15px;
+            width: 1px;
+            height: 8px;
             background: #2196F3;
             transform: translateX(-50%);
+            pointer-events: none;
         }
 
-        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; }
+        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }
+        input[type="range"] { cursor: pointer; }
         .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
-        canvas { display: block; touch-action: none; }
+        
+        canvas { display: block; touch-action: none; background: #ffffff; }
+        
+        .cursor-default { cursor: default !important; }
+        .cursor-move { cursor: move !important; }
+        .cursor-nwse { cursor: nwse-resize !important; }
+        .cursor-nesw { cursor: nesw-resize !important; }
+        .cursor-ns { cursor: ns-resize !important; }
+        .cursor-ew { cursor: ew-resize !important; }
+        .cursor-crosshair { cursor: crosshair !important; }
+        .cursor-grab { cursor: grab !important; }
+        .cursor-grabbing { cursor: grabbing !important; }
+        .cursor-eraser { cursor: cell !important; }
     </style>
 </head>
 <body>
 
 <div id="toolbar">
-    <button class="tool-btn active" data-tool="select">↖️ Вибір</button>
-    <button class="tool-btn" data-tool="hand">✋ Рука</button>
+    <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
+    <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
     <div class="separator"></div>
-    <button class="tool-btn" data-tool="pen">✏️ Олівець</button>
-    <button class="tool-btn" data-tool="line">📏 Лінія</button>
-    <button class="tool-btn" data-tool="arrow">➡️ Стрілка</button>
-    <button class="tool-btn" data-tool="rect">⬜ Прямокутник</button>
-    <button class="tool-btn" data-tool="text">📝 Текст</button>
-    <button class="tool-btn" data-tool="eraser">🧼 Ластик</button>
+    <button class="tool-btn" data-tool="pen">Олівець</button>
+    <button class="tool-btn" data-tool="line">Лінія</button>
+    <button class="tool-btn" data-tool="arrow">Стрілка</button>
+    <button class="tool-btn" data-tool="rect">Прямокутник</button>
+    <button class="tool-btn" data-tool="text">Текст</button>
+    <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
-    <input type="color" id="colorPicker" value="#000000">
-    <input type="range" id="lineWidth" min="1" max="15" value="3">
+    <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
+    <label title="Формули"><input type="checkbox" id="mathMode" checked> 𝑥²</label>
+    <input type="color" id="colorPicker" value="#212529" title="Колір">
+    <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
-    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">🗑️ Очистити</button>
+    <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
+    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
 </div>
 
-<div id="room-info">📍 Кімната: <span id="room-id">...</span></div>
 <div id="zoom-display">100%</div>
 <canvas id="board"></canvas>
 
@@ -146,8 +160,6 @@ const socket = io({ query: { boardId } });
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
-document.getElementById('room-id').textContent = boardId;
-
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'select';
 let selectedObj = null;
@@ -155,111 +167,66 @@ let isDragging = false, isResizing = false, resizeHandle = null, isRotating = fa
 let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
+let shiftKey = false;
 
 let textEditor = null;
 let editingObject = null;
 
-// Приєднання до кімнати
-socket.emit('join-board', boardId);
+const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
+const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ₒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
 
-function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    draw();
-}
-window.addEventListener('resize', resize);
-resize();
-
-function getCoords(e) {
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { 
-        x: (clientX - offsetX) / scale, 
-        y: (clientY - offsetY) / scale,
-        rawX: clientX, 
-        rawY: clientY 
-    };
-}
-
-function parseMathString(htmlString) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlString;
-    const segments = [];
-    
-    function traverse(node) {
-        if (node.nodeType === 3) {
-            if (node.nodeValue.trim()) {
-                segments.push({ type: 'base', text: node.nodeValue });
-            }
-        } else if (node.nodeType === 1) {
-            if (node.classList.contains('math-sup')) {
-                segments.push({ type: 'sup', text: node.innerText });
-            } else if (node.classList.contains('math-sub')) {
-                segments.push({ type: 'sub', text: node.innerText });
-            } else {
-                node.childNodes.forEach(traverse);
-            }
+window.addEventListener('keydown', (e) => { 
+    if (e.key === 'Shift') shiftKey = true; 
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'h' || e.key === 'H') setTool('hand');
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedObj && !textEditor) {
+            objects = objects.filter(o => o !== selectedObj);
+            selectedObj = null;
+            socket.emit('update-all', objects);
+            draw();
         }
     }
-    tempDiv.childNodes.forEach(traverse);
-    return segments;
+});
+window.addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftKey = false; });
+
+function convertMath(text) {
+    if (!document.getElementById('mathMode')?.checked) return text;
+    return text
+        .replace(/([a-zA-Z0-9])\^([0-9]+)/g, (m,b,e) => b + e.split('').map(c => superscripts[c] || c).join(''))
+        .replace(/([a-zA-Z0-9])_([0-9]+)/g, (m,b,s) => b + s.split('').map(c => subscripts[c] || c).join(''))
+        .replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/gi, m => 
+            ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
 }
 
 function getBBox(obj) {
     if (!obj) return null;
     if (obj.type === 'text') {
-        if (!obj.segments) obj.segments = parseMathString(obj.htmlText || obj.text);
-        
-        let totalWidth = 0;
-        let minYOffset = 0, maxYOffset = 0;
-        const baseSize = obj.size * scale;
-        const supSize = baseSize * 0.6;
-        const subSize = baseSize * 0.6;
-
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-        
-        obj.segments.forEach(seg => {
-            let w = ctx.measureText(seg.text).width;
-            if (seg.type !== 'base') {
-                ctx.font = `${obj.isBold ? 'bold' : ''} ${seg.type === 'sup' ? supSize : subSize}px 'Segoe UI', sans-serif`;
-                w = ctx.measureText(seg.text).width;
-                ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-            }
-            totalWidth += w;
-            if (seg.type === 'sup') minYOffset = Math.min(minYOffset, -supSize * 0.8);
-            else if (seg.type === 'sub') maxYOffset = Math.max(maxYOffset, subSize * 0.8);
-        });
-
-        return { 
-            x: obj.x, 
-            y: obj.y - (baseSize * 0.8 + Math.abs(minYOffset)), 
-            w: totalWidth, 
-            h: baseSize * 1.2 + Math.abs(minYOffset) + Math.abs(maxYOffset)
-        };
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        const lines = obj.text.split('\n');
+        const w = Math.max(...lines.map(l => ctx.measureText(l).width)) / scale;
+        const h = lines.length * obj.size * 1.2;
+        return { x: obj.x, y: obj.y - obj.size * 0.8, w: w || 50, h: h || 20 };
     }
-    if (obj.type === 'rect' || obj.type === 'line' || obj.type === 'arrow') {
-        return { 
-            x: Math.min(obj.x, obj.ex), 
-            y: Math.min(obj.y, obj.ey), 
-            w: Math.abs(obj.ex - obj.x), 
-            h: Math.abs(obj.ey - obj.y) 
-        };
+    if (obj.type === 'rect') {
+        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
+    }
+    if (obj.type === 'image') {
+        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
+    }
+    if (obj.type === 'line' || obj.type === 'arrow') {
+        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
     }
     if (obj.type === 'pen') {
         if (!obj.points || obj.points.length === 0) return { x: obj.x, y: obj.y, w: 0, h: 0 };
         const xs = [obj.x, ...obj.points.map(p => p.x)];
         const ys = [obj.y, ...obj.points.map(p => p.y)];
-        return { 
-            x: Math.min(...xs), 
-            y: Math.min(...ys), 
-            w: Math.max(...xs) - Math.min(...xs), 
-            h: Math.max(...ys) - Math.min(...ys) 
-        };
+        return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
     }
     return { x: obj.x, y: obj.y, w: 0, h: 0 };
 }
 
-function hitTest(obj, mx, my, padding = 5) {
+function hitTest(obj, mx, my, padding = 0) {
     const bbox = getBBox(obj);
     if (!bbox) return false;
     return mx >= bbox.x - padding && mx <= bbox.x + bbox.w + padding && 
@@ -269,7 +236,7 @@ function hitTest(obj, mx, my, padding = 5) {
 function hitHandle(obj, mx, my) {
     if (!obj) return null;
     const bbox = getBBox(obj);
-    const h = 12 / scale;
+    const h = 8 / scale; 
     const cx = bbox.x + bbox.w / 2;
     const cy = bbox.y + bbox.h / 2;
     
@@ -282,7 +249,7 @@ function hitHandle(obj, mx, my) {
         s: { x: cx, y: bbox.y + bbox.h },
         sw: { x: bbox.x, y: bbox.y + bbox.h },
         w: { x: bbox.x, y: cy },
-        rotate: { x: cx, y: bbox.y - 25 / scale }
+        rotate: { x: cx, y: bbox.y - 15 / scale }
     };
     
     for (let [name, pos] of Object.entries(handles)) {
@@ -291,28 +258,80 @@ function hitHandle(obj, mx, my) {
     return null;
 }
 
+function distToSegment(px, py, x1, y1, x2, y2) {
+    const A = px - x1;
+    const B = py - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+    const dot = A * C + B * D;
+    const len_sq = C * C + D * D;
+    let param = -1;
+    if (len_sq != 0) param = dot / len_sq;
+    let xx, yy;
+    if (param < 0) { xx = x1; yy = y1; }
+    else if (param > 1) { xx = x2; yy = y2; }
+    else { xx = x1 + param * C; yy = y1 + param * D; }
+    return Math.hypot(px - xx, py - yy);
+}
+
+function getCursor(handle) {
+    if (!handle) return 'default';
+    if (handle === 'rotate') return 'alias';
+    if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+    if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+    if (handle === 'n' || handle === 's') return 'ns-resize';
+    if (handle === 'e' || handle === 'w') return 'ew-resize';
+    return 'move';
+}
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    draw();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// === СІТКА iDROO (тонші лінії) ===
 function drawGrid() {
+    // Дрібна сітка: крок 20px
     const smallStep = 20 * scale;
+    // Основна сітка: крок 100px (кожні 5 дрібних)
     const largeStep = 100 * scale;
     
+    // Малюємо дрібну сітку
     ctx.beginPath();
-    ctx.strokeStyle = '#e8e8e8';
+    ctx.strokeStyle = '#e8e8e8'; // Світліший сірий
     ctx.lineWidth = 0.5;
-    for (let x = offsetX % smallStep; x < canvas.width; x += smallStep) {
-        ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+    
+    let startX = offsetX % smallStep;
+    let startY = offsetY % smallStep;
+    
+    for (let x = startX; x < canvas.width; x += smallStep) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
     }
-    for (let y = offsetY % smallStep; y < canvas.height; y += smallStep) {
-        ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+    for (let y = startY; y < canvas.height; y += smallStep) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
     }
     ctx.stroke();
     
+    // Малюємо основну сітку (тонше - було 1, стало 0.5)
     ctx.beginPath();
-    ctx.strokeStyle = '#cccccc';
-    for (let x = offsetX % largeStep; x < canvas.width; x += largeStep) {
-        ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+    ctx.strokeStyle = '#cccccc'; // Сірий, але не занадто темний
+    ctx.lineWidth = 0.5; // ЗМЕНШЕНО з 1 до 0.5
+    
+    startX = offsetX % largeStep;
+    startY = offsetY % largeStep;
+    
+    for (let x = startX; x < canvas.width; x += largeStep) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
     }
-    for (let y = offsetY % largeStep; y < canvas.height; y += largeStep) {
-        ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+    for (let y = startY; y < canvas.height; y += largeStep) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
     }
     ctx.stroke();
 }
@@ -328,122 +347,53 @@ function drawSelection(obj) {
     if (sw < 5 || sh < 5) return;
     
     ctx.save();
-    ctx.setLineDash([5, 3]);
+    ctx.setLineDash([5, 5]);
     ctx.strokeStyle = '#4CAF50';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(sx, sy, sw, sh);
     ctx.restore();
     
-    const handleSize = 10;
+    const handleSize = 6;
     const handles = [
         { x: sx, y: sy }, { x: sx + sw/2, y: sy }, { x: sx + sw, y: sy },
         { x: sx + sw, y: sy + sh/2 }, { x: sx + sw, y: sy + sh },
         { x: sx + sw/2, y: sy + sh }, { x: sx, y: sy + sh }, { x: sx, y: sy + sh/2 }
     ];
     
+    ctx.fillStyle = '#4CAF50';
     handles.forEach(h => {
-        ctx.fillStyle = 'white';
         ctx.fillRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
-        ctx.strokeStyle = '#4CAF50';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1;
         ctx.strokeRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
     });
     
     ctx.fillStyle = '#2196F3';
     ctx.beginPath();
-    ctx.arc(sx + sw/2, sy - 20, 5, 0, Math.PI * 2);
+    ctx.arc(sx + sw/2, sy - 12, 4, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
     
     ctx.beginPath();
     ctx.moveTo(sx + sw/2, sy);
-    ctx.lineTo(sx + sw/2, sy - 15);
+    ctx.lineTo(sx + sw/2, sy - 8);
     ctx.strokeStyle = '#2196F3';
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     ctx.stroke();
 }
 
-function drawMathText(ctx, segments, x, y, baseSize, color, isBold) {
-    let currentX = x;
-    const baseY = y;
-    
-    segments.forEach(seg => {
-        ctx.fillStyle = color;
-        if (seg.type === 'base') {
-            ctx.font = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-            ctx.fillText(seg.text, currentX, baseY);
-            currentX += ctx.measureText(seg.text).width;
-        } else if (seg.type === 'sup') {
-            const supSize = baseSize * 0.6;
-            ctx.font = `${isBold ? 'bold' : ''} ${supSize}px 'Segoe UI', sans-serif`;
-            ctx.fillText(seg.text, currentX, baseY - (baseSize * 0.7));
-            currentX += ctx.measureText(seg.text).width;
-        } else if (seg.type === 'sub') {
-            const subSize = baseSize * 0.6;
-            ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
-            ctx.fillText(seg.text, currentX, baseY + (baseSize * 0.4));
-            currentX += ctx.measureText(seg.text).width;
-        }
-    });
-}
-
 function draw() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     drawGrid();
     
-    objects.forEach(obj => {
-        ctx.save();
-        const sx = obj.x * scale + offsetX;
-        const sy = obj.y * scale + offsetY;
-        ctx.lineWidth = (obj.width || 2) * scale;
-        ctx.strokeStyle = obj.color || '#000';
-        ctx.fillStyle = obj.color || '#000';
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        if (obj.type === 'pen') {
-            if (obj.points && obj.points.length > 0) {
-                ctx.beginPath();
-                ctx.moveTo(sx, sy);
-                obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
-                ctx.stroke();
-            }
-        } else if (obj.type === 'line' || obj.type === 'arrow') {
-            const ex = obj.ex * scale + offsetX;
-            const ey = obj.ey * scale + offsetY;
-            ctx.beginPath();
-            ctx.moveTo(sx, sy);
-            ctx.lineTo(ex, ey);
-            ctx.stroke();
-            if (obj.type === 'arrow') {
-                const headlen = 15 * scale;
-                const angle = Math.atan2(ey - sy, ex - sx);
-                ctx.beginPath();
-                ctx.moveTo(ex, ey);
-                ctx.lineTo(ex - headlen * Math.cos(angle - Math.PI / 6), ey - headlen * Math.sin(angle - Math.PI / 6));
-                ctx.moveTo(ex, ey);
-                ctx.lineTo(ex - headlen * Math.cos(angle + Math.PI / 6), ey - headlen * Math.sin(angle + Math.PI / 6));
-                ctx.stroke();
-            }
-        } else if (obj.type === 'rect') {
-            const w = (obj.ex - obj.x) * scale;
-            const h = (obj.ey - obj.y) * scale;
-            ctx.strokeRect(sx, sy, w, h);
-        } else if (obj.type === 'text') {
-            if (!obj.segments) obj.segments = parseMathString(obj.htmlText || obj.text);
-            drawMathText(ctx, obj.segments, sx, sy, obj.size * scale, obj.color, obj.isBold);
-        } else if (obj.type === 'image') {
-            if (obj._img && obj._img.complete) {
-                ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
-            }
-        }
-        ctx.restore();
-    });
+    objects.forEach(obj => drawObject(obj));
     
-    if (isDrawing && currentPath) {
-        drawObject(currentPath, true);
-    }
+    if (isDrawing && currentPath) drawObject(currentPath, true);
     
     if (selectedObj && currentTool === 'select' && !textEditor) {
         drawSelection(selectedObj);
@@ -489,12 +439,36 @@ function drawObject(obj, isTemp = false) {
         const h = (obj.ey - obj.y) * scale;
         ctx.strokeRect(sx, sy, w, h);
     } else if (obj.type === 'text') {
-        if (!obj.segments) obj.segments = parseMathString(obj.htmlText || obj.text);
-        drawMathText(ctx, obj.segments, sx, sy, obj.size * scale, obj.color, obj.isBold);
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        const lines = obj.text.split('\n');
+        lines.forEach((line, i) => {
+            ctx.fillText(line, sx, sy + (i * obj.size * scale * 1.2));
+        });
+    } else if (obj.type === 'image') {
+        if (!obj._img) { 
+            obj._img = new Image(); 
+            obj._img.src = obj.src; 
+            obj._img.onload = draw; 
+        }
+        if (obj._img.complete) {
+            ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
+        }
     }
     ctx.restore();
 }
 
+function getCoords(e) {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { 
+        x: (clientX - offsetX) / scale, 
+        y: (clientY - offsetY) / scale,
+        rawX: clientX, 
+        rawY: clientY 
+    };
+}
+
+// === РЕДАГУВАННЯ ТЕКСТУ З АВТО-РОЗШИРЕННЯМ ===
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -506,13 +480,18 @@ function startTextEdit(obj) {
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
     
+    // Початкові розміри
+    const startWidth = Math.max(bbox.w * scale + 20, 100);
+    const lineHeight = obj.size * 1.2 * scale;
+    const startHeight = Math.max(bbox.h * scale + 10, lineHeight + 10);
+    
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
     wrapper.style.left = (screenX - 10) + 'px';
-    wrapper.style.top = (screenY - 10) + 'px';
-    wrapper.style.fontSize = (obj.size * scale) + 'px';
-    wrapper.style.color = obj.color;
-    wrapper.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    wrapper.style.top = (screenY - 5) + 'px';
+    // Початкова ширина/висота
+    wrapper.style.minWidth = '100px';
+    wrapper.style.minHeight = lineHeight + 'px';
     
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
@@ -530,139 +509,163 @@ function startTextEdit(obj) {
     rotHandle.dataset.handle = 'rotate';
     wrapper.appendChild(rotHandle);
     
-    const editorDiv = document.createElement('div');
-    editorDiv.className = 'text-edit-content';
-    editorDiv.contentEditable = true;
-    editorDiv.spellcheck = false;
-    editorDiv.innerHTML = obj.htmlText || obj.text;
+    const textarea = document.createElement('div');
+    textarea.className = 'text-edit-content';
+    textarea.contentEditable = true;
+    textarea.innerText = obj.rawText || obj.text;
+    textarea.style.color = obj.color;
+    textarea.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    // Розмір шрифта в масштабі для правильного відображення
+    textarea.style.fontSize = (obj.size * scale) + 'px';
     
-    wrapper.appendChild(editorDiv);
+    wrapper.appendChild(textarea);
     document.body.appendChild(wrapper);
     textEditor = wrapper;
     
+    // Функція оновлення розмірів під контент
+    function updateSize() {
+        // Розраховуємо потрібну ширину на основі найдовшого рядка
+        const lines = textarea.innerText.split('\n');
+        let maxWidth = 0;
+        lines.forEach(line => {
+            const width = ctx.measureText(line).width * scale; // measureText дає розмір при поточному font в canvas
+            maxWidth = Math.max(maxWidth, width);
+        });
+        
+        // Додаємо відступи
+        const newWidth = Math.max(maxWidth + 20, 100);
+        const newHeight = Math.max(lines.length * lineHeight + 10, lineHeight + 10);
+        
+        wrapper.style.width = newWidth + 'px';
+        wrapper.style.height = newHeight + 'px';
+        
+        // Оновлюємо позицію хендлів (вони absolute відносно wrapper)
+        // wrapper сам розширюється, хендли прив'язані до країв через CSS
+    }
+    
+    // Ініціалізація розмірів
+    ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+    updateSize();
+    
     setTimeout(() => {
-        editorDiv.focus();
+        textarea.focus();
         const range = document.createRange();
-        const sel = window.getSelection();
-        range.selectNodeContents(editorDiv);
+        range.selectNodeContents(textarea);
         range.collapse(false);
+        const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
     }, 10);
     
-    editorDiv.addEventListener('keydown', (e) => {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-        const range = selection.getRangeAt(0);
-        
-        if (e.key === '^' || (e.shiftKey && e.key === '6')) {
-            e.preventDefault();
-            insertMathBox('sup', range);
-        }
-        else if (e.key === '_') {
-            e.preventDefault();
-            insertMathBox('sub', range);
-        }
-        else if (e.key === 'ArrowRight') {
-            const parent = range.startContainer.parentElement;
-            if (parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'))) {
-                if (range.startOffset === range.startContainer.length) {
-                    e.preventDefault();
-                    moveCaretOutOfBox(parent, 'after');
-                }
-            }
-        }
-        else if (e.key === 'ArrowLeft') {
-            const parent = range.startContainer.parentElement;
-            if (parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'))) {
-                if (range.startOffset === 0) {
-                    e.preventDefault();
-                    moveCaretOutOfBox(parent, 'before');
-                }
-            }
-        }
-    });
+    let isConverting = false;
     
-    editorDiv.addEventListener('input', () => {
-        obj.htmlText = editorDiv.innerHTML;
-        obj.segments = parseMathString(obj.htmlText);
-        const newBBox = getBBox(obj);
-        wrapper.style.width = (newBBox.w * scale + 20) + 'px';
-        wrapper.style.height = (newBBox.h * scale + 20) + 'px';
+    textarea.addEventListener('input', () => {
+        if (isConverting) return;
+        
+        const text = textarea.innerText;
+        
+        if (!document.getElementById('mathMode')?.checked) {
+            obj.rawText = text;
+            obj.text = text;
+            updateSize();
+            draw();
+            return;
+        }
+        
+        // Автозаміна формул
+        if (text.includes('^') || text.includes('_') || /\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/.test(text)) {
+            const selection = window.getSelection();
+            const range = selection.getRangeAt(0);
+            const cursorPos = range.startOffset;
+            const oldLength = text.length;
+            const converted = convertMath(text);
+            
+            if (converted !== text) {
+                isConverting = true;
+                textarea.innerText = converted;
+                
+                // Відновлюємо позицію курсору
+                const newLength = converted.length;
+                const newPos = Math.min(cursorPos + (newLength - oldLength), newLength);
+                
+                try {
+                    const newRange = document.createRange();
+                    const node = textarea.firstChild || textarea;
+                    newRange.setStart(node, Math.max(0, Math.min(newPos, node.length || 0)));
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                } catch(err) {
+                    // У разі помилки - кінець
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(textarea);
+                    newRange.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                }
+                isConverting = false;
+                obj.rawText = text;
+                obj.text = converted;
+            } else {
+                obj.rawText = text;
+                obj.text = text;
+            }
+        } else {
+            obj.rawText = text;
+            obj.text = text;
+        }
+        
+        // Оновлюємо розміри під новий контент
+        updateSize();
         draw();
     });
     
+    // Handles events для ресайзу
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
             e.stopPropagation();
-            if (h.dataset.handle === 'rotate') startRotate(e);
-            else startTextResize(obj, h.dataset.handle, e, wrapper, editorDiv);
+            if (h.dataset.handle === 'e' || h.dataset.handle === 'w') {
+                // Горизонтальний ресайз - змінюємо розмір шрифта пропорційно
+                startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
+            } else {
+                // Вертикальний ресайз - змінюємо розмір шрифта
+                startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
+            }
         });
     });
     
-    editorDiv.addEventListener('mousedown', (e) => {
-        if (e.target === editorDiv) {
+    // Drag тексту
+    textarea.addEventListener('mousedown', (e) => {
+        if (e.target === textarea) {
             e.stopPropagation();
             startTextDrag(obj, e, wrapper);
         }
     });
     
-    editorDiv.addEventListener('blur', () => {
+    textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault(); 
+            stopTextEdit(); 
+        }
+        if (e.key === 'Escape') { 
+            stopTextEdit(true); 
+        }
+    });
+    
+    textarea.addEventListener('blur', () => {
         setTimeout(() => {
-            if (textEditor && document.activeElement !== editorDiv) stopTextEdit();
+            if (textEditor && document.activeElement !== textarea) stopTextEdit();
         }, 200);
     });
 }
 
-function insertMathBox(type, range) {
-    const span = document.createElement('span');
-    span.className = type === 'sup' ? 'math-sup' : 'math-sub';
-    span.contentEditable = true;
-    span.innerHTML = '&#8203;';
-    
-    range.deleteContents();
-    range.insertNode(span);
-    
-    const newRange = document.createRange();
-    newRange.selectNodeContents(span);
-    newRange.collapse(false);
-    
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-}
-
-function moveCaretOutOfBox(box, position) {
-    const parent = box.parentElement;
-    const newRange = document.createRange();
-    const sel = window.getSelection();
-    
-    if (position === 'after') {
-        if (box.nextSibling) {
-            newRange.setStart(box.nextSibling, 0);
-        } else {
-            newRange.setStartAfter(box);
-        }
-    } else {
-        if (box.previousSibling) {
-            newRange.setStart(box.previousSibling, box.previousSibling.length);
-        } else {
-            newRange.setStartBefore(box);
-        }
-    }
-    newRange.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-}
-
 function stopTextEdit(cancel = false) {
     if (!textEditor) return;
-    const editorDiv = textEditor.querySelector('.text-edit-content');
+    const textarea = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
-        editingObject.htmlText = editorDiv.innerHTML;
-        editingObject.text = editorDiv.innerText;
-        editingObject.segments = parseMathString(editingObject.htmlText);
+        editingObject.text = convertMath(textarea.innerText);
+        editingObject.rawText = textarea.innerText;
         socket.emit('update-all', objects);
     }
     document.body.removeChild(textEditor);
@@ -680,6 +683,7 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
     const bbox = getBBox(obj);
     startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: bbox.w, h: bbox.h };
     const startFontSize = obj.size;
+    const lineHeight = startFontSize * 1.2;
     
     const onMove = (e) => {
         if (!isResizing) return;
@@ -687,6 +691,7 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
         const dx = c.x - dragStartX;
         const dy = c.y - dragStartY;
         
+        // Ресайз змінює розмір шрифта
         let scaleFactor = 1;
         if (handle === 'se' || handle === 's' || handle === 'e') {
             scaleFactor = Math.max(0.5, 1 + (dx + dy) / 200);
@@ -697,11 +702,24 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
         }
         
         obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
-        wrapper.style.fontSize = (obj.size * scale) + 'px';
         
-        const newBBox = getBBox(obj);
-        wrapper.style.width = (newBBox.w * scale + 20) + 'px';
-        wrapper.style.height = (newBBox.h * scale + 20) + 'px';
+        // Оновлюємо font-size в textarea
+        textarea.style.fontSize = (obj.size * scale) + 'px';
+        
+        // Перераховуємо розміри
+        const lines = textarea.innerText.split('\n');
+        let maxWidth = 0;
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        lines.forEach(line => {
+            const w = ctx.measureText(line).width * scale;
+            maxWidth = Math.max(maxWidth, w);
+        });
+        
+        const newWidth = Math.max(maxWidth + 20, 100);
+        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 10, obj.size * 1.2 * scale + 10);
+        
+        wrapper.style.width = newWidth + 'px';
+        wrapper.style.height = newHeight + 'px';
         
         draw();
     };
@@ -731,7 +749,7 @@ function startTextDrag(obj, e, wrapper) {
         obj.y = c.y - dragStartY;
         const bbox = getBBox(obj);
         wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        wrapper.style.top = (bbox.y * scale + offsetY - 10) + 'px';
+        wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
         draw();
     };
     
@@ -746,6 +764,7 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mouseup', onUp);
 }
 
+// Canvas interactions...
 canvas.addEventListener('mousedown', (e) => {
     if (textEditor) { stopTextEdit(); return; }
     
@@ -868,16 +887,6 @@ canvas.addEventListener('mouseup', () => {
     }
 });
 
-function getCursor(handle) {
-    if (!handle) return 'default';
-    if (handle === 'rotate') return 'alias';
-    if (handle === 'nw' || handle === 'se') return 'nwse-resize';
-    if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
-    if (handle === 'n' || handle === 's') return 'ns-resize';
-    if (handle === 'e' || handle === 'w') return 'ew-resize';
-    return 'move';
-}
-
 function eraseAt(mx, my) {
     const eraserRadius = 15 / scale;
     let changed = false;
@@ -922,22 +931,6 @@ function eraseAt(mx, my) {
     if (changed) { socket.emit('update-all', objects); draw(); }
 }
 
-function distToSegment(px, py, x1, y1, x2, y2) {
-    const A = px - x1;
-    const B = py - y1;
-    const C = x2 - x1;
-    const D = y2 - y1;
-    const dot = A * C + B * D;
-    const len_sq = C * C + D * D;
-    let param = -1;
-    if (len_sq != 0) param = dot / len_sq;
-    let xx, yy;
-    if (param < 0) { xx = x1; yy = y1; }
-    else if (param > 1) { xx = x2; yy = y2; }
-    else { xx = x1 + param * C; yy = y1 + param * D; }
-    return Math.hypot(px - xx, py - yy);
-}
-
 function startDrawing(coords) {
     isDrawing = true;
     currentPath = {
@@ -969,14 +962,29 @@ function startResize(obj, handle, e) {
             if (handle.includes('w')) newX = startResizeState.x + dx;
             if (handle.includes('s')) newEy = startResizeState.ey + dy;
             if (handle.includes('n')) newY = startResizeState.y + dy;
+            if (shiftKey) {
+                const w = newEx - newX, h = newEy - newY;
+                const ratio = (startResizeState.ex - startResizeState.x) / (startResizeState.ey - startResizeState.y);
+                if (Math.abs(w) > Math.abs(h) * ratio) newEy = newY + w / ratio * Math.sign(h || 1);
+                else newEx = newX + h * ratio * Math.sign(w || 1);
+            }
             obj.x = newX; obj.y = newY; obj.ex = newEx; obj.ey = newEy;
         } else if (obj.type === 'line' || obj.type === 'arrow') {
             if (handle === 'se' || handle === 'e') obj.ex = startResizeState.ex + dx;
             else if (handle === 's') obj.ey = startResizeState.ey + dy;
             else if (handle === 'w' || handle === 'sw') obj.x = startResizeState.x + dx;
             else if (handle === 'n' || handle === 'ne') obj.y = startResizeState.y + dy;
-            obj.x = startResizeState.x; obj.y = startResizeState.y;
-            obj.ex = startResizeState.ex; obj.ey = startResizeState.ey;
+            else if (handle === 'nw') { obj.x = startResizeState.x + dx; obj.y = startResizeState.y + dy; }
+            else if (handle === 'ne') { obj.ex = startResizeState.ex + dx; obj.y = startResizeState.y + dy; }
+            else if (handle === 'sw') { obj.x = startResizeState.x + dx; obj.ey = startResizeState.ey + dy; }
+            else if (handle === 'se') { obj.ex = startResizeState.ex + dx; obj.ey = startResizeState.ey + dy; }
+        } else if (obj.type === 'image') {
+            let newW = startResizeState.w + (handle.includes('e') ? dx : handle.includes('w') ? -dx : 0);
+            let newH = startResizeState.h + (handle.includes('s') ? dy : handle.includes('n') ? -dy : 0);
+            if (shiftKey) { const ratio = startResizeState.w / startResizeState.h; newH = newW / ratio; }
+            if (handle.includes('w')) obj.x = startResizeState.x + (startResizeState.w - newW);
+            if (handle.includes('n')) obj.y = startResizeState.y + (startResizeState.h - newH);
+            obj.w = Math.max(20, newW); obj.h = Math.max(20, newH);
         }
         draw();
     };
@@ -993,9 +1001,9 @@ function startRotate(e) {
 
 function createNewText(coords) {
     const obj = {
-        type: 'text', x: coords.x, y: coords.y, text: '', htmlText: '', segments: [],
+        type: 'text', x: coords.x, y: coords.y, text: '', rawText: '',
         color: document.getElementById('colorPicker').value,
-        size: 24, isBold: false
+        size: 20, isBold: document.getElementById('boldText').checked
     };
     objects.push(obj); selectedObj = obj;
     socket.emit('new-object', obj);
@@ -1024,6 +1032,11 @@ document.getElementById('clearBtn').onclick = () => {
     }
 };
 
+function createNewBoard() { 
+    const newId = Math.random().toString(36).substr(2, 9);
+    window.location.href = '/' + newId; 
+}
+
 window.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -1038,33 +1051,39 @@ window.addEventListener('wheel', (e) => {
     if (textEditor && editingObject) {
         const bbox = getBBox(editingObject);
         textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        textEditor.style.top = (bbox.y * scale + offsetY - 10) + 'px';
-        textEditor.style.fontSize = (editingObject.size * scale) + 'px';
+        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
     }
     draw();
 }, { passive: false });
 
-// === SOCKET.IO ПОДІЇ ===
-socket.on('init-history', (h) => { 
-    objects = h || []; 
-    draw(); 
+window.addEventListener('paste', (e) => {
+    if (textEditor) return;
+    const items = e.clipboardData.items;
+    for (let item of items) {
+        if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const centerX = (canvas.width/2 - offsetX) / scale;
+                    const centerY = (canvas.height/2 - offsetY) / scale;
+                    const obj = { type: 'image', src: img.src, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2 };
+                    objects.push(obj); selectedObj = obj;
+                    socket.emit('new-object', obj); draw();
+                };
+            };
+            reader.readAsDataURL(blob);
+        }
+    }
 });
 
-socket.on('new-object', (o) => { 
-    objects.push(o); 
-    draw(); 
-});
+socket.on('init-history', (h) => { objects = h; draw(); });
+socket.on('new-object', (o) => { objects.push(o); draw(); });
+socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
+socket.on('board-deleted', () => { objects = []; selectedObj = null; draw(); });
 
-socket.on('update-all', (newObjects) => { 
-    objects = newObjects || []; 
-    draw(); 
-});
-
-socket.on('board-deleted', () => { 
-    objects = []; 
-    selectedObj = null; 
-    draw(); 
-});
 </script>
 </body>
 </html>
