@@ -1,13 +1,18 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { cors: { origin: "*" } });
+const io = require('socket.io')(http, { 
+    cors: { origin: "*" },
+    maxHttpBufferSize: 1e8 // 100MB для великих зображень
+});
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const boardsData = {}; 
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/:boardId', (req, res) => {
@@ -43,5 +48,10 @@ io.on('connection', (socket) => {
         boardsData[boardId] = [];
         io.in(boardId).emit('board-deleted');
     });
+    
+    socket.on('disconnect', () => {
+        console.log('Користувач відключився');
+    });
 });
+
 http.listen(PORT, () => console.log(`Сервер запущен: порт ${PORT}`));
