@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (LaTeX Style)</title>
+    <title>Математична Дошка Pro (Fixed Navigation)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
@@ -31,7 +31,6 @@
             pointer-events: none;
         }
 
-        /* Стилі для редактора тексту */
         .text-edit-wrapper {
             position: absolute;
             z-index: 2000;
@@ -50,23 +49,21 @@
             min-height: 30px;
             outline: none;
             border: none;
-            /* ЗМІНА: Використовуємо Serif шрифт для математичного вигляду */
             font-family: 'Times New Roman', 'Georgia', serif; 
             color: #333;
             line-height: 1.5;
             cursor: text;
             display: inline-block;
             white-space: pre;
-            font-style: italic; /* Математичні змінні зазвичай курсивом */
+            font-style: italic;
         }
 
-        /* Стилі для математичних полів */
         .math-sup, .math-sub {
             display: inline;
-            font-size: 0.65em; /* Трохи менше для кращого вигляду */
-            font-style: normal; /* Степені зазвичай прямі */
+            font-size: 0.65em;
+            font-style: normal;
             vertical-align: super;
-            margin-left: -0.05em; /* Дуже щільне прилягання */
+            margin-left: -0.05em;
             padding: 0 1px;
             border-radius: 2px;
             font-family: 'Times New Roman', 'Georgia', serif;
@@ -82,7 +79,6 @@
             border-radius: 2px;
         }
 
-        /* Хендли для ресайзу */
         .handle {
             position: absolute;
             width: 8px;
@@ -202,7 +198,6 @@ let shiftKey = false;
 let textEditor = null;
 let editingObject = null;
 
-// === КЕШУВАННЯ BBOX ===
 function invalidateCache() {
     objects.forEach(o => o._bbox = null);
 }
@@ -214,7 +209,6 @@ function getBBox(obj) {
     let bbox = null;
 
     if (obj.type === 'text') {
-        // Використовуємо той самий шрифт, що і в CSS
         const fontStyle = obj.isItalic ? 'italic' : 'normal';
         const fontWeight = obj.isBold ? 'bold' : 'normal';
         ctx.font = `${fontStyle} ${fontWeight} ${obj.size}px 'Times New Roman', 'Georgia', serif`;
@@ -228,7 +222,6 @@ function getBBox(obj) {
                 const metrics = ctx.measureText(seg.text);
                 const w = metrics.width;
                 totalWidth += w;
-                
                 if (seg.type === 'sup') {
                     maxAscent = Math.max(maxAscent, obj.size * 0.5);
                 } else if (seg.type === 'sub') {
@@ -307,7 +300,6 @@ function hitHandle(obj, mx, my) {
     const cy = bbox.cy;
     const dx = mx - cx;
     const dy = my - cy;
-    const dist = Math.hypot(dx, dy);
     let angle = Math.atan2(dy, dx);
     const objRot = obj.rotation || 0;
     const localAngle = angle - objRot;
@@ -588,6 +580,7 @@ function startTextEdit(obj) {
         sel.addRange(range);
     }, 10);
     
+    // === ВИПРАВЛЕНА ЛОГІКА НАВІГАЦІЇ ===
     editorDiv.addEventListener('keydown', (e) => {
         if (e.key === '^') {
             e.preventDefault();
@@ -596,31 +589,63 @@ function startTextEdit(obj) {
             e.preventDefault();
             insertMathSpan(editorDiv, 'sub');
         } else if (e.key === 'ArrowRight') {
+            // Вихід з поля степеня/індексу
+            e.preventDefault();
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                // Шукаємо батьківський span math-sup або math-sub
+                const mathSpan = range.startContainer.nodeType === 1 
+                    ? range.startContainer 
+                    : range.startContainer.parentNode;
+                
+                if (mathSpan && (mathSpan.classList.contains('math-sup') || mathSpan.classList.contains('math-sub'))) {
+                    // Курсор в кінці поля - виходимо за межі span
+                    const newRange = document.createRange();
+                    newRange.setStartAfter(mathSpan);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    // Звичайний рух вправо
+                    range.setStart(range.startContainer, Math.min(range.startOffset + 1, range.startContainer.length || range.startContainer.childNodes.length));
+                    range.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                }
+            }
+        } else if (e.key === 'ArrowLeft') {
+            // Вхід у поле степеня/індексу зліва
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
                 const range = sel.getRangeAt(0);
                 const node = range.startContainer;
-                
-                let parentSpan = null;
-                if (node.nodeType === 3) { 
-                    if (node.parentNode.classList.contains('math-sup') || node.parentNode.classList.contains('math-sub')) {
-                        parentSpan = node.parentNode;
-                    }
-                } else if (node.nodeType === 1) { 
-                    if (node.classList.contains('math-sup') || node.classList.contains('math-sub')) {
-                        parentSpan = node;
-                    }
-                }
-                
-                if (parentSpan) {
-                    const isAtEnd = (node.nodeType === 3 && range.startOffset === node.length) || 
-                                    (node === parentSpan && range.startOffset === parentSpan.childNodes.length);
-                    
-                    if (isAtEnd) {
+                // Якщо попередній елемент - math span, заходимо в нього
+                if (node.nodeType === 1 && range.startOffset > 0) {
+                    const prev = node.childNodes[range.startOffset - 1];
+                    if (prev && (prev.classList.contains('math-sup') || prev.classList.contains('math-sub'))) {
                         e.preventDefault();
                         const newRange = document.createRange();
-                        newRange.setStartAfter(parentSpan);
-                        newRange.collapse(true);
+                        newRange.selectNodeContents(prev);
+                        newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                }
+            }
+        } else if (e.key === 'ArrowDown') {
+            // Вхід у поле степеня/індексу зверху (для зручності)
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const node = range.startContainer;
+                if (node.nodeType === 1 && range.startOffset < node.childNodes.length) {
+                    const next = node.childNodes[range.startOffset];
+                    if (next && (next.classList.contains('math-sup') || next.classList.contains('math-sub'))) {
+                        e.preventDefault();
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(next);
+                        newRange.collapse(false);
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     }
@@ -1051,7 +1076,7 @@ function createNewText(coords) {
         type: 'text', x: coords.x, y: coords.y, 
         segments: [{type: 'normal', text: ''}],
         color: document.getElementById('colorPicker').value,
-        size: 24, // Трохи більший розмір за замовчуванням
+        size: 24,
         isBold: document.getElementById('boldText').checked,
         isItalic: document.getElementById('italicText').checked,
         rotation: 0
