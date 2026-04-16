@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (Fixed Math Spacing)</title>
+    <title>Математична Дошка Pro (LaTeX Style)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
@@ -50,26 +50,30 @@
             min-height: 30px;
             outline: none;
             border: none;
-            font-family: 'Segoe UI', sans-serif;
+            /* ЗМІНА: Використовуємо Serif шрифт для математичного вигляду */
+            font-family: 'Times New Roman', 'Georgia', serif; 
             color: #333;
             line-height: 1.5;
             cursor: text;
             display: inline-block;
-            white-space: pre; /* Зберігаємо пробіли */
+            white-space: pre;
+            font-style: italic; /* Математичні змінні зазвичай курсивом */
         }
 
-        /* ВИПРАВЛЕНО: Стилі для математичних полів */
+        /* Стилі для математичних полів */
         .math-sup, .math-sub {
-            display: inline; /* Змінено з inline-block на inline для щільності */
-            font-size: 0.7em;
-            vertical-align: super; /* Для степеня */
-            margin-left: -1px; /* Прибираємо мікроскопічний відступ */
+            display: inline;
+            font-size: 0.65em; /* Трохи менше для кращого вигляду */
+            font-style: normal; /* Степені зазвичай прямі */
+            vertical-align: super;
+            margin-left: -0.05em; /* Дуже щільне прилягання */
             padding: 0 1px;
             border-radius: 2px;
+            font-family: 'Times New Roman', 'Georgia', serif;
         }
         
         .math-sub {
-            vertical-align: sub; /* Для індексу */
+            vertical-align: sub;
         }
 
         .math-sup:focus, .math-sub:focus {
@@ -160,8 +164,9 @@
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
     <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
+    <label title="Курсив (Math)"><input type="checkbox" id="italicText" checked> <i>I</i></label>
     <label title="Розумні формули"><input type="checkbox" id="mathMode" checked disabled> 𝑥²</label>
-    <input type="color" id="colorPicker" value="#212529" title="Колір">
+    <input type="color" id="colorPicker" value="#000000" title="Колір">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
@@ -209,7 +214,10 @@ function getBBox(obj) {
     let bbox = null;
 
     if (obj.type === 'text') {
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size}px 'Segoe UI', sans-serif`;
+        // Використовуємо той самий шрифт, що і в CSS
+        const fontStyle = obj.isItalic ? 'italic' : 'normal';
+        const fontWeight = obj.isBold ? 'bold' : 'normal';
+        ctx.font = `${fontStyle} ${fontWeight} ${obj.size}px 'Times New Roman', 'Georgia', serif`;
         
         let totalWidth = 0;
         let maxAscent = 0;
@@ -467,7 +475,9 @@ function drawObject(obj, isTemp = false) {
         ctx.strokeRect((obj.x - bbox.cx) * scale, (obj.y - bbox.cy) * scale, w, h);
     } 
     else if (obj.type === 'text') {
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        const fontStyle = obj.isItalic ? 'italic' : 'normal';
+        const fontWeight = obj.isBold ? 'bold' : 'normal';
+        ctx.font = `${fontStyle} ${fontWeight} ${obj.size * scale}px 'Times New Roman', 'Georgia', serif`;
         ctx.fillStyle = obj.color || '#000';
         
         let currentX = (obj.x - bbox.cx) * scale;
@@ -479,15 +489,15 @@ function drawObject(obj, isTemp = false) {
                 ctx.save();
                 if (seg.type === 'sup') {
                     ctx.translate(currentX, baselineY - obj.size * scale * 0.5);
-                    ctx.scale(0.7, 0.7);
+                    ctx.scale(0.65, 0.65);
                     ctx.fillText(seg.text, 0, 0);
-                    const w = ctx.measureText(seg.text).width * 0.7;
+                    const w = ctx.measureText(seg.text).width * 0.65;
                     currentX += w;
                 } else if (seg.type === 'sub') {
                     ctx.translate(currentX, baselineY + obj.size * scale * 0.4);
-                    ctx.scale(0.7, 0.7);
+                    ctx.scale(0.65, 0.65);
                     ctx.fillText(seg.text, 0, 0);
-                    const w = ctx.measureText(seg.text).width * 0.7;
+                    const w = ctx.measureText(seg.text).width * 0.65;
                     currentX += w;
                 } else {
                     ctx.fillText(seg.text, currentX, baselineY);
@@ -559,6 +569,7 @@ function startTextEdit(obj) {
     editorDiv.contentEditable = true;
     editorDiv.style.color = obj.color;
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    editorDiv.style.fontStyle = obj.isItalic ? 'italic' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
     renderSegmentsToHTML(obj.segments, editorDiv);
@@ -585,32 +596,28 @@ function startTextEdit(obj) {
             e.preventDefault();
             insertMathSpan(editorDiv, 'sub');
         } else if (e.key === 'ArrowRight') {
-            // ВИПРАВЛЕНО: Логіка виходу з поля степеня/індексу
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
                 const range = sel.getRangeAt(0);
                 const node = range.startContainer;
                 
-                // Перевіряємо, чи ми всередині math-span
                 let parentSpan = null;
-                if (node.nodeType === 3) { // Text node
+                if (node.nodeType === 3) { 
                     if (node.parentNode.classList.contains('math-sup') || node.parentNode.classList.contains('math-sub')) {
                         parentSpan = node.parentNode;
                     }
-                } else if (node.nodeType === 1) { // Element node
+                } else if (node.nodeType === 1) { 
                     if (node.classList.contains('math-sup') || node.classList.contains('math-sub')) {
                         parentSpan = node;
                     }
                 }
                 
                 if (parentSpan) {
-                    // Якщо курсор в кінці текстового вузла або в кінці span
                     const isAtEnd = (node.nodeType === 3 && range.startOffset === node.length) || 
                                     (node === parentSpan && range.startOffset === parentSpan.childNodes.length);
                     
                     if (isAtEnd) {
                         e.preventDefault();
-                        // Перемістити курсор одразу ЗА батьківський span
                         const newRange = document.createRange();
                         newRange.setStartAfter(parentSpan);
                         newRange.collapse(true);
@@ -624,29 +631,14 @@ function startTextEdit(obj) {
             stopTextEdit();
         } else if (e.key === 'Escape') {
             stopTextEdit(true);
-        } else if (e.key === 'Backspace') {
-             // Запобігаємо видаленню самого span, якщо він порожній
-             const sel = window.getSelection();
-             if (sel.rangeCount > 0) {
-                 const range = sel.getRangeAt(0);
-                 if (range.startOffset === 0 && range.endOffset === 0) {
-                     const node = range.startContainer;
-                     if (node.nodeType === 1 && (node.classList.contains('math-sup') || node.classList.contains('math-sub'))) {
-                         // Дозволяємо видалити span тільки якщо він повністю виділений або курсор перед ним
-                         // Тут проста логіка: якщо всередині пустого span, не даємо видалити сам span Backspace-ом
-                         // (браузер сам це часто обробляє, але можна додати запобіжник)
-                     }
-                 }
-             }
         }
     });
     
     editorDiv.addEventListener('input', () => {
-        // Запобігаємо повному видаленню тексту в math-span (щоб не зник тег)
         const spans = editorDiv.querySelectorAll('.math-sup, .math-sub');
         spans.forEach(span => {
             if (span.textContent.trim() === '') {
-                span.textContent = '\u00A0'; // Non-breaking space placeholder
+                span.textContent = '\u00A0';
             }
         });
         
@@ -680,7 +672,6 @@ function renderSegmentsToHTML(segments, container) {
     }
     segments.forEach(seg => {
         const span = document.createElement('span');
-        // ВИПРАВЛЕНО: Не додаємо зайвих пробілів
         span.textContent = seg.text || '\u00A0'; 
         if (seg.type === 'sup') span.className = 'math-sup';
         else if (seg.type === 'sub') span.className = 'math-sub';
@@ -696,12 +687,11 @@ function insertMathSpan(container, type) {
     
     const span = document.createElement('span');
     span.className = type === 'sup' ? 'math-sup' : 'math-sub';
-    span.textContent = '\u00A0'; // Placeholder
+    span.textContent = '\u00A0'; 
     
     range.deleteContents();
     range.insertNode(span);
     
-    // Move cursor inside
     const newRange = document.createRange();
     newRange.selectNodeContents(span);
     newRange.collapse(false); 
@@ -720,7 +710,6 @@ function syncHTMLToSegments(container, obj) {
             else if (className.includes('sub')) type = 'sub';
             
             let text = node.textContent;
-            // Clean up placeholder
             if (text === '\u00A0') text = ''; 
             
             segments.push({ type, text });
@@ -1062,7 +1051,10 @@ function createNewText(coords) {
         type: 'text', x: coords.x, y: coords.y, 
         segments: [{type: 'normal', text: ''}],
         color: document.getElementById('colorPicker').value,
-        size: 20, isBold: document.getElementById('boldText').checked, rotation: 0
+        size: 24, // Трохи більший розмір за замовчуванням
+        isBold: document.getElementById('boldText').checked,
+        isItalic: document.getElementById('italicText').checked,
+        rotation: 0
     };
     objects.push(obj); selectedObj = obj;
     invalidateCache();
