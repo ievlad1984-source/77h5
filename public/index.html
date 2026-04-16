@@ -31,7 +31,6 @@
             pointer-events: none;
         }
 
-        /* Редактор тексту з підтримкою формул */
         .text-editor-container {
             position: absolute;
             z-index: 2000;
@@ -63,7 +62,6 @@
             box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
         }
 
-        /* Контейнер для степені/індексу */
         .math-script-container {
             display: inline-block;
             position: relative;
@@ -72,11 +70,10 @@
             vertical-align: baseline;
         }
 
-        /* Віконце для степені — ЗГОРИ СПРАВА */
         .script-input.super {
             position: absolute;
             left: 2px;
-            top: -18px; /* Підняти вгору */
+            top: -18px;
             background: rgba(33, 150, 243, 0.15);
             border: 1px dashed #2196F3;
             border-radius: 3px;
@@ -87,14 +84,12 @@
             color: #333;
             outline: none;
             white-space: pre;
-            transform-origin: bottom left;
         }
 
-        /* Віконце для індексу — ЗНИЗУ СПРАВА */
         .script-input.sub {
             position: absolute;
             left: 2px;
-            top: 8px; /* Опустити вниз */
+            top: 8px;
             background: rgba(255, 152, 0, 0.15);
             border: 1px dashed #FF9800;
             border-radius: 3px;
@@ -105,7 +100,6 @@
             color: #333;
             outline: none;
             white-space: pre;
-            transform-origin: top left;
         }
 
         .script-input:focus {
@@ -131,7 +125,6 @@
             left: 0;
         }
 
-        /* Хендли для ресайзу */
         .handle {
             position: absolute; width: 8px; height: 8px; background: #4CAF50;
             border: 1px solid white; border-radius: 50%; z-index: 2001;
@@ -485,18 +478,19 @@ function drawMathText(ctx, text, x, y, baseSize, isBold) {
             if (scriptContent) {
                 const subSize = baseSize * 0.6;
                 ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
-                const w = ctx.measureText(scriptContent).width;
                 
                 if (mode === 'super') {
-                    ctx.fillText(scriptContent, currentX - w, y - baseSize * 0.8);
+                    ctx.fillText(scriptContent, currentX, y - baseSize * 0.5);
+                    currentX += ctx.measureText(scriptContent).width;
                 } else if (mode === 'sub') {
-                    ctx.fillText(scriptContent, currentX - w, y + baseSize * 0.4);
+                    ctx.fillText(scriptContent, currentX, y + baseSize * 0.3);
+                    currentX += ctx.measureText(scriptContent).width;
                 }
                 
-                currentX += w;
                 scriptContent = '';
             }
             mode = 'normal';
+            ctx.font = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             continue;
         }
         
@@ -523,12 +517,11 @@ function drawMathText(ctx, text, x, y, baseSize, isBold) {
     if (scriptContent && mode !== 'normal') {
         const subSize = baseSize * 0.6;
         ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
-        const w = ctx.measureText(scriptContent).width;
         
         if (mode === 'super') {
-            ctx.fillText(scriptContent, currentX, y - baseSize * 0.8);
+            ctx.fillText(scriptContent, currentX, y - baseSize * 0.5);
         } else if (mode === 'sub') {
-            ctx.fillText(scriptContent, currentX, y + baseSize * 0.4);
+            ctx.fillText(scriptContent, currentX, y + baseSize * 0.3);
         }
     }
 }
@@ -601,7 +594,13 @@ function startTextEdit(obj) {
             return;
         }
         
-        obj.text = text;
+        if (currentScriptType && scriptInput) {
+            const scriptText = scriptInput.innerText.replace('Степінь', '').replace('Індекс', '');
+            obj.text = text + (currentScriptType === 'super' ? '^' : '_') + scriptText + SCRIPT_END;
+        } else {
+            obj.text = text;
+        }
+        
         updateSize();
         draw();
     });
@@ -635,7 +634,6 @@ function startTextEdit(obj) {
         currentScriptType = type;
         mainInput.innerText = mainInput.innerText.slice(0, -1);
         
-        // Створюємо контейнер для позиціонування
         scriptContainer = document.createElement('div');
         scriptContainer.className = 'math-script-container';
         container.appendChild(scriptContainer);
@@ -663,12 +661,12 @@ function startTextEdit(obj) {
         }, 10);
         
         scriptBox.addEventListener('input', () => {
-            const text = scriptBox.innerText.replace('Степінь', '').replace('Індекс', '');
+            const scriptText = scriptBox.innerText.replace('Степінь', '').replace('Індекс', '');
             ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale * 0.55}px 'Segoe UI', sans-serif`;
-            const w = ctx.measureText(text || ' ').width;
+            const w = ctx.measureText(scriptText || ' ').width;
             scriptBox.style.minWidth = Math.max(w + 10, 25) + 'px';
             
-            obj.text = mainInput.innerText + (type === 'super' ? '^' : '_') + text;
+            obj.text = mainInput.innerText + (type === 'super' ? '^' : '_') + scriptText + SCRIPT_END;
             draw();
         });
         
