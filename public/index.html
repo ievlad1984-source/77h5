@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (Fixed Math)</title>
+    <title>Математична Дошка (iDroo Style)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
@@ -31,49 +31,85 @@
             pointer-events: none;
         }
 
-        .text-edit-wrapper {
+        /* Редактор тексту з підтримкою формул */
+        .text-editor-container {
             position: absolute;
             z-index: 2000;
-            border: 2px dashed #4CAF50;
             background: transparent;
-            box-sizing: border-box;
-            min-width: 50px;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
             transform-origin: top left;
         }
 
-        .text-edit-wrapper.mode-super {
-            transform: scale(0.65) translateY(-25px) !important;
-            border-color: #2196F3;
-            opacity: 0.9;
-        }
-
-        .text-edit-wrapper.mode-sub {
-            transform: scale(0.65) translateY(15px) !important;
-            border-color: #FF9800;
-            opacity: 0.9;
-        }
-
-        .text-edit-content {
-            width: 100%;
-            height: 100%;
-            min-height: 30px;
-            outline: none;
-            background: rgba(255, 255, 255, 0.95);
-            border: none;
+        .text-editor-main {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.98);
+            border: 2px dashed #4CAF50;
             border-radius: 4px;
-            padding: 6px 10px;
+            padding: 8px 12px;
+            min-width: 100px;
+            min-height: 40px;
             font-family: 'Segoe UI', sans-serif;
-            color: #333;
-            white-space: pre; 
-            overflow: visible;
-            display: block;
-            box-sizing: border-box;
-            line-height: 1.4;
-            cursor: text;
             font-size: 20px;
+            color: #333;
+            outline: none;
+            white-space: pre;
+            cursor: text;
+            line-height: 1.5;
         }
 
+        .text-editor-main.active {
+            border-color: #2196F3;
+            box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
+        }
+
+        /* Контейнер для степені/індексу */
+        .math-script-box {
+            display: inline-block;
+            position: relative;
+            vertical-align: baseline;
+        }
+
+        .script-input {
+            display: inline-block;
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px dashed #2196F3;
+            border-radius: 3px;
+            padding: 2px 4px;
+            min-width: 20px;
+            min-height: 20px;
+            font-size: 12px;
+            color: #333;
+            outline: none;
+            white-space: pre;
+        }
+
+        .script-input.super {
+            vertical-align: super;
+            transform-origin: bottom left;
+        }
+
+        .script-input.sub {
+            vertical-align: sub;
+            transform-origin: top left;
+        }
+
+        .script-label {
+            position: absolute;
+            font-size: 10px;
+            color: #999;
+            pointer-events: none;
+        }
+
+        .script-label.super {
+            top: -15px;
+            left: 0;
+        }
+
+        .script-label.sub {
+            bottom: -15px;
+            left: 0;
+        }
+
+        /* Хендли для ресайзу */
         .handle {
             position: absolute; width: 8px; height: 8px; background: #4CAF50;
             border: 1px solid white; border-radius: 50%; z-index: 2001;
@@ -149,10 +185,14 @@ let shiftKey = false;
 
 let textEditor = null;
 let editingObject = null;
-let inputMode = 'normal'; // 'normal', 'super', 'sub'
+let currentScriptType = null; // 'super', 'sub', or null
+let scriptInput = null;
 
-// Спеціальний символ-маркер для завершення степені/індексу
-const MODE_END_MARKER = '\u0001'; // Control-A, невидимий символ
+// Формат зберігання: "base^exponent_subscript"
+// Спеціальні символи для розділення: ￨ (U+FFE8)
+const SUPER_START = '^';
+const SUB_START = '_';
+const SCRIPT_END = '\uFFE8'; // Fullwidth vertical line
 
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
@@ -207,7 +247,8 @@ function getBBox(obj) {
     
     if (obj.type === 'text') {
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size}px 'Segoe UI', sans-serif`;
-        const lines = obj.text.replace(new RegExp(MODE_END_MARKER, 'g'), '').split('\n');
+        const cleanText = obj.text.replace(new RegExp(SCRIPT_END, 'g'), '');
+        const lines = cleanText.split('\n');
         let maxW = 0;
         lines.forEach(l => { const w = ctx.measureText(l).width; if (w > maxW) maxW = w; });
         const h = lines.length * obj.size * 1.2;
@@ -396,7 +437,7 @@ function drawObject(obj, isTemp = false) {
         const textX = (obj.x - bbox.cx) * scale;
         const textY = (obj.y - bbox.cy) * scale + (obj.size * scale * 0.8);
         lines.forEach((line, i) => {
-            drawMathLine(ctx, line, textX, textY + (i * obj.size * scale * 1.2), obj.size * scale, obj.isBold);
+            drawMathText(ctx, line, textX, textY + (i * obj.size * scale * 1.2), obj.size * scale, obj.isBold);
         });
     } 
     else if (obj.type === 'image') {
@@ -408,10 +449,11 @@ function drawObject(obj, isTemp = false) {
     ctx.restore();
 }
 
-// ВИПРАВЛЕНО: Правильна обробка режимів з маркерами
-function drawMathLine(ctx, text, x, y, baseSize, isBold) {
+// Покращений рендер математики
+function drawMathText(ctx, text, x, y, baseSize, isBold) {
     let currentX = x;
     let mode = 'normal';
+    let scriptContent = '';
     
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
@@ -419,38 +461,56 @@ function drawMathLine(ctx, text, x, y, baseSize, isBold) {
     for (let i = 0; i < text.length; i++) {
         const char = text[i];
         
-        // Пропускаємо маркери завершення режиму
-        if (char === MODE_END_MARKER) {
+        if (char === SCRIPT_END) {
+            // Кінець степені/індексу - малюємо зібраний контент
+            if (scriptContent) {
+                const subSize = baseSize * 0.6;
+                ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
+                const w = ctx.measureText(scriptContent).width;
+                
+                if (mode === 'super') {
+                    ctx.fillText(scriptContent, currentX - w, y - baseSize * 0.8);
+                } else if (mode === 'sub') {
+                    ctx.fillText(scriptContent, currentX - w, y + baseSize * 0.4);
+                }
+                
+                currentX += w;
+                scriptContent = '';
+            }
             mode = 'normal';
             continue;
         }
         
-        if (char === '^') {
+        if (char === SUPER_START) {
             mode = 'super';
+            scriptContent = '';
             continue;
-        } else if (char === '_') {
+        } else if (char === SUB_START) {
             mode = 'sub';
+            scriptContent = '';
             continue;
         }
         
-        // Малюємо символ у поточному режимі
-        if (mode === 'super') {
-            const subSize = baseSize * 0.6;
-            ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
-            const w = ctx.measureText(char).width;
-            ctx.fillText(char, currentX, y - baseSize * 0.8);
-            currentX += w;
-        } else if (mode === 'sub') {
-            const subSize = baseSize * 0.6;
-            ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
-            const w = ctx.measureText(char).width;
-            ctx.fillText(char, currentX, y + baseSize * 0.4);
-            currentX += w;
-        } else {
+        if (mode === 'normal') {
             ctx.font = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const w = ctx.measureText(char).width;
             ctx.fillText(char, currentX, y);
             currentX += w;
+        } else {
+            scriptContent += char;
+        }
+    }
+    
+    // Якщо залишився контент у степені/індексі (незавершений)
+    if (scriptContent && mode !== 'normal') {
+        const subSize = baseSize * 0.6;
+        ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
+        const w = ctx.measureText(scriptContent).width;
+        
+        if (mode === 'super') {
+            ctx.fillText(scriptContent, currentX, y - baseSize * 0.8);
+        } else if (mode === 'sub') {
+            ctx.fillText(scriptContent, currentX, y + baseSize * 0.4);
         }
     }
 }
@@ -461,6 +521,7 @@ function getCoords(e) {
     return { x: (clientX - offsetX) / scale, y: (clientY - offsetY) / scale, rawX: clientX, rawY: clientY };
 }
 
+// === НОВИЙ РЕДАКТОР ТЕКСТУ З ВІЗУАЛЬНИМИ ОКОШКАМИ ===
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -472,88 +533,58 @@ function startTextEdit(obj) {
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
     
-    const wrapper = document.createElement('div');
-    wrapper.className = 'text-edit-wrapper';
-    wrapper.style.left = screenX + 'px';
-    wrapper.style.top = screenY + 'px';
-    wrapper.style.width = (bbox.w * scale) + 'px';
-    wrapper.style.height = (bbox.h * scale) + 'px';
-    wrapper.style.transform = 'none'; 
+    // Створюємо контейнер
+    const container = document.createElement('div');
+    container.className = 'text-editor-container';
+    container.style.left = screenX + 'px';
+    container.style.top = screenY + 'px';
     
-    ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
-        const div = document.createElement('div');
-        div.className = `handle ${h}`;
-        div.dataset.handle = h;
-        wrapper.appendChild(div);
-    });
+    // Головне поле для базового тексту
+    const mainInput = document.createElement('div');
+    mainInput.className = 'text-editor-main active';
+    mainInput.contentEditable = true;
+    // Видаляємо службові символи при редагуванні
+    mainInput.innerText = obj.text.replace(new RegExp(SCRIPT_END, 'g'), '').replace(/[\^_]/g, '');
+    mainInput.style.fontSize = (obj.size * scale) + 'px';
+    mainInput.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    mainInput.style.color = obj.color;
     
-    const rotLine = document.createElement('div'); rotLine.className = 'rotate-line'; wrapper.appendChild(rotLine);
-    const rotHandle = document.createElement('div'); rotHandle.className = 'rotate-handle'; rotHandle.dataset.handle = 'rotate'; wrapper.appendChild(rotHandle);
-    
-    const textarea = document.createElement('div');
-    textarea.className = 'text-edit-content';
-    textarea.contentEditable = true;
-    // Видаляємо маркери при редагуванні
-    textarea.innerText = obj.text.replace(new RegExp(MODE_END_MARKER, 'g'), ''); 
-    textarea.style.color = obj.color;
-    textarea.style.fontWeight = obj.isBold ? 'bold' : 'normal';
-    textarea.style.fontSize = (obj.size * scale) + 'px';
-    textarea.style.whiteSpace = 'pre'; 
-    
-    wrapper.appendChild(textarea);
-    document.body.appendChild(wrapper);
-    textEditor = wrapper;
-    inputMode = 'normal';
+    container.appendChild(mainInput);
+    document.body.appendChild(container);
+    textEditor = container;
+    currentScriptType = null;
+    scriptInput = null;
     
     function updateSize() {
-        const lines = textarea.innerText.split('\n');
-        let maxWidth = 0;
+        const text = mainInput.innerText;
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-        lines.forEach(line => { const w = ctx.measureText(line).width; if (w > maxWidth) maxWidth = w; });
-        wrapper.style.width = Math.max(maxWidth + 20, 50) + 'px';
-        wrapper.style.height = Math.max(lines.length * (obj.size * 1.2 * scale) + 12, 40) + 'px';
+        const w = ctx.measureText(text).width;
+        container.style.width = Math.max(w + 24, 100) + 'px';
     }
     
     updateSize();
     
     setTimeout(() => {
-        textarea.focus();
+        mainInput.focus();
         const range = document.createRange();
-        range.selectNodeContents(textarea);
+        range.selectNodeContents(mainInput);
         range.collapse(false);
         window.getSelection().removeAllRanges();
         window.getSelection().addRange(range);
     }, 10);
     
-    let isConverting = false;
-    
-    textarea.addEventListener('input', () => {
-        if (isConverting) return;
-        const text = textarea.innerText;
+    // Обробка введення в головному полі
+    mainInput.addEventListener('input', () => {
+        const text = mainInput.innerText;
         
-        // Вхід у режим степені
-        if (text.endsWith('^') && inputMode === 'normal') {
-            textarea.innerText = text.slice(0, -1);
-            inputMode = 'super';
-            wrapper.classList.add('mode-super');
-            wrapper.classList.remove('mode-sub');
-            isConverting = true;
-            setTimeout(() => { isConverting = false; textarea.focus(); }, 10);
-            updateSize();
-            draw();
+        // Перевірка на ^ або _
+        if (text.endsWith('^') && !currentScriptType) {
+            createScriptBox('super');
             return;
         }
         
-        // Вхід у режим індексу
-        if (text.endsWith('_') && inputMode === 'normal') {
-            textarea.innerText = text.slice(0, -1);
-            inputMode = 'sub';
-            wrapper.classList.add('mode-sub');
-            wrapper.classList.remove('mode-super');
-            isConverting = true;
-            setTimeout(() => { isConverting = false; textarea.focus(); }, 10);
-            updateSize();
-            draw();
+        if (text.endsWith('_') && !currentScriptType) {
+            createScriptBox('sub');
             return;
         }
         
@@ -562,58 +593,182 @@ function startTextEdit(obj) {
         draw();
     });
     
-    textarea.addEventListener('keydown', (e) => {
-        // ВИХІД з режиму степені/індексу - додаємо маркер
-        if (e.key === 'ArrowRight' && inputMode !== 'normal') {
+    // Обробка клавіш
+    mainInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' && currentScriptType) {
             e.preventDefault();
-            textarea.innerText = textarea.innerText + MODE_END_MARKER;
-            obj.text = textarea.innerText;
-            inputMode = 'normal';
-            wrapper.classList.remove('mode-super', 'mode-sub');
-            textarea.focus();
-            updateSize();
-            draw();
+            finishScriptBox();
             return;
         }
         
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); stopTextEdit(); }
-        if (e.key === 'Escape') { stopTextEdit(true); }
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault(); 
+            stopTextEdit(); 
+            return;
+        }
+        
+        if (e.key === 'Escape') { 
+            stopTextEdit(true); 
+            return;
+        }
+        
+        if (e.key === 'Backspace' && currentScriptType && scriptInput && scriptInput.innerText === '') {
+            e.preventDefault();
+            finishScriptBox(true);
+            return;
+        }
     });
     
-    textarea.addEventListener('blur', () => {
-        setTimeout(() => { if (textEditor && document.activeElement !== textarea) stopTextEdit(); }, 200);
+    // Створення окошка для степені/індексу
+    function createScriptBox(type) {
+        currentScriptType = type;
+        
+        // Видаляємо ^ або _ з головного поля
+        mainInput.innerText = mainInput.innerText.slice(0, -1);
+        
+        // Створюємо окошко
+        const scriptBox = document.createElement('div');
+        scriptBox.className = 'script-input ' + (type === 'super' ? 'super' : 'sub');
+        scriptBox.contentEditable = true;
+        scriptBox.style.fontSize = (obj.size * scale * 0.6) + 'px';
+        
+        // Мітка
+        const label = document.createElement('span');
+        label.className = 'script-label ' + (type === 'super' ? 'super' : 'sub');
+        label.innerText = type === 'super' ? 'Степінь' : 'Індекс';
+        scriptBox.appendChild(label);
+        
+        container.appendChild(scriptBox);
+        scriptInput = scriptBox;
+        
+        // Фокус на окошко
+        setTimeout(() => {
+            scriptBox.focus();
+            const range = document.createRange();
+            range.selectNodeContents(scriptBox);
+            range.collapse(false);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+        }, 10);
+        
+        // Обробка введення в окошку
+        scriptBox.addEventListener('input', () => {
+            // Оновлюємо розмір окошка динамічно
+            const text = scriptBox.innerText.replace('Степінь', '').replace('Індекс', '');
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale * 0.6}px 'Segoe UI', sans-serif`;
+            const w = ctx.measureText(text || ' ').width;
+            scriptBox.style.minWidth = Math.max(w + 8, 20) + 'px';
+            
+            obj.text = mainInput.innerText + (type === 'super' ? '^' : '_') + text;
+            draw();
+        });
+        
+        scriptBox.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                finishScriptBox();
+                return;
+            }
+            
+            if (e.key === 'Backspace' && scriptBox.innerText.replace('Степінь', '').replace('Індекс', '') === '') {
+                e.preventDefault();
+                finishScriptBox(true);
+                return;
+            }
+        });
+        
+        scriptBox.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (scriptInput === scriptBox && document.activeElement !== scriptBox) {
+                    finishScriptBox();
+                }
+            }, 200);
+        });
+    }
+    
+    // Завершення степені/індексу
+    function finishScriptBox(cancel = false) {
+        if (!scriptInput) return;
+        
+        const scriptText = scriptInput.innerText.replace('Степінь', '').replace('Індекс', '');
+        
+        if (!cancel && scriptText.trim()) {
+            // Додаємо маркер завершення
+            obj.text = mainInput.innerText + (currentScriptType === 'super' ? '^' : '_') + scriptText + SCRIPT_END;
+        } else {
+            obj.text = mainInput.innerText;
+        }
+        
+        container.removeChild(scriptInput);
+        scriptInput = null;
+        currentScriptType = null;
+        
+        mainInput.focus();
+        updateSize();
+        draw();
+    }
+    
+    // Клік по дошці завершує редагування
+    mainInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (textEditor && document.activeElement !== mainInput && document.activeElement !== scriptInput) {
+                stopTextEdit();
+            }
+        }, 200);
     });
     
-    wrapper.querySelectorAll('.handle, .rotate-handle').forEach(h => {
+    // Хендли для ресайзу
+    ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
+        const div = document.createElement('div');
+        div.className = `handle ${h}`;
+        div.dataset.handle = h;
+        container.appendChild(div);
+    });
+    
+    const rotLine = document.createElement('div'); rotLine.className = 'rotate-line'; container.appendChild(rotLine);
+    const rotHandle = document.createElement('div'); rotHandle.className = 'rotate-handle'; rotHandle.dataset.handle = 'rotate'; container.appendChild(rotHandle);
+    
+    container.querySelectorAll('.handle, .rotate-handle').forEach(h => {
         h.addEventListener('mousedown', (e) => {
             e.stopPropagation(); e.preventDefault();
             if (h.dataset.handle === 'rotate') startRotate(obj, e);
-            else startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
+            else startTextResize(obj, h.dataset.handle, e, container, mainInput);
         });
     });
     
-    textarea.addEventListener('mousedown', (e) => {
-        if (e.target === textarea) { e.stopPropagation(); startTextDrag(obj, e, wrapper); }
+    container.addEventListener('mousedown', (e) => {
+        if (e.target === mainInput || e.target === scriptInput) { 
+            e.stopPropagation(); 
+            startTextDrag(obj, e, container); 
+        }
     });
 }
 
 function stopTextEdit(cancel = false) {
     if (!textEditor) return;
-    const textarea = textEditor.querySelector('.text-edit-content');
+    const mainInput = textEditor.querySelector('.text-editor-main');
     if (!cancel && editingObject) {
-        // Зберігаємо текст з маркерами
-        editingObject.text = textarea.innerText;
+        let text = mainInput.innerText;
+        // Додаємо SCRIPT_END якщо є незавершена степінь/індекс
+        if (currentScriptType && scriptInput) {
+            const scriptText = scriptInput.innerText.replace('Степінь', '').replace('Індекс', '');
+            if (scriptText.trim()) {
+                text += (currentScriptType === 'super' ? '^' : '_') + scriptText + SCRIPT_END;
+            }
+        }
+        editingObject.text = text;
         invalidateCache();
         socket.emit('update-all', objects);
     }
     document.body.removeChild(textEditor);
     textEditor = null;
     editingObject = null;
-    inputMode = 'normal';
+    currentScriptType = null;
+    scriptInput = null;
     draw();
 }
 
-function startTextResize(obj, handle, e, wrapper, textarea) {
+function startTextResize(obj, handle, e, container, mainInput) {
     isResizing = true; resizeHandle = handle;
     const coords = getCoords(e);
     dragStartX = coords.x; dragStartY = coords.y;
@@ -639,8 +794,14 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
         }
         
         obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
-        textarea.style.fontSize = (obj.size * scale) + 'px';
-        updateSize();
+        mainInput.style.fontSize = (obj.size * scale) + 'px';
+        if (scriptInput) scriptInput.style.fontSize = (obj.size * scale * 0.6) + 'px';
+        
+        const text = mainInput.innerText;
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        const w = ctx.measureText(text).width;
+        container.style.width = Math.max(w + 24, 100) + 'px';
+        
         draw();
     };
     
@@ -655,14 +816,12 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
     document.addEventListener('mouseup', onUp);
 }
 
-function startTextDrag(obj, e, wrapper) {
+function startTextDrag(obj, e, container) {
     isDragging = true;
     const coords = getCoords(e);
     dragStartX = coords.x; dragStartY = coords.y;
     const bbox = getBBox(obj);
     dragStartObjX = obj.x; dragStartObjY = obj.y;
-    const textarea = wrapper.querySelector('.text-edit-content');
-    textarea.style.cursor = 'grabbing';
     
     const onMove = (e) => {
         if (!isDragging) return;
@@ -670,14 +829,13 @@ function startTextDrag(obj, e, wrapper) {
         obj.x = dragStartObjX + c.x - dragStartX;
         obj.y = dragStartObjY + c.y - dragStartY;
         const newBbox = getBBox(obj);
-        wrapper.style.left = (newBbox.x * scale + offsetX) + 'px';
-        wrapper.style.top = (newBbox.y * scale + offsetY) + 'px';
+        container.style.left = (newBbox.x * scale + offsetX) + 'px';
+        container.style.top = (newBbox.y * scale + offsetY) + 'px';
         draw();
     };
     
     const onUp = () => {
         isDragging = false;
-        textarea.style.cursor = '';
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         invalidateCache();
