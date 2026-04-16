@@ -770,10 +770,24 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mouseup', onUp);
 }
 
+// === ВИПРАВЛЕНО: Обробка подвійного кліку для тексту ===
 canvas.addEventListener('mousedown', (e) => {
     if (textEditor) { stopTextEdit(); return; }
     
     const coords = getCoords(e);
+    
+    // === ПЕРЕВІРКА ПОДВІЙНОГО КЛІКУ ПО ТЕКСТУ ===
+    if (e.detail === 2) {
+        const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 5));
+        if (clickedObj && clickedObj.type === 'text') {
+            e.preventDefault();
+            e.stopPropagation();
+            selectedObj = clickedObj;
+            startTextEdit(clickedObj);
+            draw();
+            return;
+        }
+    }
     
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
@@ -791,7 +805,7 @@ canvas.addEventListener('mousedown', (e) => {
         }
     }
     
-    const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
+    const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 5));
     
     if (clickedObj && currentTool === 'select') {
         selectedObj = clickedObj;
@@ -809,11 +823,6 @@ canvas.addEventListener('mousedown', (e) => {
             startResizeState = { x: clickedObj.x, y: clickedObj.y };
         }
         
-        if (e.detail === 2 && clickedObj.type === 'text') {
-            isDragging = false;
-            startTextEdit(clickedObj);
-            return;
-        }
         draw();
     } else {
         selectedObj = null;
@@ -1084,7 +1093,6 @@ window.addEventListener('paste', (e) => {
     }
 });
 
-// === ВИПРАВЛЕНО: Завантаження зображень при отриманні історії ===
 socket.on('init-history', (h) => { 
     objects = h;
     let imagesLoaded = 0;
