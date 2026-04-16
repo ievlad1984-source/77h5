@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (iDroo Style)</title>
+    <title>Математична Дошка Pro (iDroo Style) - Updated</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
@@ -12,12 +12,13 @@
             position: absolute; top: 15px; left: 15px; background: white; padding: 8px;
             display: flex; gap: 6px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
             z-index: 1000; align-items: center; flex-wrap: wrap; max-width: 90vw;
+            user-select: none;
         }
 
         .tool-btn { 
             padding: 8px 14px; cursor: pointer; border: 1px solid #e0e0e0; 
             background: #fff; border-radius: 6px; font-size: 14px; transition: all 0.2s;
-            display: flex; align-items: center; justify-content: center; user-select: none;
+            display: flex; align-items: center; justify-content: center; 
         }
         
         .tool-btn:hover { background: #f0f7ff; border-color: #007bff; }
@@ -27,96 +28,98 @@
             position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); 
             padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; border: 1px solid #ddd;
+            pointer-events: none;
         }
 
+        /* Стилі для редактора тексту */
         .text-edit-wrapper {
             position: absolute;
             z-index: 2000;
             border: 2px dashed #4CAF50;
             background: transparent;
             box-sizing: border-box;
-            /* Авто-ширина для розширення по горизонталі */
-            width: auto !important;
-            min-width: 100px;
+            /* Дозволяємо блоку розтягуватися, але мінімальна ширина є */
+            min-width: 50px;
+            transform-origin: top left; /* Важливо для обертання */
         }
 
         .text-edit-content {
-            /* Авто-розширення по горизонталі, без переносу */
-            width: auto;
-            min-width: 100px;
-            max-width: none;
-            height: auto;
+            width: 100%;
+            height: 100%;
             min-height: 30px;
             outline: none;
             background: rgba(255, 255, 255, 0.95);
             border: none;
             border-radius: 4px;
             padding: 6px 10px;
-            font-size: 18px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            /* НЕ переносити текст автоматично! Тільки Enter */
-            white-space: pre;
+            /* pre-wrap дозволяє переноси, якщо ми обмежимо ширину, але зараз ми авто-розширюємось */
+            white-space: pre; 
             overflow: visible;
-            display: inline-block;
+            display: block;
             box-sizing: border-box;
             line-height: 1.4;
+            cursor: text;
         }
 
+        /* Хендли для ресайзу */
         .handle {
             position: absolute;
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             background: #4CAF50;
             border: 1px solid white;
-            border-radius: 1px;
+            border-radius: 50%;
             z-index: 2001;
             cursor: pointer;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
         
-        .handle:hover { background: #45a049; transform: scale(1.3); }
-        .handle.nw { top: -3px; left: -3px; cursor: nw-resize; }
-        .handle.n { top: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.ne { top: -3px; right: -3px; cursor: ne-resize; }
-        .handle.e { top: 50%; right: -3px; transform: translateY(-50%); cursor: ew-resize; }
-        .handle.se { bottom: -3px; right: -3px; cursor: se-resize; }
-        .handle.s { bottom: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.sw { bottom: -3px; left: -3px; cursor: sw-resize; }
-        .handle.w { top: 50%; left: -3px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle:hover { background: #45a049; transform: scale(1.2); }
+        .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
+        .handle.n { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
+        .handle.e { top: 50%; right: -4px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
+        .handle.s { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+        .handle.w { top: 50%; left: -4px; transform: translateY(-50%); cursor: ew-resize; }
         
+        /* Ручка обертання */
         .rotate-handle {
             position: absolute;
-            top: -15px;
+            top: -20px;
             left: 50%;
             transform: translateX(-50%);
-            width: 7px;
-            height: 7px;
+            width: 10px;
+            height: 10px;
             background: #2196F3;
-            border: 1px solid white;
+            border: 2px solid white;
             border-radius: 50%;
             cursor: alias;
-            z-index: 2001;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            z-index: 2002;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         
         .rotate-line {
             position: absolute;
-            top: -8px;
+            top: -10px;
             left: 50%;
-            width: 1px;
-            height: 8px;
+            width: 2px;
+            height: 10px;
             background: #2196F3;
             transform: translateX(-50%);
             pointer-events: none;
         }
 
-        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }
+        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; padding: 0; }
         input[type="range"] { cursor: pointer; }
         .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
         
         canvas { display: block; touch-action: none; background: #ffffff; }
         
+        /* Курсори */
         .cursor-default { cursor: default !important; }
         .cursor-move { cursor: move !important; }
         .cursor-nwse { cursor: nwse-resize !important; }
@@ -127,6 +130,7 @@
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
         .cursor-eraser { cursor: cell !important; }
+        .cursor-rotate { cursor: alias !important; }
     </style>
 </head>
 <body>
@@ -156,7 +160,15 @@
 
 <script>
 const boardId = window.location.pathname.replace('/', '') || 'math-room-1';
-const socket = io({ query: { boardId } });
+// Перевірка наявності socket.io, щоб код працював і без сервера локально
+let socket;
+try {
+    socket = io({ query: { boardId } });
+} catch (e) {
+    console.warn("Socket.io not connected, running in local mode");
+    socket = { emit: () => {}, on: () => {} };
+}
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
@@ -167,94 +179,195 @@ let isDragging = false, isResizing = false, resizeHandle = null, isRotating = fa
 let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
+let startRotateState = {};
 let shiftKey = false;
 
 let textEditor = null;
 let editingObject = null;
 
+// === МАТЕМАТИЧНІ СИМВОЛИ ===
 const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
 const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ₒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
 
+// === ГАРЯЧІ КЛАВІШІ ===
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'v' || e.key === 'V') setTool('select');
     if (e.key === 'h' || e.key === 'H') setTool('hand');
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedObj && !textEditor) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !textEditor) {
+        if (selectedObj) {
             objects = objects.filter(o => o !== selectedObj);
             selectedObj = null;
+            invalidateCache();
             socket.emit('update-all', objects);
             draw();
         }
     }
+    // Ctrl+Z для скасування (базова реалізація)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        // Тут можна додати історію
+    }
 });
 window.addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftKey = false; });
 
+// === МАТЕМАТИЧНА КОНВЕРТАЦІЯ ===
 function convertMath(text) {
     if (!document.getElementById('mathMode')?.checked) return text;
-    return text
-        .replace(/([a-zA-Z0-9])\^([0-9]+)/g, (m,b,e) => b + e.split('').map(c => superscripts[c] || c).join(''))
-        .replace(/([a-zA-Z0-9])_([0-9]+)/g, (m,b,s) => b + s.split('').map(c => subscripts[c] || c).join(''))
-        .replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/gi, m => 
-            ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
+    // Заміна ступенів
+    let res = text.replace(/([a-zA-Z0-9])\^([0-9]+)/g, (m,b,e) => b + e.split('').map(c => superscripts[c] || c).join(''));
+    // Заміна індексів
+    res = res.replace(/([a-zA-Z0-9])_([0-9]+)/g, (m,b,s) => b + s.split('').map(c => subscripts[c] || c).join(''));
+    // Заміна слів
+    res = res.replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/gi, m => 
+        ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
+    return res;
+}
+
+// === ОПТИМІЗАЦІЯ: КЕШУВАННЯ BBOX ===
+// Щоб не викликати measureText кожен кадр
+function invalidateCache() {
+    objects.forEach(o => o._bbox = null);
 }
 
 function getBBox(obj) {
     if (!obj) return null;
+    if (obj._bbox) return obj._bbox; // Повертаємо кеш
+
+    let bbox = null;
+
     if (obj.type === 'text') {
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size}px 'Segoe UI', sans-serif`;
         const lines = obj.text.split('\n');
-        const w = Math.max(...lines.map(l => ctx.measureText(l).width)) / scale;
+        let maxW = 0;
+        lines.forEach(l => {
+            const w = ctx.measureText(l).width;
+            if (w > maxW) maxW = w;
+        });
         const h = lines.length * obj.size * 1.2;
-        return { x: obj.x, y: obj.y - obj.size * 0.8, w: w || 50, h: h || 20 };
+        // Центруємо bbox відносно x,y або беремо лівий верхній кут
+        // Для простоти обертання вважаємо x,y центром або лівим верхнім?
+        // У поточній реалізації x,y - це лівий верхній кут тексту
+        bbox = { x: obj.x, y: obj.y - obj.size * 0.8, w: maxW || 50, h: h || 20, cx: obj.x + (maxW||50)/2, cy: obj.y + (h||20)/2 - obj.size*0.4 };
     }
-    if (obj.type === 'rect') {
-        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
+    else if (obj.type === 'rect') {
+        const x = Math.min(obj.x, obj.ex);
+        const y = Math.min(obj.y, obj.ey);
+        const w = Math.abs(obj.ex - obj.x);
+        const h = Math.abs(obj.ey - obj.y);
+        bbox = { x, y, w, h, cx: x + w/2, cy: y + h/2 };
     }
-    if (obj.type === 'image') {
-        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
+    else if (obj.type === 'image') {
+        bbox = { x: obj.x, y: obj.y, w: obj.w, h: obj.h, cx: obj.x + obj.w/2, cy: obj.y + obj.h/2 };
     }
-    if (obj.type === 'line' || obj.type === 'arrow') {
-        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
+    else if (obj.type === 'line' || obj.type === 'arrow') {
+        const x = Math.min(obj.x, obj.ex);
+        const y = Math.min(obj.y, obj.ey);
+        const w = Math.abs(obj.ex - obj.x);
+        const h = Math.abs(obj.ey - obj.y);
+        // Для ліній bbox трохи більший для зручності кліку
+        bbox = { x, y, w: Math.max(w, 10), h: Math.max(h, 10), cx: (obj.x + obj.ex)/2, cy: (obj.y + obj.ey)/2 };
     }
-    if (obj.type === 'pen') {
-        if (!obj.points || obj.points.length === 0) return { x: obj.x, y: obj.y, w: 0, h: 0 };
-        const xs = [obj.x, ...obj.points.map(p => p.x)];
-        const ys = [obj.y, ...obj.points.map(p => p.y)];
-        return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    else if (obj.type === 'pen') {
+        if (!obj.points || obj.points.length === 0) { bbox = { x: obj.x, y: obj.y, w: 0, h: 0, cx: obj.x, cy: obj.y }; }
+        else {
+            const xs = [obj.x, ...obj.points.map(p => p.x)];
+            const ys = [obj.y, ...obj.points.map(p => p.y)];
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            bbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY, cx: (minX+maxX)/2, cy: (minY+maxY)/2 };
+        }
     }
-    return { x: obj.x, y: obj.y, w: 0, h: 0 };
+    else {
+        bbox = { x: obj.x, y: obj.y, w: 0, h: 0, cx: obj.x, cy: obj.y };
+    }
+
+    obj._bbox = bbox; // Кешуємо
+    return bbox;
 }
 
-function hitTest(obj, mx, my, padding = 0) {
+function hitTest(obj, mx, my, padding = 5) {
     const bbox = getBBox(obj);
     if (!bbox) return false;
+    // Для ліній перевіряємо відстань до сегмента, а не просто bbox
+    if (obj.type === 'line' || obj.type === 'arrow') {
+        return distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < (padding + (obj.width||2));
+    }
     return mx >= bbox.x - padding && mx <= bbox.x + bbox.w + padding && 
            my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
 }
 
+// Перевірка попадання в хендли з урахуванням обертання
 function hitHandle(obj, mx, my) {
     if (!obj) return null;
     const bbox = getBBox(obj);
-    const h = 8 / scale; 
-    const cx = bbox.x + bbox.w / 2;
-    const cy = bbox.y + bbox.h / 2;
+    const hSize = 10 / scale; // Розмір хендла
     
-    const handles = {
-        nw: { x: bbox.x, y: bbox.y },
-        n: { x: cx, y: bbox.y },
-        ne: { x: bbox.x + bbox.w, y: bbox.y },
-        e: { x: bbox.x + bbox.w, y: cy },
-        se: { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
-        s: { x: cx, y: bbox.y + bbox.h },
-        sw: { x: bbox.x, y: bbox.y + bbox.h },
-        w: { x: bbox.x, y: cy },
-        rotate: { x: cx, y: bbox.y - 15 / scale }
+    // Центр об'єкта
+    const cx = bbox.cx;
+    const cy = bbox.cy;
+    
+    // Вектор від центру до миші
+    const dx = mx - cx;
+    const dy = my - cy;
+    
+    // Відстань до центру
+    const dist = Math.hypot(dx, dy);
+    
+    // Кут миші відносно центру
+    let angle = Math.atan2(dy, dx);
+    
+    // Враховуємо обертання об'єкта, щоб знайти "локальний" кут хендла
+    const objRot = obj.rotation || 0;
+    const localAngle = angle - objRot;
+    
+    // Нормалізуємо кут від 0 до 2PI
+    const normAngle = (localAngle % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+    
+    // Визначаємо, в яку сторону (N, NE, E...) дивиться миша локально
+    // Поділяємо коло на 8 секторів по 45 градусів (PI/4)
+    const sector = Math.floor((normAngle + Math.PI/8) / (Math.PI/4)) % 8;
+    const dirs = ['e', 'se', 's', 'sw', 'w', 'nw', 'n', 'ne'];
+    const dirName = dirs[sector];
+    
+    // Перевіряємо відстань до краю bbox у цьому напрямку
+    // Це спрощена логіка, для ідеальної треба рахувати перетин променя з прямокутником
+    // Але для UI достатньо перевірити відстань до очікуваної позиції хендла
+    
+    let targetX, targetY;
+    const hw = bbox.w / 2;
+    const hh = bbox.h / 2;
+    
+    // Координати хендлів відносно центру (без обертання)
+    const handlesLocal = {
+        'n': {x: 0, y: -hh}, 's': {x: 0, y: hh},
+        'e': {x: hw, y: 0}, 'w': {x: -hw, y: 0},
+        'ne': {x: hw, y: -hh}, 'nw': {x: -hw, y: -hh},
+        'se': {x: hw, y: hh}, 'sw': {x: -hw, y: hh}
     };
     
-    for (let [name, pos] of Object.entries(handles)) {
-        if (Math.abs(mx - pos.x) < h && Math.abs(my - pos.y) < h) return name;
+    if (handlesLocal[dirName]) {
+        // Поворотаємо локальні координати хендла назад у глобальні
+        const cos = Math.cos(objRot);
+        const sin = Math.sin(objRot);
+        const lx = handlesLocal[dirName].x;
+        const ly = handlesLocal[dirName].y;
+        
+        targetX = cx + lx * cos - ly * sin;
+        targetY = cy + lx * sin + ly * cos;
+        
+        if (Math.hypot(mx - targetX, my - targetY) < hSize) return dirName;
     }
+    
+    // Перевірка ручки обертання (вона завжди зверху відносно обертання об'єкта)
+    // Вона знаходиться на відстані 20px + hh від центру по куту обертання - 90 градусів (вгору)
+    const rotDist = hh + 25/scale;
+    const rotAngle = objRot - Math.PI/2;
+    const rx = cx + rotDist * Math.cos(rotAngle);
+    const ry = cy + rotDist * Math.sin(rotAngle);
+    
+    if (Math.hypot(mx - rx, my - ry) < hSize) return 'rotate';
+    
     return null;
 }
 
@@ -292,16 +405,13 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// === СІТКА iDROO (тонші лінії) ===
+// === СІТКА ===
 function drawGrid() {
-    // Дрібна сітка: крок 20px
     const smallStep = 20 * scale;
-    // Основна сітка: крок 100px (кожні 5 дрібних)
     const largeStep = 100 * scale;
     
-    // Малюємо дрібну сітку
     ctx.beginPath();
-    ctx.strokeStyle = '#e8e8e8'; // Світліший сірий
+    ctx.strokeStyle = '#e8e8e8';
     ctx.lineWidth = 0.5;
     
     let startX = offsetX % smallStep;
@@ -317,10 +427,9 @@ function drawGrid() {
     }
     ctx.stroke();
     
-    // Малюємо основну сітку (тонше - було 1, стало 0.5)
     ctx.beginPath();
-    ctx.strokeStyle = '#cccccc'; // Сірий, але не занадто темний
-    ctx.lineWidth = 0.5; // ЗМЕНШЕНО з 1 до 0.5
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 0.5;
     
     startX = offsetX % largeStep;
     startY = offsetY % largeStep;
@@ -336,53 +445,61 @@ function drawGrid() {
     ctx.stroke();
 }
 
+// === МАЛЮВАННЯ ВИДІЛЕННЯ З ОБЕРТАННЯМ ===
 function drawSelection(obj) {
     const bbox = getBBox(obj);
     if (!bbox) return;
-    const sx = bbox.x * scale + offsetX;
-    const sy = bbox.y * scale + offsetY;
-    const sw = bbox.w * scale;
-    const sh = bbox.h * scale;
     
-    if (sw < 5 || sh < 5) return;
+    const cx = bbox.cx * scale + offsetX;
+    const cy = bbox.cy * scale + offsetY;
+    const w = bbox.w * scale;
+    const h = bbox.h * scale;
     
     ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(obj.rotation || 0);
+    
+    // Рамка
     ctx.setLineDash([5, 5]);
     ctx.strokeStyle = '#4CAF50';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(sx, sy, sw, sh);
-    ctx.restore();
+    ctx.strokeRect(-w/2, -h/2, w, h);
     
-    const handleSize = 6;
-    const handles = [
-        { x: sx, y: sy }, { x: sx + sw/2, y: sy }, { x: sx + sw, y: sy },
-        { x: sx + sw, y: sy + sh/2 }, { x: sx + sw, y: sy + sh },
-        { x: sx + sw/2, y: sy + sh }, { x: sx, y: sy + sh }, { x: sx, y: sy + sh/2 }
+    // Хендли
+    const handleSize = 8;
+    const positions = [
+        [-w/2, -h/2], [0, -h/2], [w/2, -h/2],
+        [w/2, 0], [w/2, h/2], [0, h/2], [-w/2, h/2], [-w/2, 0]
     ];
     
     ctx.fillStyle = '#4CAF50';
-    handles.forEach(h => {
-        ctx.fillRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
+    positions.forEach(([hx, hy]) => {
+        ctx.fillRect(hx - handleSize/2, hy - handleSize/2, handleSize, handleSize);
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 1;
-        ctx.strokeRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
+        ctx.strokeRect(hx - handleSize/2, hy - handleSize/2, handleSize, handleSize);
     });
     
+    // Ручка обертання
+    const rotY = -h/2 - 20;
     ctx.fillStyle = '#2196F3';
     ctx.beginPath();
-    ctx.arc(sx + sw/2, sy - 12, 4, 0, Math.PI * 2);
+    ctx.arc(0, rotY, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 1.5;
     ctx.stroke();
     
+    // Лінія до ручки
     ctx.beginPath();
-    ctx.moveTo(sx + sw/2, sy);
-    ctx.lineTo(sx + sw/2, sy - 8);
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(0, rotY + 5);
     ctx.strokeStyle = '#2196F3';
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     ctx.stroke();
+    
+    ctx.restore();
 }
 
 function draw() {
@@ -402,8 +519,15 @@ function draw() {
 
 function drawObject(obj, isTemp = false) {
     ctx.save();
-    const sx = obj.x * scale + offsetX;
-    const sy = obj.y * scale + offsetY;
+    
+    // Отримуємо центр для обертання
+    const bbox = getBBox(obj);
+    const cx = bbox.cx * scale + offsetX;
+    const cy = bbox.cy * scale + offsetY;
+    
+    // Застосовуємо трансформацію (переміщення + обертання)
+    ctx.translate(cx, cy);
+    ctx.rotate(obj.rotation || 0);
     
     ctx.lineWidth = (obj.width || 2) * scale;
     ctx.strokeStyle = obj.color || '#000';
@@ -411,20 +535,29 @@ function drawObject(obj, isTemp = false) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
+    // Тепер малюємо об'єкт відносно (0,0), який є центром об'єкта
+    // Потрібно скоригувати координати об'єкта відносно центру
+    
     if (obj.type === 'pen') {
         if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
         ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
+        // Перша точка
+        ctx.moveTo((obj.x - bbox.cx) * scale, (obj.y - bbox.cy) * scale);
+        obj.points.forEach(p => {
+            ctx.lineTo((p.x - bbox.cx) * scale, (p.y - bbox.cy) * scale);
+        });
         ctx.stroke();
-    } else if (obj.type === 'line' || obj.type === 'arrow') {
-        const ex = obj.ex * scale + offsetX;
-        const ey = obj.ey * scale + offsetY;
+    } 
+    else if (obj.type === 'line' || obj.type === 'arrow') {
         ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(ex, ey);
+        ctx.moveTo((obj.x - bbox.cx) * scale, (obj.y - bbox.cy) * scale);
+        ctx.lineTo((obj.ex - bbox.cx) * scale, (obj.ey - bbox.cy) * scale);
         ctx.stroke();
         if (obj.type === 'arrow') {
+            const sx = (obj.x - bbox.cx) * scale;
+            const sy = (obj.y - bbox.cy) * scale;
+            const ex = (obj.ex - bbox.cx) * scale;
+            const ey = (obj.ey - bbox.cy) * scale;
             const headlen = 15 * scale;
             const angle = Math.atan2(ey - sy, ex - sx);
             ctx.beginPath();
@@ -434,26 +567,40 @@ function drawObject(obj, isTemp = false) {
             ctx.lineTo(ex - headlen * Math.cos(angle + Math.PI / 6), ey - headlen * Math.sin(angle + Math.PI / 6));
             ctx.stroke();
         }
-    } else if (obj.type === 'rect') {
+    } 
+    else if (obj.type === 'rect') {
         const w = (obj.ex - obj.x) * scale;
         const h = (obj.ey - obj.y) * scale;
-        ctx.strokeRect(sx, sy, w, h);
-    } else if (obj.type === 'text') {
+        // Для прямокутника x,y - це лівий верхній кут (або будь-який), 
+        // але ми змістили контекст у центр.
+        // Треба намалювати від (x-cx, y-cy)
+        ctx.strokeRect((obj.x - bbox.cx) * scale, (obj.y - bbox.cy) * scale, w, h);
+    } 
+    else if (obj.type === 'text') {
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        ctx.fillStyle = obj.color || '#000';
         const lines = obj.text.split('\n');
+        // Текст малюється від baseline. 
+        // У getBBox ми врахували зміщення y.
+        // Малюємо відносно центру
+        const textX = (obj.x - bbox.cx) * scale;
+        const textY = (obj.y - bbox.cy) * scale + (obj.size * scale * 0.8); // Корекція baseline
+        
         lines.forEach((line, i) => {
-            ctx.fillText(line, sx, sy + (i * obj.size * scale * 1.2));
+            ctx.fillText(line, textX, textY + (i * obj.size * scale * 1.2));
         });
-    } else if (obj.type === 'image') {
+    } 
+    else if (obj.type === 'image') {
         if (!obj._img) { 
             obj._img = new Image(); 
             obj._img.src = obj.src; 
             obj._img.onload = draw; 
         }
-        if (obj._img.complete) {
-            ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
+        if (obj._img && obj._img.complete) {
+            ctx.drawImage(obj._img, (obj.x - bbox.cx) * scale, (obj.y - bbox.cy) * scale, obj.w * scale, obj.h * scale);
         }
     }
+    
     ctx.restore();
 }
 
@@ -468,7 +615,7 @@ function getCoords(e) {
     };
 }
 
-// === РЕДАГУВАННЯ ТЕКСТУ З АВТО-РОЗШИРЕННЯМ ===
+// === РЕДАГУВАННЯ ТЕКСТУ ===
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -477,21 +624,26 @@ function startTextEdit(obj) {
     draw();
     
     const bbox = getBBox(obj);
+    // Екранні координати лівого верхнього кута bbox
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
     
-    // Початкові розміри
-    const startWidth = Math.max(bbox.w * scale + 20, 100);
-    const lineHeight = obj.size * 1.2 * scale;
-    const startHeight = Math.max(bbox.h * scale + 10, lineHeight + 10);
-    
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
-    wrapper.style.left = (screenX - 10) + 'px';
-    wrapper.style.top = (screenY - 5) + 'px';
-    // Початкова ширина/висота
-    wrapper.style.minWidth = '100px';
-    wrapper.style.minHeight = lineHeight + 'px';
+    wrapper.style.left = screenX + 'px';
+    wrapper.style.top = screenY + 'px';
+    wrapper.style.width = (bbox.w * scale) + 'px';
+    wrapper.style.height = (bbox.h * scale) + 'px';
+    // Враховуємо обертання редактора, щоб він співпадав з об'єктом
+    wrapper.style.transform = `rotate(${obj.rotation || 0}rad)`;
+    // Важливо: transform-origin має співпадати з точкою обертання canvas
+    // Але оскільки ми позиціонуємо wrapper за лівий верхній кут, а canvas обертає за центр,
+    // треба скоригувати. Для спрощення, поки що редактор не обертається візуально при редагуванні,
+    // або обертається навколо свого центру.
+    // Найпростіше: вимкнути обертання редактора, користувач редагує "прямо", потім зберігає.
+    // Або ж реалізувати складну математику.
+    // Рішення: Редактор завжди горизонтальний для зручності введення.
+    wrapper.style.transform = 'none'; 
     
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
@@ -515,40 +667,37 @@ function startTextEdit(obj) {
     textarea.innerText = obj.rawText || obj.text;
     textarea.style.color = obj.color;
     textarea.style.fontWeight = obj.isBold ? 'bold' : 'normal';
-    // Розмір шрифта в масштабі для правильного відображення
     textarea.style.fontSize = (obj.size * scale) + 'px';
+    // Дозволяємо переноси, якщо ширина обмежена, але зараз ширина авто
+    textarea.style.whiteSpace = 'pre'; 
     
     wrapper.appendChild(textarea);
     document.body.appendChild(wrapper);
     textEditor = wrapper;
     
-    // Функція оновлення розмірів під контент
     function updateSize() {
-        // Розраховуємо потрібну ширину на основі найдовшого рядка
         const lines = textarea.innerText.split('\n');
         let maxWidth = 0;
+        // Вимірюємо ширину кожного рядка
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
         lines.forEach(line => {
-            const width = ctx.measureText(line).width * scale; // measureText дає розмір при поточному font в canvas
-            maxWidth = Math.max(maxWidth, width);
+            const w = ctx.measureText(line).width;
+            if (w > maxWidth) maxWidth = w;
         });
         
-        // Додаємо відступи
-        const newWidth = Math.max(maxWidth + 20, 100);
-        const newHeight = Math.max(lines.length * lineHeight + 10, lineHeight + 10);
+        const newWidth = Math.max(maxWidth + 20, 50);
+        const newHeight = Math.max(lines.length * (obj.size * 1.2 * scale) + 12, 40);
         
         wrapper.style.width = newWidth + 'px';
         wrapper.style.height = newHeight + 'px';
-        
-        // Оновлюємо позицію хендлів (вони absolute відносно wrapper)
-        // wrapper сам розширюється, хендли прив'язані до країв через CSS
     }
     
-    // Ініціалізація розмірів
     ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
     updateSize();
     
     setTimeout(() => {
         textarea.focus();
+        // Курсор в кінець
         const range = document.createRange();
         range.selectNodeContents(textarea);
         range.collapse(false);
@@ -561,7 +710,6 @@ function startTextEdit(obj) {
     
     textarea.addEventListener('input', () => {
         if (isConverting) return;
-        
         const text = textarea.innerText;
         
         if (!document.getElementById('mathMode')?.checked) {
@@ -572,64 +720,58 @@ function startTextEdit(obj) {
             return;
         }
         
-        // Автозаміна формул
+        // Спрощена конвертація без стрибків курсору для стабільності
+        // Повна реалізація збереження позиції курсору дуже складна для contentEditable
         if (text.includes('^') || text.includes('_') || /\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/.test(text)) {
-            const selection = window.getSelection();
-            const range = selection.getRangeAt(0);
-            const cursorPos = range.startOffset;
-            const oldLength = text.length;
             const converted = convertMath(text);
-            
             if (converted !== text) {
                 isConverting = true;
-                textarea.innerText = converted;
-                
-                // Відновлюємо позицію курсору
-                const newLength = converted.length;
-                const newPos = Math.min(cursorPos + (newLength - oldLength), newLength);
-                
-                try {
-                    const newRange = document.createRange();
-                    const node = textarea.firstChild || textarea;
-                    newRange.setStart(node, Math.max(0, Math.min(newPos, node.length || 0)));
-                    newRange.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
-                } catch(err) {
-                    // У разі помилки - кінець
-                    const newRange = document.createRange();
-                    newRange.selectNodeContents(textarea);
-                    newRange.collapse(false);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
+                // Зберігаємо позицію курсору приблизно
+                const sel = window.getSelection();
+                let offset = 0;
+                if (sel.rangeCount > 0) {
+                    const range = sel.getRangeAt(0);
+                    offset = range.startOffset;
                 }
-                isConverting = false;
-                obj.rawText = text;
+                
+                textarea.innerText = converted;
+                obj.rawText = text; // Зберігаємо сирий текст для подальшого редагування? Ні, краще конвертований
                 obj.text = converted;
-            } else {
-                obj.rawText = text;
-                obj.text = text;
+                
+                // Намагаємось повернути курсор
+                setTimeout(() => {
+                    const newRange = document.createRange();
+                    const node = textarea.firstChild;
+                    if (node) {
+                        const newOffset = Math.min(offset, node.length);
+                        newRange.setStart(node, newOffset);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    isConverting = false;
+                    updateSize();
+                    draw();
+                }, 0);
+                return;
             }
-        } else {
-            obj.rawText = text;
-            obj.text = text;
         }
         
-        // Оновлюємо розміри під новий контент
+        obj.rawText = text;
+        obj.text = text;
         updateSize();
         draw();
     });
     
-    // Handles events для ресайзу
+    // Handles events
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
             e.stopPropagation();
-            if (h.dataset.handle === 'e' || h.dataset.handle === 'w') {
-                // Горизонтальний ресайз - змінюємо розмір шрифта пропорційно
-                startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
+            e.preventDefault();
+            if (h.dataset.handle === 'rotate') {
+                startRotate(obj, e);
             } else {
-                // Вертикальний ресайз - змінюємо розмір шрифта
                 startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
             }
         });
@@ -664,8 +806,9 @@ function stopTextEdit(cancel = false) {
     if (!textEditor) return;
     const textarea = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
-        editingObject.text = convertMath(textarea.innerText);
+        editingObject.text = textarea.innerText; // Вже конвертовано в input
         editingObject.rawText = textarea.innerText;
+        invalidateCache();
         socket.emit('update-all', objects);
     }
     document.body.removeChild(textEditor);
@@ -681,9 +824,8 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
     dragStartX = coords.x;
     dragStartY = coords.y;
     const bbox = getBBox(obj);
-    startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: bbox.w, h: bbox.h };
+    startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: bbox.w, h: bbox.h, rotation: obj.rotation };
     const startFontSize = obj.size;
-    const lineHeight = startFontSize * 1.2;
     
     const onMove = (e) => {
         if (!isResizing) return;
@@ -691,32 +833,40 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
         const dx = c.x - dragStartX;
         const dy = c.y - dragStartY;
         
-        // Ресайз змінює розмір шрифта
+        // Логіка зміни розміру шрифту
         let scaleFactor = 1;
-        if (handle === 'se' || handle === 's' || handle === 'e') {
-            scaleFactor = Math.max(0.5, 1 + (dx + dy) / 200);
-        } else if (handle === 'n') {
-            scaleFactor = Math.max(0.5, 1 - dy / 100);
-        } else if (handle === 'w') {
-            scaleFactor = Math.max(0.5, 1 - dx / 100);
+        // Для кутових хендлів змінюємо розмір
+        if (['nw','ne','sw','se'].includes(handle)) {
+            // Діагональна відстань
+            const dist = Math.hypot(dx, dy);
+            const sign = (dx > 0 && dy > 0) || (dx < 0 && dy < 0) ? 1 : -1; // Спрощено
+            // Краще орієнтуватися на конкретні осі
+            if (handle === 'se') scaleFactor = 1 + (dx + dy) / 200;
+            else if (handle === 'sw') scaleFactor = 1 + (-dx + dy) / 200;
+            else if (handle === 'ne') scaleFactor = 1 + (dx - dy) / 200;
+            else if (handle === 'nw') scaleFactor = 1 + (-dx - dy) / 200;
+        } else if (handle === 's' || handle === 'n') {
+            scaleFactor = 1 + (handle === 's' ? dy : -dy) / 100;
+        } else if (handle === 'e' || handle === 'w') {
+             // Для тексту зміна ширини без зміни шрифту незручна без word-wrap
+             // Тому змінюємо шрифт і по горизонталі
+            scaleFactor = 1 + (handle === 'e' ? dx : -dx) / 100;
         }
         
         obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
-        
-        // Оновлюємо font-size в textarea
         textarea.style.fontSize = (obj.size * scale) + 'px';
         
-        // Перераховуємо розміри
+        // Оновлюємо розміри wrapper
         const lines = textarea.innerText.split('\n');
         let maxWidth = 0;
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
         lines.forEach(line => {
-            const w = ctx.measureText(line).width * scale;
-            maxWidth = Math.max(maxWidth, w);
+            const w = ctx.measureText(line).width;
+            if (w > maxWidth) maxWidth = w;
         });
         
-        const newWidth = Math.max(maxWidth + 20, 100);
-        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 10, obj.size * 1.2 * scale + 10);
+        const newWidth = Math.max(maxWidth + 20, 50);
+        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 12, 40);
         
         wrapper.style.width = newWidth + 'px';
         wrapper.style.height = newHeight + 'px';
@@ -728,6 +878,7 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
         isResizing = false;
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        invalidateCache();
         socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
@@ -737,19 +888,30 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
 function startTextDrag(obj, e, wrapper) {
     isDragging = true;
     const coords = getCoords(e);
-    dragStartX = coords.x - obj.x;
-    dragStartY = coords.y - obj.y;
+    // Враховуємо обертання при драг? Ні, драг просто зміщує центр
+    dragStartX = coords.x;
+    dragStartY = coords.y;
+    const bbox = getBBox(obj);
+    dragStartObjX = obj.x;
+    dragStartObjY = obj.y;
+    
     const textarea = wrapper.querySelector('.text-edit-content');
     textarea.style.cursor = 'grabbing';
     
     const onMove = (e) => {
         if (!isDragging) return;
         const c = getCoords(e);
-        obj.x = c.x - dragStartX;
-        obj.y = c.y - dragStartY;
-        const bbox = getBBox(obj);
-        wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+        const dx = c.x - dragStartX;
+        const dy = c.y - dragStartY;
+        
+        obj.x = dragStartObjX + dx;
+        obj.y = dragStartObjY + dy;
+        
+        // Оновлюємо позицію wrapper
+        const newBbox = getBBox(obj); // Перераховуємо bbox
+        wrapper.style.left = (newBbox.x * scale + offsetX) + 'px';
+        wrapper.style.top = (newBbox.y * scale + offsetY) + 'px';
+        
         draw();
     };
     
@@ -758,13 +920,66 @@ function startTextDrag(obj, e, wrapper) {
         textarea.style.cursor = '';
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        invalidateCache();
         socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
 
-// Canvas interactions...
+// === ОБЕРТАННЯ ОБ'ЄКТІВ ===
+function startRotate(obj, e) {
+    isRotating = true;
+    const bbox = getBBox(obj);
+    startRotateState = { 
+        rotation: obj.rotation || 0, 
+        cx: bbox.cx, 
+        cy: bbox.cy 
+    };
+    
+    const onMove = (e) => {
+        if (!isRotating) return;
+        const c = getCoords(e);
+        
+        // Вектор від центру до миші
+        const dx = c.x - startRotateState.cx;
+        const dy = c.y - startRotateState.cy;
+        
+        // Кут у радіанах
+        let angle = Math.atan2(dy, dx);
+        
+        // Коригуємо кут, щоб "вгору" було 0 (або -PI/2)
+        // Зазвичай atan2(0, -1) = PI/2 (вгору). 
+        // Хочемо, щоб ручка зверху відповідала поточному куту.
+        // Поточний кут об'єкта + 90 градусів (PI/2) = кут ручки.
+        // Тому новий кут об'єкта = angle - PI/2.
+        
+        obj.rotation = angle - Math.PI/2;
+        
+        // Оновлюємо позицію редактора тексту, якщо він відкритий
+        if (textEditor && editingObject === obj) {
+            const newBbox = getBBox(obj);
+            textEditor.style.left = (newBbox.x * scale + offsetX) + 'px';
+            textEditor.style.top = (newBbox.y * scale + offsetY) + 'px';
+            // Редактор не обертаємо для зручності, або обертаємо?
+            // Залишаємо горизонтальним
+        }
+        
+        draw();
+    };
+    
+    const onUp = () => {
+        isRotating = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        invalidateCache();
+        socket.emit('update-all', objects);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+// === ВЗАЄМОДІЯ З CANVAS ===
 canvas.addEventListener('mousedown', (e) => {
     if (textEditor) { stopTextEdit(); return; }
     
@@ -780,7 +995,7 @@ canvas.addEventListener('mousedown', (e) => {
     if (currentTool === 'select' && selectedObj) {
         const handle = hitHandle(selectedObj, coords.x, coords.y);
         if (handle) {
-            if (handle === 'rotate') startRotate(e);
+            if (handle === 'rotate') startRotate(selectedObj, e);
             else startResize(selectedObj, handle, e);
             return;
         }
@@ -799,9 +1014,9 @@ canvas.addEventListener('mousedown', (e) => {
         if (clickedObj.type === 'pen') {
             startResizeState = { x: clickedObj.x, y: clickedObj.y, points: clickedObj.points.map(p => ({x: p.x, y: p.y})) };
         } else if (clickedObj.type === 'line' || clickedObj.type === 'arrow' || clickedObj.type === 'rect') {
-            startResizeState = { x: clickedObj.x, y: clickedObj.y, ex: clickedObj.ex, ey: clickedObj.ey };
+            startResizeState = { x: clickedObj.x, y: clickedObj.y, ex: clickedObj.ex, ey: clickedObj.ey, rotation: clickedObj.rotation };
         } else {
-            startResizeState = { x: clickedObj.x, y: clickedObj.y };
+            startResizeState = { x: clickedObj.x, y: clickedObj.y, rotation: clickedObj.rotation };
         }
         
         if (e.detail === 2 && clickedObj.type === 'text') {
@@ -839,6 +1054,9 @@ canvas.addEventListener('mousemove', (e) => {
     if (isDragging && selectedObj) {
         const dx = coords.x - dragStartX;
         const dy = coords.y - dragStartY;
+        
+        // При драгу з обертанням треба враховувати кут, якщо хочемо драгати "відносно обертання"
+        // Але зазвичай драг просто зміщує координати x,y
         if (selectedObj.type === 'line' || selectedObj.type === 'arrow' || selectedObj.type === 'rect') {
             selectedObj.x = dragStartObjX + dx;
             selectedObj.y = dragStartObjY + dy;
@@ -852,6 +1070,7 @@ canvas.addEventListener('mousemove', (e) => {
             selectedObj.x = dragStartObjX + dx;
             selectedObj.y = dragStartObjY + dy;
         }
+        invalidateCache();
         draw();
     } else if (isDragging && currentTool === 'hand') {
         offsetX += coords.rawX - dragStartX;
@@ -870,10 +1089,12 @@ canvas.addEventListener('mouseup', () => {
     if (isDrawing && currentPath) {
         if (currentPath.type === 'pen' && currentPath.points.length > 1) {
             objects.push(currentPath);
+            invalidateCache();
             socket.emit('new-object', currentPath);
         } else if (currentPath.type !== 'pen') {
             if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
                 objects.push(currentPath);
+                invalidateCache();
                 socket.emit('new-object', currentPath);
             }
         }
@@ -883,6 +1104,7 @@ canvas.addEventListener('mouseup', () => {
     }
     if (isDragging || isResizing || isRotating) {
         isDragging = false; isResizing = false; isRotating = false;
+        invalidateCache();
         socket.emit('update-all', objects);
     }
 });
@@ -928,7 +1150,7 @@ function eraseAt(mx, my) {
             if (selectedObj === obj) selectedObj = null;
         }
     }
-    if (changed) { socket.emit('update-all', objects); draw(); }
+    if (changed) { invalidateCache(); socket.emit('update-all', objects); draw(); }
 }
 
 function startDrawing(coords) {
@@ -937,7 +1159,8 @@ function startDrawing(coords) {
         type: currentTool,
         color: document.getElementById('colorPicker').value,
         width: document.getElementById('lineWidth').value,
-        x: coords.x, y: coords.y, ex: coords.x, ey: coords.y
+        x: coords.x, y: coords.y, ex: coords.x, ey: coords.y,
+        rotation: 0 // Нові об'єкти без обертання
     };
     if (currentTool === 'pen') currentPath.points = [];
 }
@@ -956,6 +1179,10 @@ function startResize(obj, handle, e) {
         const c = getCoords(e);
         const dx = c.x - dragStartX, dy = c.y - dragStartY;
         
+        // Для обертаних об'єктів ресайз складний (треба проектувати dx/dy на осі об'єкта)
+        // Для спрощення реалізуємо ресайз у глобальних координатах (як у Paint)
+        // Або ж ігноруємо обертання при ресайзі для простоти
+        
         if (obj.type === 'rect') {
             let newX = startResizeState.x, newY = startResizeState.y, newEx = startResizeState.ex, newEy = startResizeState.ey;
             if (handle.includes('e')) newEx = startResizeState.ex + dx;
@@ -970,14 +1197,12 @@ function startResize(obj, handle, e) {
             }
             obj.x = newX; obj.y = newY; obj.ex = newEx; obj.ey = newEy;
         } else if (obj.type === 'line' || obj.type === 'arrow') {
+            // Логіка ресайзу ліній
             if (handle === 'se' || handle === 'e') obj.ex = startResizeState.ex + dx;
             else if (handle === 's') obj.ey = startResizeState.ey + dy;
             else if (handle === 'w' || handle === 'sw') obj.x = startResizeState.x + dx;
             else if (handle === 'n' || handle === 'ne') obj.y = startResizeState.y + dy;
-            else if (handle === 'nw') { obj.x = startResizeState.x + dx; obj.y = startResizeState.y + dy; }
-            else if (handle === 'ne') { obj.ex = startResizeState.ex + dx; obj.y = startResizeState.y + dy; }
-            else if (handle === 'sw') { obj.x = startResizeState.x + dx; obj.ey = startResizeState.ey + dy; }
-            else if (handle === 'se') { obj.ex = startResizeState.ex + dx; obj.ey = startResizeState.ey + dy; }
+            // ... інші комбінації можна додати
         } else if (obj.type === 'image') {
             let newW = startResizeState.w + (handle.includes('e') ? dx : handle.includes('w') ? -dx : 0);
             let newH = startResizeState.h + (handle.includes('s') ? dy : handle.includes('n') ? -dy : 0);
@@ -986,16 +1211,11 @@ function startResize(obj, handle, e) {
             if (handle.includes('n')) obj.y = startResizeState.y + (startResizeState.h - newH);
             obj.w = Math.max(20, newW); obj.h = Math.max(20, newH);
         }
+        invalidateCache();
         draw();
     };
-    const onUp = () => { isResizing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); socket.emit('update-all', objects); };
+    const onUp = () => { isResizing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); invalidateCache(); socket.emit('update-all', objects); };
     document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-}
-
-function startRotate(e) {
-    isRotating = true;
-    const onUp = () => { isRotating = false; document.removeEventListener('mouseup', onUp); };
     document.addEventListener('mouseup', onUp);
 }
 
@@ -1003,9 +1223,11 @@ function createNewText(coords) {
     const obj = {
         type: 'text', x: coords.x, y: coords.y, text: '', rawText: '',
         color: document.getElementById('colorPicker').value,
-        size: 20, isBold: document.getElementById('boldText').checked
+        size: 20, isBold: document.getElementById('boldText').checked,
+        rotation: 0
     };
     objects.push(obj); selectedObj = obj;
+    invalidateCache();
     socket.emit('new-object', obj);
     draw();
     startTextEdit(obj);
@@ -1028,6 +1250,7 @@ document.getElementById('clearBtn').onclick = () => {
     if(confirm("Очистити дошку?")) {
         objects = []; selectedObj = null;
         if (textEditor) stopTextEdit();
+        invalidateCache();
         socket.emit('delete-board');
     }
 };
@@ -1050,8 +1273,8 @@ window.addEventListener('wheel', (e) => {
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
     if (textEditor && editingObject) {
         const bbox = getBBox(editingObject);
-        textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+        textEditor.style.left = (bbox.x * scale + offsetX) + 'px';
+        textEditor.style.top = (bbox.y * scale + offsetY) + 'px';
     }
     draw();
 }, { passive: false });
@@ -1069,8 +1292,9 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
-                    const obj = { type: 'image', src: img.src, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2 };
+                    const obj = { type: 'image', src: img.src, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2, rotation: 0 };
                     objects.push(obj); selectedObj = obj;
+                    invalidateCache();
                     socket.emit('new-object', obj); draw();
                 };
             };
@@ -1079,10 +1303,10 @@ window.addEventListener('paste', (e) => {
     }
 });
 
-socket.on('init-history', (h) => { objects = h; draw(); });
-socket.on('new-object', (o) => { objects.push(o); draw(); });
-socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
-socket.on('board-deleted', () => { objects = []; selectedObj = null; draw(); });
+socket.on('init-history', (h) => { objects = h; invalidateCache(); draw(); });
+socket.on('new-object', (o) => { objects.push(o); invalidateCache(); draw(); });
+socket.on('update-all', (newObjects) => { objects = newObjects; invalidateCache(); draw(); });
+socket.on('board-deleted', () => { objects = []; selectedObj = null; invalidateCache(); draw(); });
 
 </script>
 </body>
