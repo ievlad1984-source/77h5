@@ -3,287 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (iDroo Style)</title>
+    <title>Math Board Pro (iDroo Style)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
+        :root {
+            --primary: #007bff;
+            --bg: #f8f9fa;
+            --toolbar-bg: #ffffff;
+            --border: #e0e0e0;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); }
         
         #toolbar {
-            position: absolute; top: 15px; left: 15px; background: white; padding: 8px;
-            display: flex; gap: 6px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-            z-index: 1000; align-items: center; flex-wrap: wrap; max-width: 90vw;
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: var(--toolbar-bg); padding: 8px 15px;
+            display: flex; gap: 8px; border-radius: 50px; box-shadow: var(--shadow); 
+            z-index: 1000; align-items: center; border: 1px solid var(--border);
+            flex-wrap: wrap; max-width: 95vw; justify-content: center;
         }
 
         .tool-btn { 
-            padding: 8px 14px; cursor: pointer; border: 1px solid #e0e0e0; 
-            background: #fff; border-radius: 6px; font-size: 14px; transition: all 0.2s;
+            padding: 8px 12px; cursor: pointer; border: none; 
+            background: transparent; border-radius: 8px; font-size: 16px; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; user-select: none;
+            color: #555;
         }
         
-        .tool-btn:hover { background: #f0f7ff; border-color: #007bff; }
-        .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
+        .tool-btn:hover { background: #f0f7ff; color: var(--primary); }
+        .tool-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 5px rgba(0,123,255,0.3); }
+        .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .control-group { display: flex; align-items: center; gap: 8px; padding: 0 8px; border-left: 1px solid #eee; border-right: 1px solid #eee; }
+        
+        input[type="color"] { border: none; width: 28px; height: 28px; cursor: pointer; background: none; padding: 0; }
+        input[type="range"] { width: 80px; cursor: pointer; accent-color: var(--primary); }
+        
+        label { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #666; }
         
         #zoom-display { 
             position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); 
-            padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; border: 1px solid #ddd;
+            padding: 6px 12px; border-radius: 20px; font-weight: 600; font-size: 13px;
+            box-shadow: var(--shadow); z-index: 1000; border: 1px solid var(--border);
+            pointer-events: none;
         }
 
-        .text-edit-wrapper {
+        .text-editor-overlay {
             position: absolute;
             z-index: 2000;
-            border: 2px dashed #4CAF50;
             background: transparent;
+            border: 1px dashed #ccc; 
             box-sizing: border-box;
-            width: auto !important;
-            min-width: 100px;
         }
 
-        .text-edit-content {
-            width: auto;
-            min-width: 100px;
-            max-width: none;
-            height: auto;
-            min-height: 30px;
+        .text-editor-content {
+            width: 100%;
+            height: 100%;
             outline: none;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.9);
             border: none;
-            border-radius: 4px;
-            padding: 6px 10px;
-            font-size: 18px;
+            padding: 4px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            white-space: pre;
-            overflow: visible;
-            display: inline-block;
-            box-sizing: border-box;
-            line-height: 1.4;
+            white-space: pre-wrap;
+            overflow: hidden;
+            resize: none;
+            line-height: 1.2;
         }
 
         .handle {
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: #4CAF50;
-            border: 1px solid white;
-            border-radius: 1px;
-            z-index: 2001;
-            cursor: pointer;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            position: absolute; width: 10px; height: 10px;
+            background: white; border: 2px solid var(--primary);
+            border-radius: 50%; z-index: 2001;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         
-        .handle:hover { background: #45a049; transform: scale(1.3); }
-        .handle.nw { top: -3px; left: -3px; cursor: nw-resize; }
-        .handle.n { top: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.ne { top: -3px; right: -3px; cursor: ne-resize; }
-        .handle.e { top: 50%; right: -3px; transform: translateY(-50%); cursor: ew-resize; }
-        .handle.se { bottom: -3px; right: -3px; cursor: se-resize; }
-        .handle.s { bottom: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.sw { bottom: -3px; left: -3px; cursor: sw-resize; }
-        .handle.w { top: 50%; left: -3px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle:hover { background: var(--primary); }
+        .handle.nw { top: 0; left: 0; cursor: nwse-resize; }
+        .handle.n { top: 0; left: 50%; cursor: ns-resize; }
+        .handle.ne { top: 0; right: 0; cursor: nesw-resize; }
+        .handle.e { top: 50%; right: 0; cursor: ew-resize; }
+        .handle.se { bottom: 0; right: 0; cursor: nwse-resize; }
+        .handle.s { bottom: 0; left: 50%; cursor: ns-resize; }
+        .handle.sw { bottom: 0; left: 0; cursor: nesw-resize; }
+        .handle.w { top: 50%; left: 0; cursor: ew-resize; }
         
         .rotate-handle {
             position: absolute;
-            top: -15px;
+            top: -20px;
             left: 50%;
             transform: translateX(-50%);
-            width: 7px;
-            height: 7px;
+            width: 12px;
+            height: 12px;
             background: #2196F3;
-            border: 1px solid white;
+            border: 2px solid white;
             border-radius: 50%;
             cursor: alias;
             z-index: 2001;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
+        
+        .rotate-handle:hover { background: #1976D2; }
         
         .rotate-line {
             position: absolute;
-            top: -8px;
+            top: -10px;
             left: 50%;
             width: 1px;
-            height: 8px;
+            height: 10px;
             background: #2196F3;
             transform: translateX(-50%);
             pointer-events: none;
         }
 
-        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }
-        input[type="range"] { cursor: pointer; }
-        .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
-        
         canvas { display: block; touch-action: none; background: #ffffff; }
         
         .cursor-default { cursor: default !important; }
         .cursor-move { cursor: move !important; }
-        .cursor-nwse { cursor: nwse-resize !important; }
-        .cursor-nesw { cursor: nesw-resize !important; }
-        .cursor-ns { cursor: ns-resize !important; }
-        .cursor-ew { cursor: ew-resize !important; }
         .cursor-crosshair { cursor: crosshair !important; }
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
-        .cursor-eraser { cursor: cell !important; }
     </style>
 </head>
 <body>
 
 <div id="toolbar">
-    <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
-    <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
-    <div class="separator"></div>
-    <button class="tool-btn" data-tool="pen">Олівець</button>
-    <button class="tool-btn" data-tool="line">Лінія</button>
-    <button class="tool-btn" data-tool="arrow">Стрілка</button>
-    <button class="tool-btn" data-tool="rect">Прямокутник</button>
-    <button class="tool-btn" data-tool="text">Текст</button>
-    <button class="tool-btn" data-tool="eraser">Ластик</button>
-    <div class="separator"></div>
-    <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
-    <label title="Формули"><input type="checkbox" id="mathMode" checked> 𝑥²</label>
-    <input type="color" id="colorPicker" value="#212529" title="Колір">
-    <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
-    <div class="separator"></div>
+    <button class="tool-btn" id="undoBtn" title="Скасувати (Ctrl+Z)">↩️</button>
+    <button class="tool-btn" id="redoBtn" title="Повернути (Ctrl+Y)">↪️</button>
+    
+    <div class="control-group">
+        <button class="tool-btn active" data-tool="select" title="Вибір (V)">↖️</button>
+        <button class="tool-btn" data-tool="hand" title="Пан (H)">✋</button>
+    </div>
+    
+    <div class="control-group">
+        <button class="tool-btn" data-tool="pen" title="Олівець">✏️</button>
+        <button class="tool-btn" data-tool="line" title="Лінія">📏</button>
+        <button class="tool-btn" data-tool="arrow" title="Стрілка">➡️</button>
+        <button class="tool-btn" data-tool="rect" title="Прямокутник">⬜</button>
+        <button class="tool-btn" data-tool="text" title="Текст">T</button>
+        <button class="tool-btn" data-tool="eraser" title="Ластик">🧹</button>
+    </div>
+
+    <div class="control-group">
+        <label title="Жирний шрифт"><input type="checkbox" id="boldText"> <b>B</b></label>
+        <label title="Математичний режим (x^2, a_b)"><input type="checkbox" id="mathMode" checked> 𝑥²</label>
+        <input type="color" id="colorPicker" value="#212529" title="Колір">
+        <input type="range" id="lineWidth" min="1" max="10" value="2" title="Товщина">
+    </div>
+
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
-    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
+    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">🗑️</button>
 </div>
 
 <div id="zoom-display">100%</div>
 <canvas id="board"></canvas>
 
 <script>
+// --- Configuration & State ---
 const boardId = window.location.pathname.replace('/', '') || 'main';
-const socket = io({ query: { boardId } });
+const socket = window.io ? io({ query: { boardId } }) : { on: ()=>{}, emit: ()=>{}, off: ()=>{} };
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'select';
 let selectedObj = null;
-let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
+
+// UNDO/REDO HISTORY SYSTEM
+let history = [];
+let redoStack = [];
+const MAX_HISTORY = 50;
+let isHistoryLocked = false; // Prevent saving during drag operations
+
+// Interaction States
+let isDragging = false, isResizing = false, isRotating = false;
 let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
 let shiftKey = false;
+let rotationStartAngle = 0;
+let rotationStartObjRotation = 0;
 
-let textEditor = null;
+// Text Editor State
+let textEditorDiv = null;
+let textArea = null;
 let editingObject = null;
 
-const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
-const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ᵒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
+// --- History Management Functions ---
 
-window.addEventListener('keydown', (e) => { 
-    if (e.key === 'Shift') shiftKey = true; 
-    if (e.key === 'v' || e.key === 'V') setTool('select');
-    if (e.key === 'h' || e.key === 'H') setTool('hand');
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedObj && !textEditor) {
-            objects = objects.filter(o => o !== selectedObj);
-            selectedObj = null;
-            socket.emit('update-all', objects);
-            draw();
-        }
+function saveState() {
+    if (isHistoryLocked) return;
+    
+    const state = JSON.parse(JSON.stringify(objects));
+    history.push(state);
+    if (history.length > MAX_HISTORY) {
+        history.shift();
     }
-});
-window.addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftKey = false; });
+    redoStack = [];
+    updateUndoRedoButtons();
+    console.log(`History saved. Length: ${history.length}`);
+}
+
+function undo() {
+    if (history.length === 0 || isHistoryLocked) return;
+    
+    redoStack.push(JSON.parse(JSON.stringify(objects)));
+    const previousState = history.pop();
+    objects = previousState;
+    
+    selectedObj = null;
+    if (textEditorDiv) stopTextEdit(true);
+    
+    draw();
+    socket.emit('update-all', objects);
+    updateUndoRedoButtons();
+    console.log("Undo performed");
+}
+
+function redo() {
+    if (redoStack.length === 0 || isHistoryLocked) return;
+    
+    history.push(JSON.parse(JSON.stringify(objects)));
+    const nextState = redoStack.pop();
+    objects = nextState;
+    
+    selectedObj = null;
+    if (textEditorDiv) stopTextEdit(true);
+    
+    draw();
+    socket.emit('update-all', objects);
+    updateUndoRedoButtons();
+    console.log("Redo performed");
+}
+
+function updateUndoRedoButtons() {
+    document.getElementById('undoBtn').disabled = history.length === 0;
+    document.getElementById('redoBtn').disabled = redoStack.length === 0;
+}
+
+// --- Math Helpers ---
+const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
+const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ᵒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
 
 function convertMath(text) {
     if (!document.getElementById('mathMode')?.checked) return text;
-    return text
-        .replace(/([a-zA-Z0-9])\^([0-9]+)/g, (m,b,e) => b + e.split('').map(c => superscripts[c] || c).join(''))
-        .replace(/([a-zA-Z0-9])_([0-9]+)/g, (m,b,s) => b + s.split('').map(c => subscripts[c] || c).join(''))
-        .replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/gi, m => 
-            ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
+    text = text.replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/gi, m => 
+        ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
+    text = text.replace(/([a-zA-Z0-9])\^([0-9a-zA-Z\+\-\(\)=]+)/g, (m, base, exp) => {
+        return base + exp.split('').map(c => superscripts[c] || c).join('');
+    });
+    text = text.replace(/([a-zA-Z0-9])_([0-9a-zA-Z\+\-\(\)=]+)/g, (m, base, sub) => {
+        return base + sub.split('').map(c => subscripts[c] || c).join('');
+    });
+    return text;
 }
 
-function getBBox(obj) {
-    if (!obj) return null;
-    if (obj.type === 'text') {
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-        const lines = obj.text.split('\n');
-        let maxW = 0;
-        lines.forEach(l => {
-            const w = ctx.measureText(l).width;
-            if (w > maxW) maxW = w;
-        });
-        const h = lines.length * obj.size * 1.2;
-        return { x: obj.x, y: obj.y - obj.size * 0.8, w: maxW / scale || 50, h: h || 20 };
-    }
-    if (obj.type === 'rect') {
-        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
-    }
-    if (obj.type === 'image') {
-        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
-    }
-    if (obj.type === 'line' || obj.type === 'arrow') {
-        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
-    }
-    if (obj.type === 'pen') {
-        if (!obj.points || obj.points.length === 0) return { x: obj.x, y: obj.y, w: 0, h: 0 };
-        const xs = [obj.x, ...obj.points.map(p => p.x)];
-        const ys = [obj.y, ...obj.points.map(p => p.y)];
-        return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
-    }
-    return { x: obj.x, y: obj.y, w: 0, h: 0 };
-}
-
-function hitTest(obj, mx, my, padding = 0) {
-    const bbox = getBBox(obj);
-    if (!bbox) return false;
-    return mx >= bbox.x - padding && mx <= bbox.x + bbox.w + padding && 
-           my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
-}
-
-function hitHandle(obj, mx, my) {
-    if (!obj) return null;
-    const bbox = getBBox(obj);
-    const h = 8 / scale; 
-    const cx = bbox.x + bbox.w / 2;
-    const cy = bbox.y + bbox.h / 2;
-    
-    const handles = {
-        nw: { x: bbox.x, y: bbox.y },
-        n: { x: cx, y: bbox.y },
-        ne: { x: bbox.x + bbox.w, y: bbox.y },
-        e: { x: bbox.x + bbox.w, y: cy },
-        se: { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
-        s: { x: cx, y: bbox.y + bbox.h },
-        sw: { x: bbox.x, y: bbox.y + bbox.h },
-        w: { x: bbox.x, y: cy },
-        rotate: { x: cx, y: bbox.y - 15 / scale }
-    };
-    
-    for (let [name, pos] of Object.entries(handles)) {
-        if (Math.abs(mx - pos.x) < h && Math.abs(my - pos.y) < h) return name;
-    }
-    return null;
-}
-
-function distToSegment(px, py, x1, y1, x2, y2) {
-    const A = px - x1;
-    const B = py - y1;
-    const C = x2 - x1;
-    const D = y2 - y1;
-    const dot = A * C + B * D;
-    const len_sq = C * C + D * D;
-    let param = -1;
-    if (len_sq != 0) param = dot / len_sq;
-    let xx, yy;
-    if (param < 0) { xx = x1; yy = y1; }
-    else if (param > 1) { xx = x2; yy = y2; }
-    else { xx = x1 + param * C; yy = y1 + param * D; }
-    return Math.hypot(px - xx, py - yy);
-}
-
-function getCursor(handle) {
-    if (!handle) return 'default';
-    if (handle === 'rotate') return 'alias';
-    if (handle === 'nw' || handle === 'se') return 'nwse-resize';
-    if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
-    if (handle === 'n' || handle === 's') return 'ns-resize';
-    if (handle === 'e' || handle === 'w') return 'ew-resize';
-    return 'move';
-}
+// --- Core Functions ---
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -293,141 +272,193 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+function getCoords(e) {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { 
+        x: (clientX - offsetX) / scale, 
+        y: (clientY - offsetY) / scale,
+        rawX: clientX, 
+        rawY: clientY 
+    };
+}
+
+function getBBox(obj) {
+    if (!obj) return null;
+    if (obj.type === 'text') {
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        const lines = (obj.text || '').split('\n');
+        let maxW = 0;
+        lines.forEach(l => {
+            const w = ctx.measureText(l).width;
+            if (w > maxW) maxW = w;
+        });
+        const h = lines.length * obj.size * 1.2 * scale;
+        return { x: obj.x * scale + offsetX, y: obj.y * scale + offsetY - (obj.size * 0.8 * scale), w: maxW || 20, h: h || 20 };
+    }
+    if (obj.type === 'rect' || obj.type === 'image') {
+        return { 
+            x: Math.min(obj.x, obj.ex || obj.x + obj.w) * scale + offsetX, 
+            y: Math.min(obj.y, obj.ey || obj.y + obj.h) * scale + offsetY, 
+            w: Math.abs((obj.ex || obj.x + obj.w) - obj.x) * scale, 
+            h: Math.abs((obj.ey || obj.y + obj.h) - obj.y) * scale 
+        };
+    }
+    if (obj.type === 'line' || obj.type === 'arrow') {
+        return { 
+            x: Math.min(obj.x, obj.ex) * scale + offsetX, 
+            y: Math.min(obj.y, obj.ey) * scale + offsetY, 
+            w: Math.abs(obj.ex - obj.x) * scale, 
+            h: Math.abs(obj.ey - obj.y) * scale 
+        };
+    }
+    if (obj.type === 'pen') {
+        if (!obj.points || obj.points.length === 0) return { x: obj.x*scale+offsetX, y: obj.y*scale+offsetY, w:0, h:0 };
+        const xs = [obj.x, ...obj.points.map(p => p.x)];
+        const ys = [obj.y, ...obj.points.map(p => p.y)];
+        return { 
+            x: Math.min(...xs) * scale + offsetX, 
+            y: Math.min(...ys) * scale + offsetY, 
+            w: (Math.max(...xs) - Math.min(...xs)) * scale, 
+            h: (Math.max(...ys) - Math.min(...ys)) * scale 
+        };
+    }
+    return { x: obj.x * scale + offsetX, y: obj.y * scale + offsetY, w: 0, h: 0 };
+}
+
+function hitTest(obj, mx, my, padding = 10) {
+    const bbox = getBBox(obj);
+    if (!bbox) return false;
+    return mx >= bbox.x - padding && mx <= bbox.x + bbox.w + padding && 
+           my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
+}
+
+function hitHandle(obj, mx, my) {
+    if (!obj) return null;
+    const bbox = getBBox(obj);
+    const hSize = 10; 
+    
+    const handles = {
+        nw: { x: bbox.x, y: bbox.y },
+        n: { x: bbox.x + bbox.w/2, y: bbox.y },
+        ne: { x: bbox.x + bbox.w, y: bbox.y },
+        e: { x: bbox.x + bbox.w, y: bbox.y + bbox.h/2 },
+        se: { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
+        s: { x: bbox.x + bbox.w/2, y: bbox.y + bbox.h },
+        sw: { x: bbox.x, y: bbox.y + bbox.h },
+        w: { x: bbox.x, y: bbox.y + bbox.h/2 },
+        rotate: { x: bbox.x + bbox.w/2, y: bbox.y - 25 }
+    };
+    
+    for (let [name, pos] of Object.entries(handles)) {
+        if (Math.abs(mx - pos.x) < hSize && Math.abs(my - pos.y) < hSize) return name;
+    }
+    return null;
+}
+
+// --- Drawing ---
+
 function drawGrid() {
     const smallStep = 20 * scale;
     const largeStep = 100 * scale;
-    
     ctx.beginPath();
-    ctx.strokeStyle = '#e8e8e8';
-    ctx.lineWidth = 0.5;
-    
+    ctx.strokeStyle = '#f0f0f0';
+    ctx.lineWidth = 1;
     let startX = offsetX % smallStep;
     let startY = offsetY % smallStep;
-    
-    for (let x = startX; x < canvas.width; x += smallStep) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-    }
-    for (let y = startY; y < canvas.height; y += smallStep) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-    }
+    for (let x = startX; x < canvas.width; x += smallStep) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
+    for (let y = startY; y < canvas.height; y += smallStep) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
     ctx.stroke();
-    
     ctx.beginPath();
-    ctx.strokeStyle = '#cccccc';
-    ctx.lineWidth = 0.5;
-    
+    ctx.strokeStyle = '#e0e0e0';
     startX = offsetX % largeStep;
     startY = offsetY % largeStep;
-    
-    for (let x = startX; x < canvas.width; x += largeStep) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-    }
-    for (let y = startY; y < canvas.height; y += largeStep) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-    }
+    for (let x = startX; x < canvas.width; x += largeStep) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
+    for (let y = startY; y < canvas.height; y += largeStep) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
     ctx.stroke();
 }
 
 function drawSelection(obj) {
     const bbox = getBBox(obj);
-    if (!bbox) return;
-    const sx = bbox.x * scale + offsetX;
-    const sy = bbox.y * scale + offsetY;
-    const sw = bbox.w * scale;
-    const sh = bbox.h * scale;
-    
-    if (sw < 5 || sh < 5) return;
+    if (!bbox || bbox.w < 5 || bbox.h < 5) return;
     
     ctx.save();
     ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = '#4CAF50';
+    ctx.strokeStyle = '#007bff';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(sx, sy, sw, sh);
+    ctx.strokeRect(bbox.x, bbox.y, bbox.w, bbox.h);
     ctx.restore();
     
-    const handleSize = 6;
+    // Draw 8 handles
     const handles = [
-        { x: sx, y: sy }, { x: sx + sw/2, y: sy }, { x: sx + sw, y: sy },
-        { x: sx + sw, y: sy + sh/2 }, { x: sx + sw, y: sy + sh },
-        { x: sx + sw/2, y: sy + sh }, { x: sx, y: sy + sh }, { x: sx, y: sy + sh/2 }
+        { x: bbox.x, y: bbox.y, cls: 'nw' },
+        { x: bbox.x + bbox.w/2, y: bbox.y, cls: 'n' },
+        { x: bbox.x + bbox.w, y: bbox.y, cls: 'ne' },
+        { x: bbox.x + bbox.w, y: bbox.y + bbox.h/2, cls: 'e' },
+        { x: bbox.x + bbox.w, y: bbox.y + bbox.h, cls: 'se' },
+        { x: bbox.x + bbox.w/2, y: bbox.y + bbox.h, cls: 's' },
+        { x: bbox.x, y: bbox.y + bbox.h, cls: 'sw' },
+        { x: bbox.x, y: bbox.y + bbox.h/2, cls: 'w' }
     ];
     
-    ctx.fillStyle = '#4CAF50';
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#007bff';
+    ctx.lineWidth = 2;
     handles.forEach(h => {
-        ctx.fillRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
     });
     
+    // Draw rotate handle
     ctx.fillStyle = '#2196F3';
     ctx.beginPath();
-    ctx.arc(sx + sw/2, sy - 12, 4, 0, Math.PI * 2);
+    ctx.arc(bbox.x + bbox.w/2, bbox.y - 15, 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'white';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 2;
     ctx.stroke();
     
+    // Draw rotate line
     ctx.beginPath();
-    ctx.moveTo(sx + sw/2, sy);
-    ctx.lineTo(sx + sw/2, sy - 8);
+    ctx.moveTo(bbox.x + bbox.w/2, bbox.y);
+    ctx.lineTo(bbox.x + bbox.w/2, bbox.y - 10);
     ctx.strokeStyle = '#2196F3';
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     ctx.stroke();
 }
 
-function draw() {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    drawGrid();
-    
-    objects.forEach(obj => drawObject(obj));
-    
-    if (isDrawing && currentPath) drawObject(currentPath, true);
-    
-    if (selectedObj && currentTool === 'select' && !textEditor) {
-        drawSelection(selectedObj);
-    }
-}
-
 function drawMathText(ctx, text, x, y, baseSize, isBold) {
     let currentX = x;
     let i = 0;
-    
     while (i < text.length) {
         const char = text[i];
-        
-        if ((char >= '⁰' && char <= '⁹') || (char >= 'ᵃ' && char <= 'ᶻ') || 
-            (char >= 'ᴬ' && char <= 'ᶻ') || ['⁺','⁻','⁼','⁽','⁾'].includes(char)) {
+        let isSuper = false;
+        let isSub = false;
+        if (char >= '⁰' && char <= '⁹' || ['⁺','⁻','⁼','⁽','⁾','ᵃ','ᵇ','ᶜ','ᵈ','ᵉ','ᶠ','ᵍ','ʰ','ⁱ','ʲ','ᵏ','ˡ','ᵐ','ⁿ','ᵒ','ᵖ','ʳ','ˢ','ᵗ','ᵘ','ᵛ','ʷ','ˣ','ʸ','ᶻ','ᴬ','ᴮ','ᶜ','ᴰ','ᴱ','ᶠ','ᴳ','ᴴ','ᴵ','ᴶ','ᴷ','ᴸ','ᴹ','ᴺ','ᴼ','ᴾ','ᴿ','ᵀ','ᵁ','ⱽ','ᵂ','ˣ','ʸ','ᶻ'].includes(char)) isSuper = true;
+        else if (char >= '₀' && char <= '₉' || ['₊','₋','₌','₍','₎','ₐ','ₑ','ₕ','ᵢ','ⱼ','ₖ','ₗ','ₘ','ₙ','ᵒ','ₚ','ᵣ','ₛ','ₜ','ᵤ','ᵥ','ₓ','ᵧ','₂'].includes(char)) isSub = true;
+
+        if (isSuper) {
             const subSize = baseSize * 0.6;
             ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
             const w = ctx.measureText(char).width;
-            ctx.fillText(char, currentX, y - baseSize * 0.5);
+            ctx.fillText(char, currentX, y - baseSize * 0.4);
             currentX += w;
-            i++;
-        }
-        else if ((char >= '₀' && char <= '₉') || (char >= 'ₐ' && char <= 'ᵧ') || 
-            ['₊','₋','₌','₍','₎'].includes(char)) {
+        } else if (isSub) {
             const subSize = baseSize * 0.6;
             ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
             const w = ctx.measureText(char).width;
             ctx.fillText(char, currentX, y + baseSize * 0.3);
             currentX += w;
-            i++;
-        }
-        else {
+        } else {
             ctx.font = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const w = ctx.measureText(char).width;
             ctx.fillText(char, currentX, y);
             currentX += w;
-            i++;
         }
+        i++;
     }
 }
 
@@ -435,7 +466,6 @@ function drawObject(obj, isTemp = false) {
     ctx.save();
     const sx = obj.x * scale + offsetX;
     const sy = obj.y * scale + offsetY;
-    
     ctx.lineWidth = (obj.width || 2) * scale;
     ctx.strokeStyle = obj.color || '#000';
     ctx.fillStyle = obj.color || '#000';
@@ -470,13 +500,10 @@ function drawObject(obj, isTemp = false) {
         const h = (obj.ey - obj.y) * scale;
         ctx.strokeRect(sx, sy, w, h);
     } else if (obj.type === 'text') {
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
         ctx.fillStyle = obj.color || '#000';
         ctx.textBaseline = 'alphabetic';
-        
-        const lines = obj.text.split('\n');
+        const lines = (obj.text || '').split('\n');
         const baseY = sy + (obj.size * scale * 0.8);
-        
         lines.forEach((line, lineIndex) => {
             const y = baseY + (lineIndex * obj.size * scale * 1.2);
             drawMathText(ctx, line, sx, y, obj.size * scale, obj.isBold);
@@ -487,247 +514,125 @@ function drawObject(obj, isTemp = false) {
             obj._img.src = obj.src;
             obj._img.onload = () => draw();
         }
-        if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
+        if (obj._img && obj._img.complete) {
             ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
         }
     }
     ctx.restore();
 }
 
-function getCoords(e) {
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { 
-        x: (clientX - offsetX) / scale, 
-        y: (clientY - offsetY) / scale,
-        rawX: clientX, 
-        rawY: clientY 
-    };
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGrid();
+    objects.forEach(obj => drawObject(obj));
+    if (isDrawing && currentPath) drawObject(currentPath, true);
+    if (selectedObj && currentTool === 'select' && !textEditorDiv) {
+        drawSelection(selectedObj);
+    }
 }
 
+// --- Text Editing Logic ---
+
 function startTextEdit(obj) {
-    if (textEditor) stopTextEdit();
-    
+    if (textEditorDiv) stopTextEdit();
     editingObject = obj;
     selectedObj = null;
     draw();
-    
     const bbox = getBBox(obj);
-    const screenX = bbox.x * scale + offsetX;
-    const screenY = bbox.y * scale + offsetY;
     
-    const wrapper = document.createElement('div');
-    wrapper.className = 'text-edit-wrapper';
-    wrapper.style.left = (screenX - 10) + 'px';
-    wrapper.style.top = (screenY - 5) + 'px';
-    wrapper.style.minWidth = '100px';
-    wrapper.style.minHeight = (obj.size * 1.2 * scale) + 'px';
+    textEditorDiv = document.createElement('div');
+    textEditorDiv.className = 'text-editor-overlay';
+    textEditorDiv.style.left = bbox.x + 'px';
+    textEditorDiv.style.top = bbox.y + 'px';
+    textEditorDiv.style.width = bbox.w + 'px';
+    textEditorDiv.style.height = bbox.h + 'px';
     
-    ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
-        const div = document.createElement('div');
-        div.className = `handle ${h}`;
-        div.dataset.handle = h;
-        wrapper.appendChild(div);
+    textArea = document.createElement('textarea');
+    textArea.className = 'text-editor-content';
+    textArea.value = obj.rawText || obj.text;
+    textArea.style.color = obj.color;
+    textArea.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    textArea.style.fontSize = (obj.size * scale) + 'px';
+    textEditorDiv.appendChild(textArea);
+    
+    // Add 8 resize handles
+    ['nw','n','ne','e','se','s','sw','w'].forEach(pos => {
+        const h = document.createElement('div');
+        h.className = `handle ${pos}`;
+        h.dataset.handle = pos;
+        h.addEventListener('mousedown', (e) => startTextResize(e, pos));
+        textEditorDiv.appendChild(h);
     });
     
+    // Add rotate handle
     const rotLine = document.createElement('div');
     rotLine.className = 'rotate-line';
-    wrapper.appendChild(rotLine);
+    textEditorDiv.appendChild(rotLine);
     
     const rotHandle = document.createElement('div');
     rotHandle.className = 'rotate-handle';
     rotHandle.dataset.handle = 'rotate';
-    wrapper.appendChild(rotHandle);
+    rotHandle.addEventListener('mousedown', (e) => startTextRotate(e));
+    textEditorDiv.appendChild(rotHandle);
     
-    const textarea = document.createElement('div');
-    textarea.className = 'text-edit-content';
-    textarea.contentEditable = true;
-    textarea.innerText = obj.rawText || obj.text;
-    textarea.style.color = obj.color;
-    textarea.style.fontWeight = obj.isBold ? 'bold' : 'normal';
-    textarea.style.fontSize = (obj.size * scale) + 'px';
+    document.body.appendChild(textEditorDiv);
     
-    wrapper.appendChild(textarea);
-    document.body.appendChild(wrapper);
-    textEditor = wrapper;
+    setTimeout(() => { textArea.focus(); textArea.select(); }, 10);
     
-    function updateSize() {
-        const lines = textarea.innerText.split('\n');
-        let maxWidth = 0;
-        lines.forEach(line => {
-            const width = ctx.measureText(line).width;
-            maxWidth = Math.max(maxWidth, width);
-        });
-        
-        const newWidth = Math.max(maxWidth + 20, 100);
-        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 10, obj.size * 1.2 * scale + 10);
-        
-        wrapper.style.width = newWidth + 'px';
-        wrapper.style.height = newHeight + 'px';
-    }
-    
-    ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-    updateSize();
-    
-    setTimeout(() => {
-        textarea.focus();
-        const range = document.createRange();
-        range.selectNodeContents(textarea);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-    }, 10);
-    
-    let isConverting = false;
-    
-    textarea.addEventListener('input', () => {
-        if (isConverting) return;
-        
-        const text = textarea.innerText;
-        
-        if (!document.getElementById('mathMode')?.checked) {
-            obj.rawText = text;
-            obj.text = text;
-            updateSize();
-            draw();
-            return;
-        }
-        
-        if (text.includes('^') || text.includes('_') || /\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/.test(text)) {
-            const selection = window.getSelection();
-            const range = selection.getRangeAt(0);
-            const cursorPos = range.startOffset;
-            const oldLength = text.length;
-            const converted = convertMath(text);
-            
-            if (converted !== text) {
-                isConverting = true;
-                textarea.innerText = converted;
-                
-                const newLength = converted.length;
-                const newPos = Math.min(cursorPos + (newLength - oldLength), newLength);
-                
-                try {
-                    const newRange = document.createRange();
-                    const node = textarea.firstChild || textarea;
-                    newRange.setStart(node, Math.max(0, Math.min(newPos, node.length || 0)));
-                    newRange.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
-                } catch(err) {
-                    const newRange = document.createRange();
-                    newRange.selectNodeContents(textarea);
-                    newRange.collapse(false);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
-                }
-                isConverting = false;
-                obj.rawText = text;
-                obj.text = converted;
-            } else {
-                obj.rawText = text;
-                obj.text = text;
-            }
-        } else {
-            obj.rawText = text;
-            obj.text = text;
-        }
-        
-        updateSize();
-        draw();
-    });
-    
-    const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
-    handles.forEach(h => {
-        h.addEventListener('mousedown', (e) => {
-            e.stopPropagation();
-            startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
-        });
-    });
-    
-    textarea.addEventListener('mousedown', (e) => {
-        if (e.target === textarea) {
-            e.stopPropagation();
-            startTextDrag(obj, e, wrapper);
-        }
-    });
-    
-    textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
-            e.preventDefault(); 
-            stopTextEdit(); 
-        }
-        if (e.key === 'Escape') { 
-            stopTextEdit(true); 
-        }
-    });
-    
-    textarea.addEventListener('blur', () => {
-        setTimeout(() => {
-            if (textEditor && document.activeElement !== textarea) stopTextEdit();
-        }, 200);
+    textArea.addEventListener('input', () => {
+        textArea.style.height = 'auto';
+        textArea.style.height = textArea.scrollHeight + 'px';
+        textEditorDiv.style.height = textArea.scrollHeight + 'px';
     });
 }
 
 function stopTextEdit(cancel = false) {
-    if (!textEditor) return;
-    const textarea = textEditor.querySelector('.text-edit-content');
+    if (!textEditorDiv) return;
     if (!cancel && editingObject) {
-        editingObject.text = convertMath(textarea.innerText);
-        editingObject.rawText = textarea.innerText;
+        const raw = textArea.value;
+        editingObject.text = convertMath(raw);
+        editingObject.rawText = raw;
+        const bbox = getBBox(editingObject);
+        editingObject.w = bbox.w / scale;
+        editingObject.h = bbox.h / scale;
         socket.emit('update-all', objects);
     }
-    document.body.removeChild(textEditor);
-    textEditor = null;
+    document.body.removeChild(textEditorDiv);
+    textEditorDiv = null;
+    textArea = null;
     editingObject = null;
+    selectedObj = null;
     draw();
 }
 
-function startTextResize(obj, handle, e, wrapper, textarea) {
+function startTextResize(e, handle) {
+    e.stopPropagation();
     isResizing = true;
-    resizeHandle = handle;
-    const coords = getCoords(e);
-    dragStartX = coords.x;
-    dragStartY = coords.y;
-    const bbox = getBBox(obj);
-    startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: bbox.w, h: bbox.h };
-    const startFontSize = obj.size;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = parseFloat(textEditorDiv.style.width);
+    const startH = parseFloat(textEditorDiv.style.height);
+    const startFontSize = editingObject.size;
     
-    const onMove = (e) => {
-        if (!isResizing) return;
-        const c = getCoords(e);
-        const dx = c.x - dragStartX;
-        const dy = c.y - dragStartY;
+    const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        let newW = startW, newH = startH;
         
-        let scaleFactor = 1;
-        if (handle === 'se' || handle === 's' || handle === 'e') {
-            scaleFactor = Math.max(0.5, 1 + (dx + dy) / 200);
-        } else if (handle === 'n') {
-            scaleFactor = Math.max(0.5, 1 - dy / 100);
-        } else if (handle === 'w') {
-            scaleFactor = Math.max(0.5, 1 - dx / 100);
-        }
+        if (handle.includes('e')) newW += dx;
+        if (handle.includes('w')) newW -= dx;
+        if (handle.includes('s')) newH += dy;
+        if (handle.includes('n')) newH -= dy;
         
-        obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
+        newW = Math.max(50, newW);
+        newH = Math.max(20, newH);
         
-        textarea.style.fontSize = (obj.size * scale) + 'px';
+        textEditorDiv.style.width = newW + 'px';
+        textEditorDiv.style.height = newH + 'px';
         
-        const lines = textarea.innerText.split('\n');
-        let maxWidth = 0;
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-        lines.forEach(line => {
-            const w = ctx.measureText(line).width;
-            maxWidth = Math.max(maxWidth, w);
-        });
-        
-        const newWidth = Math.max(maxWidth + 20, 100);
-        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 10, obj.size * 1.2 * scale + 10);
-        
-        wrapper.style.width = newWidth + 'px';
-        wrapper.style.height = newHeight + 'px';
-        
-        draw();
+        const scaleFactor = newH / startH;
+        editingObject.size = Math.max(8, Math.min(200, startFontSize * scaleFactor));
+        textArea.style.fontSize = (editingObject.size * scale) + 'px';
     };
     
     const onUp = () => {
@@ -736,55 +641,83 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
         document.removeEventListener('mouseup', onUp);
         socket.emit('update-all', objects);
     };
+    
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
 
-function startTextDrag(obj, e, wrapper) {
-    isDragging = true;
-    const coords = getCoords(e);
-    dragStartX = coords.x - obj.x;
-    dragStartY = coords.y - obj.y;
-    const textarea = wrapper.querySelector('.text-edit-content');
-    textarea.style.cursor = 'grabbing';
+function startTextRotate(e) {
+    e.stopPropagation();
+    isRotating = true;
+    const bbox = getBBox(editingObject);
+    const centerX = bbox.x + bbox.w / 2;
+    const centerY = bbox.y + bbox.h / 2;
+    rotationStartAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
     
-    const onMove = (e) => {
-        if (!isDragging) return;
-        const c = getCoords(e);
-        obj.x = c.x - dragStartX;
-        obj.y = c.y - dragStartY;
-        const bbox = getBBox(obj);
-        wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
-        draw();
+    const onMove = (ev) => {
+        if (!isRotating) return;
+        const currentAngle = Math.atan2(ev.clientY - centerY, ev.clientX - centerX);
+        const deltaAngle = currentAngle - rotationStartAngle;
+        // Rotation logic would go here if we stored rotation angle in objects
+        rotationStartAngle = currentAngle;
     };
     
     const onUp = () => {
-        isDragging = false;
-        textarea.style.cursor = '';
+        isRotating = false;
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
-        socket.emit('update-all', objects);
     };
+    
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
 
-// === ВИПРАВЛЕНО: Обробка подвійного кліку для тексту ===
+// --- Event Listeners ---
+
+window.addEventListener('keydown', (e) => { 
+    if (e.key === 'Shift') shiftKey = true; 
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'h' || e.key === 'H') setTool('hand');
+    
+    // UNDO/REDO SHORTCUTS
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+    }
+    
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedObj && !textEditorDiv) {
+            saveState();
+            objects = objects.filter(o => o !== selectedObj);
+            selectedObj = null;
+            socket.emit('update-all', objects);
+            draw();
+        }
+    }
+    if (e.key === 'Escape' && textEditorDiv) {
+        stopTextEdit(true);
+    }
+});
+
+window.addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftKey = false; });
+
 canvas.addEventListener('mousedown', (e) => {
-    if (textEditor) { stopTextEdit(); return; }
+    if (textEditorDiv && e.target !== textArea) {
+        stopTextEdit();
+    }
     
     const coords = getCoords(e);
     
-    // === ПЕРЕВІРКА ПОДВІЙНОГО КЛІКУ ПО ТЕКСТУ ===
     if (e.detail === 2) {
         const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 5));
         if (clickedObj && clickedObj.type === 'text') {
             e.preventDefault();
-            e.stopPropagation();
             selectedObj = clickedObj;
             startTextEdit(clickedObj);
-            draw();
             return;
         }
     }
@@ -796,12 +729,68 @@ canvas.addEventListener('mousedown', (e) => {
         return;
     }
     
-    if (currentTool === 'select' && selectedObj) {
+    if (currentTool === 'select' && selectedObj && !isDragging && !isResizing && !isRotating) {
         const handle = hitHandle(selectedObj, coords.x, coords.y);
         if (handle) {
-            if (handle === 'rotate') startRotate(e);
-            else startResize(selectedObj, handle, e);
-            return;
+            if (handle === 'rotate') {
+                isRotating = true;
+                saveState();
+                const bbox = getBBox(selectedObj);
+                const centerX = bbox.x + bbox.w / 2;
+                const centerY = bbox.y + bbox.h / 2;
+                rotationStartAngle = Math.atan2(coords.y - centerY, coords.x - centerX);
+                
+                const onMove = (ev) => {
+                    if (!isRotating) return;
+                    const c = getCoords(ev);
+                    const currentAngle = Math.atan2(c.y - (selectedObj.y * scale + offsetY), c.x - (selectedObj.x * scale + offsetX));
+                    // Store rotation if needed
+                    draw();
+                };
+                
+                const onUp = () => {
+                    isRotating = false;
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    socket.emit('update-all', objects);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+                return;
+            } else {
+                isResizing = true;
+                saveState();
+                startResizeState = { ...selectedObj };
+                if(selectedObj.points) startResizeState.points = JSON.parse(JSON.stringify(selectedObj.points));
+                
+                const onMove = (ev) => {
+                    if(!isResizing) return;
+                    const c = getCoords(ev);
+                    const dx = c.x - coords.x;
+                    const dy = c.y - coords.y;
+                    if (selectedObj.type === 'rect') {
+                        if(handle.includes('e')) selectedObj.ex = startResizeState.ex + dx;
+                        if(handle.includes('w')) selectedObj.x = startResizeState.x + dx;
+                        if(handle.includes('s')) selectedObj.ey = startResizeState.ey + dy;
+                        if(handle.includes('n')) selectedObj.y = startResizeState.y + dy;
+                    } else if (selectedObj.type === 'line' || selectedObj.type === 'arrow') {
+                         if(handle.includes('e')) selectedObj.ex = startResizeState.ex + dx;
+                         if(handle.includes('w')) selectedObj.x = startResizeState.x + dx;
+                         if(handle.includes('s')) selectedObj.ey = startResizeState.ey + dy;
+                         if(handle.includes('n')) selectedObj.y = startResizeState.y + dy;
+                    }
+                    draw();
+                };
+                const onUp = () => {
+                    isResizing = false;
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    socket.emit('update-all', objects);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+                return;
+            }
         }
     }
     
@@ -815,14 +804,13 @@ canvas.addEventListener('mousedown', (e) => {
         dragStartObjX = clickedObj.x;
         dragStartObjY = clickedObj.y;
         
+        saveState();
+
         if (clickedObj.type === 'pen') {
             startResizeState = { x: clickedObj.x, y: clickedObj.y, points: clickedObj.points.map(p => ({x: p.x, y: p.y})) };
         } else if (clickedObj.type === 'line' || clickedObj.type === 'arrow' || clickedObj.type === 'rect') {
             startResizeState = { x: clickedObj.x, y: clickedObj.y, ex: clickedObj.ex, ey: clickedObj.ey };
-        } else {
-            startResizeState = { x: clickedObj.x, y: clickedObj.y };
         }
-        
         draw();
     } else {
         selectedObj = null;
@@ -837,16 +825,17 @@ canvas.addEventListener('mousedown', (e) => {
 
 canvas.addEventListener('mousemove', (e) => {
     const coords = getCoords(e);
-    
     if (currentTool === 'select' && selectedObj && !isDragging && !isResizing && !isRotating) {
         const handle = hitHandle(selectedObj, coords.x, coords.y);
-        canvas.style.cursor = getCursor(handle);
-    } else if (currentTool === 'select') canvas.style.cursor = 'default';
-    else if (currentTool === 'hand') canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
-    else if (currentTool === 'eraser') {
-        canvas.style.cursor = 'cell';
-        if (e.buttons === 1) eraseAt(coords.x, coords.y);
-    } else canvas.style.cursor = 'crosshair';
+        if (handle === 'rotate') canvas.style.cursor = 'alias';
+        else if (handle === 'nw' || handle === 'se') canvas.style.cursor = 'nwse-resize';
+        else if (handle === 'ne' || handle === 'sw') canvas.style.cursor = 'nesw-resize';
+        else if (handle === 'n' || handle === 's') canvas.style.cursor = 'ns-resize';
+        else if (handle === 'e' || handle === 'w') canvas.style.cursor = 'ew-resize';
+        else canvas.style.cursor = 'default';
+    } else if (currentTool === 'hand') canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
+    else if (currentTool === 'eraser') canvas.style.cursor = 'cell';
+    else canvas.style.cursor = 'crosshair';
     
     if (!isDragging && !isResizing && !isRotating && !isDrawing) return;
     
@@ -885,10 +874,12 @@ canvas.addEventListener('mouseup', () => {
         if (currentPath.type === 'pen' && currentPath.points.length > 1) {
             objects.push(currentPath);
             socket.emit('new-object', currentPath);
+            saveState();
         } else if (currentPath.type !== 'pen') {
             if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
                 objects.push(currentPath);
                 socket.emit('new-object', currentPath);
+                saveState();
             }
         }
         isDrawing = false;
@@ -904,39 +895,23 @@ canvas.addEventListener('mouseup', () => {
 function eraseAt(mx, my) {
     const eraserRadius = 15 / scale;
     let changed = false;
-    
     for (let i = objects.length - 1; i >= 0; i--) {
         const obj = objects[i];
         let shouldRemove = false;
-        
         if (obj.type === 'pen') {
             const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
-            const kept = [];
-            allPoints.forEach((p, idx) => {
-                if (Math.hypot(p.x - mx, p.y - my) > eraserRadius) kept.push(idx);
-            });
+            const kept = allPoints.filter(p => Math.hypot(p.x - mx, p.y - my) > eraserRadius);
             if (kept.length < 2) shouldRemove = true;
             else if (kept.length < allPoints.length) {
-                const newPoints = kept.map(idx => allPoints[idx]);
-                obj.x = newPoints[0].x; obj.y = newPoints[0].y;
-                obj.points = newPoints.slice(1);
+                obj.x = kept[0].x; obj.y = kept[0].y;
+                obj.points = kept.slice(1);
                 changed = true;
             }
-        } else if (obj.type === 'line' || obj.type === 'arrow') {
-            if (distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < eraserRadius) shouldRemove = true;
-        } else if (obj.type === 'rect') {
-            const bbox = getBBox(obj);
-            const onBorder = (Math.abs(mx - bbox.x) < eraserRadius || Math.abs(mx - (bbox.x + bbox.w)) < eraserRadius) &&
-                             my >= bbox.y && my <= bbox.y + bbox.h ||
-                             (Math.abs(my - bbox.y) < eraserRadius || Math.abs(my - (bbox.y + bbox.h)) < eraserRadius) &&
-                             mx >= bbox.x && mx <= bbox.x + bbox.w;
-            if (onBorder || hitTest(obj, mx, my)) shouldRemove = true;
-        } else if (obj.type === 'text' || obj.type === 'image') {
-            const cx = obj.x + (obj.w || 0)/2, cy = obj.y + (obj.h || 0)/2;
-            if (Math.hypot(cx - mx, cy - my) < eraserRadius) shouldRemove = true;
+        } else if (hitTest(obj, mx, my, eraserRadius)) {
+            shouldRemove = true;
         }
-        
         if (shouldRemove) {
+            if (!changed) saveState();
             objects.splice(i, 1);
             changed = true;
             if (selectedObj === obj) selectedObj = null;
@@ -947,6 +922,7 @@ function eraseAt(mx, my) {
 
 function startDrawing(coords) {
     isDrawing = true;
+    saveState();
     currentPath = {
         type: currentTool,
         color: document.getElementById('colorPicker').value,
@@ -956,70 +932,16 @@ function startDrawing(coords) {
     if (currentTool === 'pen') currentPath.points = [];
 }
 
-function startResize(obj, handle, e) {
-    if (obj.type === 'text') { startTextEdit(obj); return; }
-    isResizing = true;
-    resizeHandle = handle;
-    const coords = getCoords(e);
-    dragStartX = coords.x; dragStartY = coords.y;
-    startResizeState = { ...obj };
-    if (obj.points) startResizeState.points = JSON.parse(JSON.stringify(obj.points));
-    
-    const onMove = (e) => {
-        if (!isResizing) return;
-        const c = getCoords(e);
-        const dx = c.x - dragStartX, dy = c.y - dragStartY;
-        
-        if (obj.type === 'rect') {
-            let newX = startResizeState.x, newY = startResizeState.y, newEx = startResizeState.ex, newEy = startResizeState.ey;
-            if (handle.includes('e')) newEx = startResizeState.ex + dx;
-            if (handle.includes('w')) newX = startResizeState.x + dx;
-            if (handle.includes('s')) newEy = startResizeState.ey + dy;
-            if (handle.includes('n')) newY = startResizeState.y + dy;
-            if (shiftKey) {
-                const w = newEx - newX, h = newEy - newY;
-                const ratio = (startResizeState.ex - startResizeState.x) / (startResizeState.ey - startResizeState.y);
-                if (Math.abs(w) > Math.abs(h) * ratio) newEy = newY + w / ratio * Math.sign(h || 1);
-                else newEx = newX + h * ratio * Math.sign(w || 1);
-            }
-            obj.x = newX; obj.y = newY; obj.ex = newEx; obj.ey = newEy;
-        } else if (obj.type === 'line' || obj.type === 'arrow') {
-            if (handle === 'se' || handle === 'e') obj.ex = startResizeState.ex + dx;
-            else if (handle === 's') obj.ey = startResizeState.ey + dy;
-            else if (handle === 'w' || handle === 'sw') obj.x = startResizeState.x + dx;
-            else if (handle === 'n' || handle === 'ne') obj.y = startResizeState.y + dy;
-            else if (handle === 'nw') { obj.x = startResizeState.x + dx; obj.y = startResizeState.y + dy; }
-            else if (handle === 'ne') { obj.ex = startResizeState.ex + dx; obj.y = startResizeState.y + dy; }
-            else if (handle === 'sw') { obj.x = startResizeState.x + dx; obj.ey = startResizeState.ey + dy; }
-            else if (handle === 'se') { obj.ex = startResizeState.ex + dx; obj.ey = startResizeState.ey + dy; }
-        } else if (obj.type === 'image') {
-            let newW = startResizeState.w + (handle.includes('e') ? dx : handle.includes('w') ? -dx : 0);
-            let newH = startResizeState.h + (handle.includes('s') ? dy : handle.includes('n') ? -dy : 0);
-            if (shiftKey) { const ratio = startResizeState.w / startResizeState.h; newH = newW / ratio; }
-            if (handle.includes('w')) obj.x = startResizeState.x + (startResizeState.w - newW);
-            if (handle.includes('n')) obj.y = startResizeState.y + (startResizeState.h - newH);
-            obj.w = Math.max(20, newW); obj.h = Math.max(20, newH);
-        }
-        draw();
-    };
-    const onUp = () => { isResizing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); socket.emit('update-all', objects); };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-}
-
-function startRotate(e) {
-    isRotating = true;
-    const onUp = () => { isRotating = false; document.removeEventListener('mouseup', onUp); };
-    document.addEventListener('mouseup', onUp);
-}
-
 function createNewText(coords) {
+    saveState();
     const obj = {
         type: 'text', x: coords.x, y: coords.y, text: '', rawText: '',
         color: document.getElementById('colorPicker').value,
-        size: 20, isBold: document.getElementById('boldText').checked
+        size: 24, isBold: document.getElementById('boldText').checked,
+        w: 100, h: 30
     };
-    objects.push(obj); selectedObj = obj;
+    objects.push(obj); 
+    selectedObj = obj;
     socket.emit('new-object', obj);
     draw();
     startTextEdit(obj);
@@ -1038,10 +960,14 @@ function setTool(tool) {
 
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = () => setTool(btn.dataset.tool));
 
+document.getElementById('undoBtn').onclick = () => undo();
+document.getElementById('redoBtn').onclick = () => redo();
+
 document.getElementById('clearBtn').onclick = () => { 
     if(confirm("Очистити дошку?")) {
+        saveState();
         objects = []; selectedObj = null;
-        if (textEditor) stopTextEdit();
+        if (textEditorDiv) stopTextEdit();
         socket.emit('delete-board');
     }
 };
@@ -1052,6 +978,7 @@ function createNewBoard() {
 }
 
 window.addEventListener('wheel', (e) => {
+    if (textEditorDiv) return;
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const oldScale = scale;
@@ -1062,16 +989,11 @@ window.addEventListener('wheel', (e) => {
     offsetX = e.clientX - mx * scale;
     offsetY = e.clientY - my * scale;
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
-    if (textEditor && editingObject) {
-        const bbox = getBBox(editingObject);
-        textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
-    }
     draw();
 }, { passive: false });
 
 window.addEventListener('paste', (e) => {
-    if (textEditor) return;
+    if (textEditorDiv) return;
     const items = e.clipboardData.items;
     for (let item of items) {
         if (item.type.indexOf('image') !== -1) {
@@ -1083,9 +1005,10 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
-                    const obj = { type: 'image', src: event.target.result, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2 };
+                    const obj = { type: 'image', src: event.target.result, x: centerX - 100, y: centerY - 100, w: 200, h: 200 };
                     objects.push(obj); selectedObj = obj;
                     socket.emit('new-object', obj); draw();
+                    saveState();
                 };
             };
             reader.readAsDataURL(blob);
@@ -1093,46 +1016,26 @@ window.addEventListener('paste', (e) => {
     }
 });
 
+// Socket Listeners
 socket.on('init-history', (h) => { 
     objects = h;
-    let imagesLoaded = 0;
-    const totalImages = objects.filter(o => o.type === 'image').length;
-    
-    if (totalImages === 0) {
-        draw();
-    } else {
-        objects.forEach(obj => {
-            if (obj.type === 'image') {
-                obj._img = new Image();
-                obj._img.src = obj.src;
-                obj._img.onload = () => {
-                    imagesLoaded++;
-                    if (imagesLoaded >= totalImages) draw();
-                };
-                obj._img.onerror = () => {
-                    imagesLoaded++;
-                    if (imagesLoaded >= totalImages) draw();
-                };
-            }
-        });
-    }
+    history = [];
+    redoStack = [];
+    updateUndoRedoButtons();
+    let loaded = 0;
+    const imgs = objects.filter(o => o.type === 'image');
+    if(imgs.length === 0) draw();
+    imgs.forEach(obj => {
+        obj._img = new Image();
+        obj._img.src = obj.src;
+        obj._img.onload = () => { if(++loaded === imgs.length) draw(); };
+        obj._img.onerror = () => { if(++loaded === imgs.length) draw(); };
+    });
 });
 
-socket.on('new-object', (o) => { 
-    objects.push(o); 
-    draw(); 
-});
-
-socket.on('update-all', (newObjects) => { 
-    objects = newObjects; 
-    draw(); 
-});
-
-socket.on('board-deleted', () => { 
-    objects = []; 
-    selectedObj = null; 
-    draw(); 
-});
+socket.on('new-object', (o) => { objects.push(o); draw(); });
+socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
+socket.on('board-deleted', () => { objects = []; selectedObj = null; draw(); });
 
 </script>
 </body>
