@@ -37,6 +37,7 @@
             z-index: 2000;
             background: transparent;
             transform-origin: top left;
+            display: inline-block;
         }
 
         .text-editor-main {
@@ -54,6 +55,7 @@
             white-space: pre;
             cursor: text;
             line-height: 1.5;
+            vertical-align: bottom;
         }
 
         .text-editor-main.active {
@@ -62,50 +64,70 @@
         }
 
         /* Контейнер для степені/індексу */
-        .math-script-box {
+        .math-script-container {
             display: inline-block;
             position: relative;
+            width: 0;
+            height: 0;
             vertical-align: baseline;
         }
 
-        .script-input {
-            display: inline-block;
-            background: rgba(33, 150, 243, 0.1);
+        /* Віконце для степені — ЗГОРИ СПРАВА */
+        .script-input.super {
+            position: absolute;
+            left: 2px;
+            top: -18px; /* Підняти вгору */
+            background: rgba(33, 150, 243, 0.15);
             border: 1px dashed #2196F3;
             border-radius: 3px;
-            padding: 2px 4px;
-            min-width: 20px;
-            min-height: 20px;
-            font-size: 12px;
+            padding: 2px 5px;
+            min-width: 25px;
+            min-height: 18px;
+            font-size: 11px;
             color: #333;
             outline: none;
             white-space: pre;
-        }
-
-        .script-input.super {
-            vertical-align: super;
             transform-origin: bottom left;
         }
 
+        /* Віконце для індексу — ЗНИЗУ СПРАВА */
         .script-input.sub {
-            vertical-align: sub;
+            position: absolute;
+            left: 2px;
+            top: 8px; /* Опустити вниз */
+            background: rgba(255, 152, 0, 0.15);
+            border: 1px dashed #FF9800;
+            border-radius: 3px;
+            padding: 2px 5px;
+            min-width: 25px;
+            min-height: 18px;
+            font-size: 11px;
+            color: #333;
+            outline: none;
+            white-space: pre;
             transform-origin: top left;
+        }
+
+        .script-input:focus {
+            background: rgba(255, 255, 255, 0.95);
+            border-style: solid;
         }
 
         .script-label {
             position: absolute;
-            font-size: 10px;
+            font-size: 8px;
             color: #999;
             pointer-events: none;
+            white-space: nowrap;
         }
 
         .script-label.super {
-            top: -15px;
+            top: -12px;
             left: 0;
         }
 
         .script-label.sub {
-            bottom: -15px;
+            bottom: -12px;
             left: 0;
         }
 
@@ -185,14 +207,13 @@ let shiftKey = false;
 
 let textEditor = null;
 let editingObject = null;
-let currentScriptType = null; // 'super', 'sub', or null
+let currentScriptType = null;
 let scriptInput = null;
+let scriptContainer = null;
 
-// Формат зберігання: "base^exponent_subscript"
-// Спеціальні символи для розділення: ￨ (U+FFE8)
 const SUPER_START = '^';
 const SUB_START = '_';
-const SCRIPT_END = '\uFFE8'; // Fullwidth vertical line
+const SCRIPT_END = '\uFFE8';
 
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
@@ -449,7 +470,6 @@ function drawObject(obj, isTemp = false) {
     ctx.restore();
 }
 
-// Покращений рендер математики
 function drawMathText(ctx, text, x, y, baseSize, isBold) {
     let currentX = x;
     let mode = 'normal';
@@ -462,7 +482,6 @@ function drawMathText(ctx, text, x, y, baseSize, isBold) {
         const char = text[i];
         
         if (char === SCRIPT_END) {
-            // Кінець степені/індексу - малюємо зібраний контент
             if (scriptContent) {
                 const subSize = baseSize * 0.6;
                 ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
@@ -501,7 +520,6 @@ function drawMathText(ctx, text, x, y, baseSize, isBold) {
         }
     }
     
-    // Якщо залишився контент у степені/індексі (незавершений)
     if (scriptContent && mode !== 'normal') {
         const subSize = baseSize * 0.6;
         ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
@@ -521,7 +539,6 @@ function getCoords(e) {
     return { x: (clientX - offsetX) / scale, y: (clientY - offsetY) / scale, rawX: clientX, rawY: clientY };
 }
 
-// === НОВИЙ РЕДАКТОР ТЕКСТУ З ВІЗУАЛЬНИМИ ОКОШКАМИ ===
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -533,17 +550,14 @@ function startTextEdit(obj) {
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
     
-    // Створюємо контейнер
     const container = document.createElement('div');
     container.className = 'text-editor-container';
     container.style.left = screenX + 'px';
     container.style.top = screenY + 'px';
     
-    // Головне поле для базового тексту
     const mainInput = document.createElement('div');
     mainInput.className = 'text-editor-main active';
     mainInput.contentEditable = true;
-    // Видаляємо службові символи при редагуванні
     mainInput.innerText = obj.text.replace(new RegExp(SCRIPT_END, 'g'), '').replace(/[\^_]/g, '');
     mainInput.style.fontSize = (obj.size * scale) + 'px';
     mainInput.style.fontWeight = obj.isBold ? 'bold' : 'normal';
@@ -554,6 +568,7 @@ function startTextEdit(obj) {
     textEditor = container;
     currentScriptType = null;
     scriptInput = null;
+    scriptContainer = null;
     
     function updateSize() {
         const text = mainInput.innerText;
@@ -573,11 +588,9 @@ function startTextEdit(obj) {
         window.getSelection().addRange(range);
     }, 10);
     
-    // Обробка введення в головному полі
     mainInput.addEventListener('input', () => {
         const text = mainInput.innerText;
         
-        // Перевірка на ^ або _
         if (text.endsWith('^') && !currentScriptType) {
             createScriptBox('super');
             return;
@@ -593,7 +606,6 @@ function startTextEdit(obj) {
         draw();
     });
     
-    // Обробка клавіш
     mainInput.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowRight' && currentScriptType) {
             e.preventDefault();
@@ -619,29 +631,28 @@ function startTextEdit(obj) {
         }
     });
     
-    // Створення окошка для степені/індексу
     function createScriptBox(type) {
         currentScriptType = type;
-        
-        // Видаляємо ^ або _ з головного поля
         mainInput.innerText = mainInput.innerText.slice(0, -1);
         
-        // Створюємо окошко
+        // Створюємо контейнер для позиціонування
+        scriptContainer = document.createElement('div');
+        scriptContainer.className = 'math-script-container';
+        container.appendChild(scriptContainer);
+        
         const scriptBox = document.createElement('div');
         scriptBox.className = 'script-input ' + (type === 'super' ? 'super' : 'sub');
         scriptBox.contentEditable = true;
-        scriptBox.style.fontSize = (obj.size * scale * 0.6) + 'px';
+        scriptBox.style.fontSize = (obj.size * scale * 0.55) + 'px';
         
-        // Мітка
         const label = document.createElement('span');
         label.className = 'script-label ' + (type === 'super' ? 'super' : 'sub');
         label.innerText = type === 'super' ? 'Степінь' : 'Індекс';
         scriptBox.appendChild(label);
         
-        container.appendChild(scriptBox);
+        scriptContainer.appendChild(scriptBox);
         scriptInput = scriptBox;
         
-        // Фокус на окошко
         setTimeout(() => {
             scriptBox.focus();
             const range = document.createRange();
@@ -651,13 +662,11 @@ function startTextEdit(obj) {
             window.getSelection().addRange(range);
         }, 10);
         
-        // Обробка введення в окошку
         scriptBox.addEventListener('input', () => {
-            // Оновлюємо розмір окошка динамічно
             const text = scriptBox.innerText.replace('Степінь', '').replace('Індекс', '');
-            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale * 0.6}px 'Segoe UI', sans-serif`;
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale * 0.55}px 'Segoe UI', sans-serif`;
             const w = ctx.measureText(text || ' ').width;
-            scriptBox.style.minWidth = Math.max(w + 8, 20) + 'px';
+            scriptBox.style.minWidth = Math.max(w + 10, 25) + 'px';
             
             obj.text = mainInput.innerText + (type === 'super' ? '^' : '_') + text;
             draw();
@@ -686,20 +695,21 @@ function startTextEdit(obj) {
         });
     }
     
-    // Завершення степені/індексу
     function finishScriptBox(cancel = false) {
         if (!scriptInput) return;
         
         const scriptText = scriptInput.innerText.replace('Степінь', '').replace('Індекс', '');
         
         if (!cancel && scriptText.trim()) {
-            // Додаємо маркер завершення
             obj.text = mainInput.innerText + (currentScriptType === 'super' ? '^' : '_') + scriptText + SCRIPT_END;
         } else {
             obj.text = mainInput.innerText;
         }
         
-        container.removeChild(scriptInput);
+        if (scriptContainer) {
+            container.removeChild(scriptContainer);
+            scriptContainer = null;
+        }
         scriptInput = null;
         currentScriptType = null;
         
@@ -708,7 +718,6 @@ function startTextEdit(obj) {
         draw();
     }
     
-    // Клік по дошці завершує редагування
     mainInput.addEventListener('blur', () => {
         setTimeout(() => {
             if (textEditor && document.activeElement !== mainInput && document.activeElement !== scriptInput) {
@@ -717,7 +726,6 @@ function startTextEdit(obj) {
         }, 200);
     });
     
-    // Хендли для ресайзу
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
         div.className = `handle ${h}`;
@@ -749,7 +757,6 @@ function stopTextEdit(cancel = false) {
     const mainInput = textEditor.querySelector('.text-editor-main');
     if (!cancel && editingObject) {
         let text = mainInput.innerText;
-        // Додаємо SCRIPT_END якщо є незавершена степінь/індекс
         if (currentScriptType && scriptInput) {
             const scriptText = scriptInput.innerText.replace('Степінь', '').replace('Індекс', '');
             if (scriptText.trim()) {
@@ -765,6 +772,7 @@ function stopTextEdit(cancel = false) {
     editingObject = null;
     currentScriptType = null;
     scriptInput = null;
+    scriptContainer = null;
     draw();
 }
 
@@ -795,7 +803,7 @@ function startTextResize(obj, handle, e, container, mainInput) {
         
         obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
         mainInput.style.fontSize = (obj.size * scale) + 'px';
-        if (scriptInput) scriptInput.style.fontSize = (obj.size * scale * 0.6) + 'px';
+        if (scriptInput) scriptInput.style.fontSize = (obj.size * scale * 0.55) + 'px';
         
         const text = mainInput.innerText;
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
