@@ -152,7 +152,7 @@
 <canvas id="board"></canvas>
 
 <script>
-const boardId = window.location.pathname.replace('/', '') || 'math-room-1';
+const boardId = window.location.pathname.replace('/', '') || 'main';
 const socket = io({ query: { boardId } });
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -396,7 +396,6 @@ function draw() {
     }
 }
 
-// === НОВА ФУНКЦІЯ ДЛЯ МАТЕМАТИЧНОГО ТЕКСТУ ===
 function drawMathText(ctx, text, x, y, baseSize, isBold) {
     let currentX = x;
     let i = 0;
@@ -404,7 +403,6 @@ function drawMathText(ctx, text, x, y, baseSize, isBold) {
     while (i < text.length) {
         const char = text[i];
         
-        // Перевіряємо чи це Unicode степінь (⁰-⁹, ᵃ-ᶻ)
         if ((char >= '⁰' && char <= '⁹') || (char >= 'ᵃ' && char <= 'ᶻ') || 
             (char >= 'ᴬ' && char <= 'ᶻ') || ['⁺','⁻','⁼','⁽','⁾'].includes(char)) {
             const subSize = baseSize * 0.6;
@@ -414,7 +412,6 @@ function drawMathText(ctx, text, x, y, baseSize, isBold) {
             currentX += w;
             i++;
         }
-        // Перевіряємо чи це Unicode індекс (₀-₉, -ᵧ)
         else if ((char >= '₀' && char <= '₉') || (char >= 'ₐ' && char <= 'ᵧ') || 
             ['₊','₋','₌','₍','₎'].includes(char)) {
             const subSize = baseSize * 0.6;
@@ -424,7 +421,6 @@ function drawMathText(ctx, text, x, y, baseSize, isBold) {
             currentX += w;
             i++;
         }
-        // Звичайний символ
         else {
             ctx.font = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const w = ctx.measureText(char).width;
@@ -486,12 +482,12 @@ function drawObject(obj, isTemp = false) {
             drawMathText(ctx, line, sx, y, obj.size * scale, obj.isBold);
         });
     } else if (obj.type === 'image') {
-        if (!obj._img) { 
-            obj._img = new Image(); 
-            obj._img.src = obj.src; 
-            obj._img.onload = draw; 
+        if (!obj._img) {
+            obj._img = new Image();
+            obj._img.src = obj.src;
+            obj._img.onload = () => draw();
         }
-        if (obj._img && obj._img.complete) {
+        if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
             ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
         }
     }
@@ -520,16 +516,12 @@ function startTextEdit(obj) {
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
     
-    const startWidth = Math.max(bbox.w * scale + 20, 100);
-    const lineHeight = obj.size * 1.2 * scale;
-    const startHeight = Math.max(bbox.h * scale + 10, lineHeight + 10);
-    
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
     wrapper.style.left = (screenX - 10) + 'px';
     wrapper.style.top = (screenY - 5) + 'px';
     wrapper.style.minWidth = '100px';
-    wrapper.style.minHeight = lineHeight + 'px';
+    wrapper.style.minHeight = (obj.size * 1.2 * scale) + 'px';
     
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
@@ -568,7 +560,7 @@ function startTextEdit(obj) {
         });
         
         const newWidth = Math.max(maxWidth + 20, 100);
-        const newHeight = Math.max(lines.length * lineHeight + 10, lineHeight + 10);
+        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 10, obj.size * 1.2 * scale + 10);
         
         wrapper.style.width = newWidth + 'px';
         wrapper.style.height = newHeight + 'px';
@@ -701,7 +693,6 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
     const bbox = getBBox(obj);
     startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: bbox.w, h: bbox.h };
     const startFontSize = obj.size;
-    const lineHeight = startFontSize * 1.2;
     
     const onMove = (e) => {
         if (!isResizing) return;
@@ -1083,7 +1074,7 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
-                    const obj = { type: 'image', src: img.src, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2 };
+                    const obj = { type: 'image', src: event.target.result, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2 };
                     objects.push(obj); selectedObj = obj;
                     socket.emit('new-object', obj); draw();
                 };
@@ -1093,10 +1084,47 @@ window.addEventListener('paste', (e) => {
     }
 });
 
-socket.on('init-history', (h) => { objects = h; draw(); });
-socket.on('new-object', (o) => { objects.push(o); draw(); });
-socket.on('update-all', (newObjects) => { objects = newObjects; draw(); });
-socket.on('board-deleted', () => { objects = []; selectedObj = null; draw(); });
+// === ВИПРАВЛЕНО: Завантаження зображень при отриманні історії ===
+socket.on('init-history', (h) => { 
+    objects = h;
+    let imagesLoaded = 0;
+    const totalImages = objects.filter(o => o.type === 'image').length;
+    
+    if (totalImages === 0) {
+        draw();
+    } else {
+        objects.forEach(obj => {
+            if (obj.type === 'image') {
+                obj._img = new Image();
+                obj._img.src = obj.src;
+                obj._img.onload = () => {
+                    imagesLoaded++;
+                    if (imagesLoaded >= totalImages) draw();
+                };
+                obj._img.onerror = () => {
+                    imagesLoaded++;
+                    if (imagesLoaded >= totalImages) draw();
+                };
+            }
+        });
+    }
+});
+
+socket.on('new-object', (o) => { 
+    objects.push(o); 
+    draw(); 
+});
+
+socket.on('update-all', (newObjects) => { 
+    objects = newObjects; 
+    draw(); 
+});
+
+socket.on('board-deleted', () => { 
+    objects = []; 
+    selectedObj = null; 
+    draw(); 
+});
 
 </script>
 </body>
