@@ -64,3 +64,213 @@
     }
     window.onresize = resize;
     resize();
+
+    function setTool(t) {
+        // Если переключаем инструмент во время ввода текста - завершаем ввод
+        if (isTextInputActive) finishTextInput();
+        
+        tool = t;
+        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+        if(document.getElementById(t + 'Btn')) document.getElementById(t + 'Btn').classList.add('active');
+        
+        if (t !== 'text') {
+            textInput.style.display = 'none';
+            isTextInputActive = false;
+        }
+    }
+
+    // --- СИНХРОНИЗАЦИЯ ---
+    socket.on('init-history', (history) => { objects = history; render(); });
+    socket.on('new-object', (obj) => { objects.push(obj); render(); });
+    socket.on('clear-board', () => { objects = []; render(); });
+
+    // --- ЛОГИКА ВВОДА ТЕКСТА И ДРОБЕЙ ---
+
+    function startTextInput(x, y) {
+        isTextInputActive = true;
+        textInput.value = "";
+        textInput.style.left = x + 'px';
+        textInput.style.top = y + 'px';
+        textInput.style.display = 'block';
+        textInput.focus();
+        
+        // Временный объект для предпросмотра
+        currentObj = { type: 'text', content: '', x, y, color: colorPicker.value };
+        render();
+    }
+
+    function finishTextInput() {
+        if (!isTextInputActive) return;
+        
+        const content = textInput.value;
+        if (content.trim() !== "") {
+            // Сохраняем объект
+            const finalObj = { 
+                type: 'text', 
+                content: content, 
+                x: currentObj.x, 
+                y: currentObj.y, 
+                color: currentObj.color 
+            };
+            objects.push(finalObj);
+            socket.emit('new-object', finalObj);
+        }
+        
+        // Сброс
+        textInput.style.display = 'none';
+        textInput.value = "";
+        isTextInputActive = false;
+        currentObj = null;
+        render();
+    }
+
+    // Слушаем ввод в поле
+    textInput.addEventListener('input', () => {
+        if (!isTextInputActive) return;
+        currentObj.content = textInput.value;
+        render(); // Перерисовываем канвас с новым текстом/дробью
+    });
+
+    // Слушаем клавиши (особенно Стрелку Вправо)
+    textInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === 'ArrowRight') {
+            // Если нажали Enter или Стрелку Вправо - завершаем ввод
+            // Стрелка вправо эмулирует "выход из знаменателя"
+            e.preventDefault(); 
+            finishTextInput();
+        }
+    });
+
+    // Обработка клика по канвасу
+    canvas.onmousedown = (e) => {
+        if (isTextInputActive) {
+            // Если кликнули мимо инпута во время ввода - завершаем
+            finishTextInput();
+            return;
+        }
+
+        const rect = canvas.getBoundingClientRect();
+        const mX = e.clientX - rect.left;
+        const mY = e.clientY - rect.top;
+
+        if (tool === 'text') {
+            startTextInput(mX, mY);
+            return;
+        }
+
+        isDrawing = true;
+        if (tool === 'pen') {
+            currentObj = { type: 'pen', color: colorPicker.value, points: [{x: mX, y: mY}] };
+        } else if (tool === 'rect') {
+            currentObj = { type: 'rect', color: colorPicker.value, x: mX, y: mY, w: 0, h: 0 };
+        }
+    };
+
+    window.onmousemove = (e) => {
+        if (!isDrawing || !currentObj || isTextInputActive) return;
+        const rect = canvas.getBoundingClientRect();
+        const mX = e.clientX - rect.left;
+        const mY = e.clientY - rect.top;
+
+        if (tool === 'pen') {
+            currentObj.points.push({x: mX, y: mY});
+        } else if (tool === 'rect') {
+            currentObj.w = mX - currentObj.x;
+            currentObj.h = mY - currentObj.y;
+        }
+        render();
+    };
+
+    window.onmouseup = () => {
+        if (isDrawing && currentObj && !isTextInputActive) {
+            objects.push(currentObj);
+            socket.emit('new-object', currentObj);
+        }
+        isDrawing = false;
+        currentObj = null;
+        render();
+    };
+
+    function clearBoard() {
+        if(confirm("Очистить доску?")) {
+            objects = [];
+            render();
+            socket.emit('clear-board');
+        }
+    }
+
+    // --- ОТРИСОВКА ---
+
+    function render() {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Рисуем все сохраненные объекты
+        objects.forEach(draw);
+        
+        // Рисуем текущий объект (который рисуем прямо сейчас)
+        if (currentObj && !isTextInputActive) draw(currentObj);
+    }
+
+    function draw(obj) {
+        ctx.strokeStyle = obj.color;
+        ctx.fillStyle = obj.color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.font = "24px Arial"; // Шрифт чуть крупнее для читаемости
+        
+        if (obj.type === 'pen') {
+            ctx.beginPath();
+            obj.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            ctx.stroke();
+        } else if (obj.type === 'rect') {
+            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        } else if (obj.type === 'text') {
+            drawTextWithFractions(ctx, obj.content, obj.x, obj.y, obj.color);
+        }
+    }
+
+    // Функция для умной отрисовки текста (обычный или дробь)
+    function drawTextWithFractions(ctx, text, startX, startY, color) {
+        // Проверяем, есть ли символ дроби '/'
+        if (text.includes('/')) {
+            const parts = text.split('/');
+            const numerator = parts[0]; // Числитель
+            const denominator = parts[1] || ''; // Знаменатель (может быть пустым при вводе)
+
+            // Измеряем ширину, чтобы центрировать дробь
+            const numWidth = ctx.measureText(numerator).width;
+            const denWidth = ctx.measureText(denominator).width;
+            const maxWidth = Math.max(numWidth, denWidth);
+
+            const centerX = startX + maxWidth / 2;
+            const lineHeight = 24; // Высота шрифта
+            const gap = 4; // Отступ от черты
+
+            // 1. Рисуем числитель
+            ctx.textAlign = "center";
+            ctx.fillText(numerator, centerX, startY - gap);
+
+            // 2. Рисуем черту дроби
+            ctx.beginPath();
+            ctx.moveTo(centerX - maxWidth / 2 - 2, startY);
+            ctx.lineTo(centerX + maxWidth / 2 + 2, startY);
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.lineWidth = 3; // Возвращаем толщину
+
+            // 3. Рисуем знаменатель
+            ctx.fillText(denominator, centerX, startY + lineHeight - gap);
+            
+            // Сброс выравнивания
+            ctx.textAlign = "start";
+        } else {
+            // Обычный текст без дробей
+            ctx.textAlign = "start";
+            ctx.fillText(text, startX, startY);
+        }
+    }
+</script>
+</body>
+</html>
