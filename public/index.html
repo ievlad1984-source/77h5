@@ -1026,9 +1026,11 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mouseup', onUp);
 }
 
+// === ВИПРАВЛЕНО: Подвійний клік тепер працює надійніше ===
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
     
+    // Шукаємо текстовий об'єкт під курсором з великим padding
     const clickedObj = [...objects].reverse().find(obj => {
         if (obj.type === 'text') {
             return hitTest(obj, coords.x, coords.y, 60);
@@ -1049,36 +1051,6 @@ canvas.addEventListener('mousedown', (e) => {
         return;
     }
     
-    const coords = getCoords(e);
-    
-    // === ВИПРАВЛЕНО: Перевіряємо чи клікнули на інший текстовий об'єкт ===
-    if (textEditor && editingObject) {
-        const clickedText = [...objects].reverse().find(obj => {
-            if (obj.type === 'text' && obj !== editingObject) {
-                return hitTest(obj, coords.x, coords.y, 60);
-            }
-            return false;
-        });
-        
-        if (clickedText) {
-            // Зберігаємо поточний текст і відкриваємо новий редактор за один клік
-            saveHistory();
-            let html = textEditor.querySelector('.text-edit-content').innerHTML;
-            html = html.replace(/\u200B/g, '');
-            editingObject.segments = htmlToSegments(html);
-            editingObject.text = textEditor.querySelector('.text-edit-content').innerText.replace(/\u200B/g, '');
-            
-            if (textEditor.parentNode) {
-                document.body.removeChild(textEditor);
-            }
-            textEditor = null;
-            
-            startTextEdit(clickedText);
-            requestDraw();
-            return;
-        }
-    }
-    
     if (textEditor) { 
         stopTextEdit(); 
         selectedObjects = [];
@@ -1086,23 +1058,28 @@ canvas.addEventListener('mousedown', (e) => {
         return; 
     }
     
+    const coords = getCoords(e);
+    
+    // === ВИПРАВЛЕНО: Перевіряємо чи клікнули на існуючий текст ПЕРЕД створенням нового ===
+    if (currentTool === 'text') {
+        const existingText = [...objects].reverse().find(obj => {
+            if (obj.type === 'text') {
+                return hitTest(obj, coords.x, coords.y, 60);
+            }
+            return false;
+        });
+        
+        if (existingText) {
+            // Клікнули на існуючий текст - відкриваємо редактор
+            startTextEdit(existingText);
+            requestDraw();
+            return;
+        }
+    }
+    
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
-        else if (currentTool === 'text') {
-            const existingText = [...objects].reverse().find(obj => {
-                if (obj.type === 'text') {
-                    return hitTest(obj, coords.x, coords.y, 60);
-                }
-                return false;
-            });
-            
-            if (existingText) {
-                startTextEdit(existingText);
-                requestDraw();
-                return;
-            }
-            createNewText(coords);
-        }
+        else if (currentTool === 'text') createNewText(coords);
         else startDrawing(coords);
         return;
     }
