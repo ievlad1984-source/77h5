@@ -205,7 +205,7 @@ function undo() {
     isUndoing = false;
 }
 
-const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
+const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'','=':'⁼','(':'⁽',')':'⁾'};
 const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ᵒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
 
 window.addEventListener('keydown', (e) => { 
@@ -255,7 +255,6 @@ function getBBox(obj) {
             if (w > maxW) maxW = w;
         });
         const h = lines.length * obj.size * 1.2;
-        // === ВИПРАВЛЕНО: Прибрано зайве зміщення Y для тексту ===
         return { x: obj.x, y: obj.y, w: maxW / scale || 50, h: h || 20 };
     }
     if (obj.type === 'rect') {
@@ -573,7 +572,6 @@ function drawObject(obj, isTemp = false) {
         ctx.textBaseline = 'alphabetic';
         
         const lines = obj.text.split('\n');
-        // === ВИПРАВЛЕНО: Узгоджено позицію відображення тексту з getBBox ===
         const baseY = sy + (obj.size * scale * 0.8);
         
         lines.forEach((line, lineIndex) => {
@@ -618,8 +616,7 @@ function startTextEdit(obj) {
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
     wrapper.style.left = (screenX - 10) + 'px';
-    // === ВИПРАВЛЕНО: Позиціювання редактора тексту ===
-    wrapper.style.top = (screenY) + 'px'; 
+    wrapper.style.top = (screenY) + 'px';
     wrapper.style.minWidth = '100px';
     wrapper.style.minHeight = (obj.size * 1.2 * scale) + 'px';
     
@@ -1070,8 +1067,9 @@ canvas.addEventListener('mouseup', () => {
     }
 });
 
+// === ВИПРАВЛЕНО: Ластик видаляє весь об'єкт олівця цілком ===
 function eraseAt(mx, my) {
-    const eraserRadius = 20 / scale;
+    const eraserRadius = 30 / scale;
     let changed = false;
     
     for (let i = objects.length - 1; i >= 0; i--) {
@@ -1079,17 +1077,13 @@ function eraseAt(mx, my) {
         let shouldRemove = false;
         
         if (obj.type === 'pen') {
+            // === ВИДАЛЯЄМО ВЕСЬ ОБ'ЄКТ ОЛІВЦЯ ЦІЛКОМ ===
             const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
-            const kept = [];
-            allPoints.forEach((p, idx) => {
-                if (Math.hypot(p.x - mx, p.y - my) > eraserRadius) kept.push(idx);
-            });
-            if (kept.length < 2) shouldRemove = true;
-            else if (kept.length < allPoints.length) {
-                const newPoints = kept.map(idx => allPoints[idx]);
-                obj.x = newPoints[0].x; obj.y = newPoints[0].y;
-                obj.points = newPoints.slice(1);
-                changed = true;
+            for (let p of allPoints) {
+                if (Math.hypot(p.x - mx, p.y - my) < eraserRadius) {
+                    shouldRemove = true;
+                    break;
+                }
             }
         } else if (obj.type === 'line' || obj.type === 'arrow') {
             if (distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < eraserRadius) shouldRemove = true;
