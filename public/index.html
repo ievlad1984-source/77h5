@@ -164,20 +164,78 @@ let isDragging = false, isResizing = false, resizeHandle = null, isRotating = fa
 let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
-let shiftKey = false;
+let shiftKey = false, ctrlKey = false;
 
 let textEditor = null;
 let editingObject = null;
+
+// === ІСТОРІЯ ДЛЯ UNDO/REDO ===
+let historyStack = [];
+let historyIndex = -1;
+let isUndoing = false;
+
+const MAX_HISTORY = 50;
+
+function saveHistory() {
+    if (isUndoing) return;
+    
+    // Видаляємо всі записи після поточного індексу
+    if (historyIndex < historyStack.length - 1) {
+        historyStack = historyStack.slice(0, historyIndex + 1);
+    }
+    
+    // Зберігаємо глибоку копію об'єктів
+    const state = JSON.parse(JSON.stringify(objects));
+    historyStack.push(state);
+    
+    // Обмежуємо розмір історії
+    if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+    } else {
+        historyIndex++;
+    }
+    
+    console.log(`History saved. Index: ${historyIndex}, Stack size: ${historyStack.length}`);
+}
+
+function undo() {
+    if (historyIndex <= 0 || isUndoing) {
+        console.log('Undo not available');
+        return;
+    }
+    
+    isUndoing = true;
+    historyIndex--;
+    objects = JSON.parse(JSON.stringify(historyStack[historyIndex]));
+    selectedObj = null;
+    if (textEditor) stopTextEdit(true);
+    
+    socket.emit('update-all', objects);
+    draw();
+    
+    isUndoing = false;
+    console.log(`Undo performed. Index: ${historyIndex}`);
+}
 
 const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'};
 const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ᵒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
 
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
+    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
+    
+    // === UNDO (Ctrl+Z) ===
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+    }
+    
     if (e.key === 'v' || e.key === 'V') setTool('select');
     if (e.key === 'h' || e.key === 'H') setTool('hand');
     if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedObj && !textEditor) {
+            saveHistory();
             objects = objects.filter(o => o !== selectedObj);
             selectedObj = null;
             socket.emit('update-all', objects);
@@ -185,7 +243,10 @@ window.addEventListener('keydown', (e) => {
         }
     }
 });
-window.addEventListener('keyup', (e) => { if (e.key === 'Shift') shiftKey = false; });
+window.addEventListener('keyup', (e) => { 
+    if (e.key === 'Shift') shiftKey = false;
+    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
+});
 
 function convertMath(text) {
     if (!document.getElementById('mathMode')?.checked) return text;
@@ -442,6 +503,13 @@ function drawObject(obj, isTemp = false) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
+    // === ОБРОБКА ОБЕРТАННЯ ===
+    if (obj.rotation) {
+        ctx.translate(sx, sy);
+        ctx.rotate(obj.rotation * Math.PI / 180);
+        ctx.translate(-sx, -sy);
+    }
+    
     if (obj.type === 'pen') {
         if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
         ctx.beginPath();
@@ -674,6 +742,7 @@ function stopTextEdit(cancel = false) {
     if (!textEditor) return;
     const textarea = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
+        saveHistory();
         editingObject.text = convertMath(textarea.innerText);
         editingObject.rawText = textarea.innerText;
         socket.emit('update-all', objects);
@@ -734,6 +803,7 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
         isResizing = false;
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        saveHistory();
         socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
@@ -764,19 +834,18 @@ function startTextDrag(obj, e, wrapper) {
         textarea.style.cursor = '';
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        saveHistory();
         socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
 
-// === ВИПРАВЛЕНО: Обробка подвійного кліку для тексту ===
 canvas.addEventListener('mousedown', (e) => {
     if (textEditor) { stopTextEdit(); return; }
     
     const coords = getCoords(e);
     
-    // === ПЕРЕВІРКА ПОДВІЙНОГО КЛІКУ ПО ТЕКСТУ ===
     if (e.detail === 2) {
         const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 5));
         if (clickedObj && clickedObj.type === 'text') {
@@ -877,16 +946,29 @@ canvas.addEventListener('mousemove', (e) => {
         if (currentPath.type === 'pen') currentPath.points.push({x: coords.x, y: coords.y});
         else { currentPath.ex = coords.x; currentPath.ey = coords.y; }
         draw();
+    } else if (isRotating && selectedObj) {
+        // === ОБРОБКА ОБЕРТАННЯ ===
+        const bbox = getBBox(selectedObj);
+        const centerX = bbox.x + bbox.w / 2;
+        const centerY = bbox.y + bbox.h / 2;
+        
+        const angle = Math.atan2(coords.y - centerY, coords.x - centerX);
+        const degrees = angle * 180 / Math.PI + 90;
+        
+        selectedObj.rotation = degrees;
+        draw();
     }
 });
 
 canvas.addEventListener('mouseup', () => {
     if (isDrawing && currentPath) {
         if (currentPath.type === 'pen' && currentPath.points.length > 1) {
+            saveHistory();
             objects.push(currentPath);
             socket.emit('new-object', currentPath);
         } else if (currentPath.type !== 'pen') {
             if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
+                saveHistory();
                 objects.push(currentPath);
                 socket.emit('new-object', currentPath);
             }
@@ -896,13 +978,16 @@ canvas.addEventListener('mouseup', () => {
         draw();
     }
     if (isDragging || isResizing || isRotating) {
+        if (isRotating || isResizing || (isDragging && selectedObj)) {
+            saveHistory();
+        }
         isDragging = false; isResizing = false; isRotating = false;
         socket.emit('update-all', objects);
     }
 });
 
 function eraseAt(mx, my) {
-    const eraserRadius = 15 / scale;
+    const eraserRadius = 20 / scale;
     let changed = false;
     
     for (let i = objects.length - 1; i >= 0; i--) {
@@ -932,11 +1017,15 @@ function eraseAt(mx, my) {
                              mx >= bbox.x && mx <= bbox.x + bbox.w;
             if (onBorder || hitTest(obj, mx, my)) shouldRemove = true;
         } else if (obj.type === 'text' || obj.type === 'image') {
-            const cx = obj.x + (obj.w || 0)/2, cy = obj.y + (obj.h || 0)/2;
-            if (Math.hypot(cx - mx, cy - my) < eraserRadius) shouldRemove = true;
+            // === ПОКРАЩЕНА ПЕРЕВІРКА ДЛЯ ТЕКСТУ ===
+            const bbox = getBBox(obj);
+            if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
+                shouldRemove = true;
+            }
         }
         
         if (shouldRemove) {
+            saveHistory();
             objects.splice(i, 1);
             changed = true;
             if (selectedObj === obj) selectedObj = null;
@@ -1002,14 +1091,18 @@ function startResize(obj, handle, e) {
         }
         draw();
     };
-    const onUp = () => { isResizing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); socket.emit('update-all', objects); };
+    const onUp = () => { isResizing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); saveHistory(); socket.emit('update-all', objects); };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
 
 function startRotate(e) {
     isRotating = true;
-    const onUp = () => { isRotating = false; document.removeEventListener('mouseup', onUp); };
+    const onUp = () => { 
+        isRotating = false; 
+        saveHistory();
+        document.removeEventListener('mouseup', onUp); 
+    };
     document.addEventListener('mouseup', onUp);
 }
 
@@ -1017,8 +1110,10 @@ function createNewText(coords) {
     const obj = {
         type: 'text', x: coords.x, y: coords.y, text: '', rawText: '',
         color: document.getElementById('colorPicker').value,
-        size: 20, isBold: document.getElementById('boldText').checked
+        size: 20, isBold: document.getElementById('boldText').checked,
+        rotation: 0
     };
+    saveHistory();
     objects.push(obj); selectedObj = obj;
     socket.emit('new-object', obj);
     draw();
@@ -1040,6 +1135,7 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = (
 
 document.getElementById('clearBtn').onclick = () => { 
     if(confirm("Очистити дошку?")) {
+        saveHistory();
         objects = []; selectedObj = null;
         if (textEditor) stopTextEdit();
         socket.emit('delete-board');
@@ -1083,7 +1179,8 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
-                    const obj = { type: 'image', src: event.target.result, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2 };
+                    const obj = { type: 'image', src: event.target.result, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2, rotation: 0 };
+                    saveHistory();
                     objects.push(obj); selectedObj = obj;
                     socket.emit('new-object', obj); draw();
                 };
@@ -1095,6 +1192,8 @@ window.addEventListener('paste', (e) => {
 
 socket.on('init-history', (h) => { 
     objects = h;
+    historyStack = [JSON.parse(JSON.stringify(objects))];
+    historyIndex = 0;
     let imagesLoaded = 0;
     const totalImages = objects.filter(o => o.type === 'image').length;
     
@@ -1120,17 +1219,23 @@ socket.on('init-history', (h) => {
 
 socket.on('new-object', (o) => { 
     objects.push(o); 
+    saveHistory();
     draw(); 
 });
 
 socket.on('update-all', (newObjects) => { 
     objects = newObjects; 
+    if (!isUndoing) {
+        saveHistory();
+    }
     draw(); 
 });
 
 socket.on('board-deleted', () => { 
     objects = []; 
     selectedObj = null; 
+    historyStack = [];
+    historyIndex = -1;
     draw(); 
 });
 
