@@ -800,10 +800,13 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
+    // === ВИПРАВЛЕНО: Завантажуємо існуючий текст ===
     if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
+    } else if (obj.text && obj.text.trim() !== '') {
+        editorDiv.innerText = obj.text;
     } else {
-        editorDiv.innerText = obj.text || '';
+        editorDiv.innerText = '';
     }
     
     wrapper.appendChild(editorDiv);
@@ -1017,7 +1020,7 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mouseup', onUp);
 }
 
-// === ДОДАНО: Обробник подвійного кліку для тексту ===
+// === ВИПРАВЛЕНО: Обробник подвійного кліку для тексту ===
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
     // Шукаємо текстовий об'єкт під курсором
@@ -1031,6 +1034,7 @@ canvas.addEventListener('dblclick', (e) => {
 
     if (clickedObj) {
         e.preventDefault();
+        e.stopPropagation();
         // Відкриваємо редактор з існуючим текстом
         startTextEdit(clickedObj);
         requestDraw();
@@ -1038,7 +1042,11 @@ canvas.addEventListener('dblclick', (e) => {
 });
 
 canvas.addEventListener('mousedown', (e) => {
-    // Прибрали перевірку e.detail === 2, так як використовуємо dblclick
+    // При подвійному кліку спочатку йдуть 2 mousedown, потім dblclick
+    // Тому перевіряємо detail === 2 і ігноруємо другий mousedown
+    if (e.detail === 2) {
+        return;
+    }
     
     if (textEditor) { 
         stopTextEdit(); 
