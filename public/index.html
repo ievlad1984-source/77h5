@@ -48,8 +48,7 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            /* ИЗМЕНЕНИЕ 1: Убрано pre-wrap, добавлено white-space: pre (или nowrap) */
-            white-space: pre; 
+            white-space: pre;
             overflow: visible;
             display: inline-block;
             box-sizing: border-box;
@@ -801,7 +800,6 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // === ВИПРАВЛЕНО: Завантажуємо існуючий текст ===
     if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else if (obj.text && obj.text.trim() !== '') {
@@ -902,7 +900,6 @@ function startTextEdit(obj) {
     
     editorDiv.addEventListener('input', () => {
         updateSize();
-        // === ИЗМЕНЕНИЕ 2: Отправка текста в реальном времени при каждом вводе ===
         if (editingObject) {
             let html = editorDiv.innerHTML;
             html = html.replace(/\u200B/g, '');
@@ -1029,14 +1026,14 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mouseup', onUp);
 }
 
-// === ВИПРАВЛЕНО: Обробник подвійного кліку для тексту ===
+// === ВИПРАВЛЕНО: Збільшено зону кліку для подвійного натискання ===
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
     // Шукаємо текстовий об'єкт під курсором
     const clickedObj = [...objects].reverse().find(obj => {
         if (obj.type === 'text') {
-            // Збільшений padding для зручності попадання
-            return hitTest(obj, coords.x, coords.y, 15);
+            // Збільшено padding з 15 до 40 для кращого попадання
+            return hitTest(obj, coords.x, coords.y, 40);
         }
         return false;
     });
@@ -1044,15 +1041,12 @@ canvas.addEventListener('dblclick', (e) => {
     if (clickedObj) {
         e.preventDefault();
         e.stopPropagation();
-        // Відкриваємо редактор з існуючим текстом
         startTextEdit(clickedObj);
         requestDraw();
     }
 });
 
 canvas.addEventListener('mousedown', (e) => {
-    // При подвійному кліку спочатку йдуть 2 mousedown, потім dblclick
-    // Тому перевіряємо detail === 2 і ігноруємо другий mousedown
     if (e.detail === 2) {
         return;
     }
