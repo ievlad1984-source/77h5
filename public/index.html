@@ -159,7 +159,6 @@ const ctx = canvas.getContext('2d');
 
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'select';
-// Змінено: тепер selectedObjects - це масив для групового виділення
 let selectedObjects = []; 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
 let isDrawing = false, currentPath = null;
@@ -167,7 +166,6 @@ let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
 let shiftKey = false, ctrlKey = false;
 
-// === НОВЕ: Змінні для виділення області (Marquee) ===
 let isSelectingArea = false;
 let selectionStart = { x: 0, y: 0 };
 let selectionEnd = { x: 0, y: 0 };
@@ -175,7 +173,6 @@ let selectionEnd = { x: 0, y: 0 };
 let textEditor = null;
 let editingObject = null;
 
-// === ІСТОРІЯ ДЛЯ UNDO/REDO ===
 let historyStack = [];
 let historyIndex = -1;
 let isUndoing = false;
@@ -258,7 +255,8 @@ function getBBox(obj) {
             if (w > maxW) maxW = w;
         });
         const h = lines.length * obj.size * 1.2;
-        return { x: obj.x, y: obj.y - obj.size * 0.8, w: maxW / scale || 50, h: h || 20 };
+        // === ВИПРАВЛЕНО: Прибрано зайве зміщення Y для тексту ===
+        return { x: obj.x, y: obj.y, w: maxW / scale || 50, h: h || 20 };
     }
     if (obj.type === 'rect') {
         return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
@@ -278,7 +276,6 @@ function getBBox(obj) {
     return { x: obj.x, y: obj.y, w: 0, h: 0 };
 }
 
-// Отримати загальну рамку для групи об'єктів
 function getGroupBBox(objs) {
     if (!objs || objs.length === 0) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -304,7 +301,6 @@ function hitTest(obj, mx, my, padding = 0) {
 }
 
 function hitHandle(obj, mx, my) {
-    // Для групи об'єктів використовуємо загальну рамку
     const bbox = selectedObjects.length > 1 ? getGroupBBox(selectedObjects) : getBBox(obj);
     if (!bbox) return null;
     
@@ -455,7 +451,6 @@ function drawSelection() {
     ctx.stroke();
 }
 
-// === НОВЕ: Малювання рамки виділення області ===
 function drawMarqueeSelection() {
     if (!isSelectingArea) return;
     
@@ -468,7 +463,7 @@ function drawMarqueeSelection() {
     const height = y2 - y1;
     
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 123, 255, 0.15)'; // Напівпрозорий синій
+    ctx.fillStyle = 'rgba(0, 123, 255, 0.15)';
     ctx.strokeStyle = '#007bff';
     ctx.lineWidth = 1;
     ctx.fillRect(x1, y1, width, height);
@@ -578,6 +573,7 @@ function drawObject(obj, isTemp = false) {
         ctx.textBaseline = 'alphabetic';
         
         const lines = obj.text.split('\n');
+        // === ВИПРАВЛЕНО: Узгоджено позицію відображення тексту з getBBox ===
         const baseY = sy + (obj.size * scale * 0.8);
         
         lines.forEach((line, lineIndex) => {
@@ -612,7 +608,7 @@ function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
     editingObject = obj;
-    selectedObjects = []; // Зняти виділення при редагуванні
+    selectedObjects = [];
     draw();
     
     const bbox = getBBox(obj);
@@ -622,7 +618,8 @@ function startTextEdit(obj) {
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
     wrapper.style.left = (screenX - 10) + 'px';
-    wrapper.style.top = (screenY - 5) + 'px';
+    // === ВИПРАВЛЕНО: Позиціювання редактора тексту ===
+    wrapper.style.top = (screenY) + 'px'; 
     wrapper.style.minWidth = '100px';
     wrapper.style.minHeight = (obj.size * 1.2 * scale) + 'px';
     
@@ -860,7 +857,7 @@ function startTextDrag(obj, e, wrapper) {
         obj.y = c.y - dragStartY;
         const bbox = getBBox(obj);
         wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+        wrapper.style.top = (bbox.y * scale + offsetY) + 'px';
         draw();
     };
     
@@ -881,7 +878,6 @@ canvas.addEventListener('mousedown', (e) => {
     
     const coords = getCoords(e);
     
-    // Подвійний клік для тексту
     if (e.detail === 2) {
         const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 5));
         if (clickedObj && clickedObj.type === 'text') {
@@ -901,38 +897,29 @@ canvas.addEventListener('mousedown', (e) => {
         return;
     }
     
-    // === ЛОГІКА ВИДІЛЕННЯ ОБЛАСТІ ===
     if (currentTool === 'select') {
-        // Перевіряємо, чи клікнули на об'єкт або ручку
         let clickedObj = null;
         let clickedHandle = null;
         
-        // Спочатку перевіряємо ручки виділення
         if (selectedObjects.length > 0) {
-            clickedHandle = hitHandle(null, coords.x, coords.y); // null бо використовуємо групу
+            clickedHandle = hitHandle(null, coords.x, coords.y);
         }
         
-        // Якщо не ручка, перевіряємо об'єкти
         if (!clickedHandle) {
-            // Шукаємо об'єкт під курсором (зверху вниз)
             clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 5));
         }
         
         if (clickedHandle) {
-            // Клік по ручці (resize/rotate)
             if (clickedHandle === 'rotate') startRotate(e);
             else startResizeGroup(clickedHandle, e);
             return;
         }
         
         if (clickedObj) {
-            // Клік по об'єкту
             if (!selectedObjects.includes(clickedObj)) {
-                // Якщо клікнули на новий об'єкт без Shift - виділити тільки його
                 if (!shiftKey) selectedObjects = [];
                 selectedObjects.push(clickedObj);
             } else if (shiftKey) {
-                // Якщо Shift + клік на вже виділений - зняти виділення
                 selectedObjects = selectedObjects.filter(o => o !== clickedObj);
             }
             
@@ -940,7 +927,6 @@ canvas.addEventListener('mousedown', (e) => {
             dragStartX = coords.x;
             dragStartY = coords.y;
             
-            // Зберігаємо початкові позиції всіх виділених об'єктів
             startResizeState = selectedObjects.map(o => ({
                 obj: o,
                 x: o.x, y: o.y,
@@ -950,7 +936,6 @@ canvas.addEventListener('mousedown', (e) => {
             
             draw();
         } else {
-            // Клік у пустоту -> Початок виділення області
             selectedObjects = [];
             isSelectingArea = true;
             selectionStart = { x: coords.x, y: coords.y };
@@ -979,7 +964,6 @@ canvas.addEventListener('mousemove', (e) => {
     
     if (!isDragging && !isResizing && !isRotating && !isDrawing && !isSelectingArea) return;
     
-    // === РУХ ГРУПИ ОБ'ЄКТІВ ===
     if (isDragging && selectedObjects.length > 0) {
         const dx = coords.x - dragStartX;
         const dy = coords.y - dragStartY;
@@ -1002,12 +986,10 @@ canvas.addEventListener('mousemove', (e) => {
         });
         draw();
     } 
-    // === ВИДІЛЕННЯ ОБЛАСТІ (MARQUEE) ===
     else if (isSelectingArea) {
         selectionEnd = { x: coords.x, y: coords.y };
         draw();
     }
-    // === РУХ ХОЛСТА ===
     else if (isDragging && currentTool === 'hand') {
         offsetX += coords.rawX - dragStartX;
         offsetY += coords.rawY - dragStartY;
@@ -1015,13 +997,11 @@ canvas.addEventListener('mousemove', (e) => {
         dragStartY = coords.rawY;
         draw();
     } 
-    // === МАЛЮВАННЯ ===
     else if (isDrawing && currentPath) {
         if (currentPath.type === 'pen') currentPath.points.push({x: coords.x, y: coords.y});
         else { currentPath.ex = coords.x; currentPath.ey = coords.y; }
         draw();
     } 
-    // === ОБЕРТАННЯ ГРУПИ ===
     else if (isRotating && selectedObjects.length > 0) {
         const bbox = getGroupBBox(selectedObjects);
         const centerX = bbox.x + bbox.w / 2;
@@ -1030,14 +1010,8 @@ canvas.addEventListener('mousemove', (e) => {
         const angle = Math.atan2(coords.y - centerY, coords.x - centerX);
         const degrees = angle * 180 / Math.PI + 90;
         
-        // Зберігаємо початковий кут обертання для кожного об'єкта відносно центру групи
-        // (Спрощена логіка: просто задаємо кут всім, для складнішого обертання навколо центру групи потрібна матриця)
-        // Для стабільності поки що обертаємо тільки якщо об'єкт один, або застосовуємо кут до всіх
         selectedObjects.forEach(obj => {
             if (!obj.rotation) obj.rotation = 0;
-            // Тут можна додати логіку відносного обертання, але поки що просто оновлюємо
-            // Щоб обертання працювало коректно для групи, краще обертати навколо спільного центру
-            // Але для простоти поки що:
              const originalRotation = startResizeState.originalRotation || 0;
              obj.rotation = originalRotation + (degrees - startResizeState.startAngle);
         });
@@ -1046,7 +1020,6 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 canvas.addEventListener('mouseup', () => {
-    // === ЗАВЕРШЕННЯ ВИДІЛЕННЯ ОБЛАСТІ ===
     if (isSelectingArea) {
         isSelectingArea = false;
         
@@ -1055,12 +1028,9 @@ canvas.addEventListener('mouseup', () => {
         const minY = Math.min(selectionStart.y, selectionEnd.y);
         const maxY = Math.max(selectionStart.y, selectionEnd.y);
         
-        // Знаходимо всі об'єкти, що перетинаються з рамкою
         const newSelection = objects.filter(obj => {
             const bbox = getBBox(obj);
             if (!bbox) return false;
-            
-            // Перевірка перетину прямокутників
             return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
         });
         
@@ -1140,7 +1110,6 @@ function eraseAt(mx, my) {
         if (shouldRemove) {
             saveHistory();
             objects.splice(i, 1);
-            // Видаляємо з виділення, якщо було виділено
             selectedObjects = selectedObjects.filter(o => o !== obj);
             changed = true;
         }
@@ -1159,14 +1128,12 @@ function startDrawing(coords) {
     if (currentTool === 'pen') currentPath.points = [];
 }
 
-// === ОБРОБКА ЗМІНИ РОЗМІРУ ГРУПИ ===
 function startResizeGroup(handle, e) {
     isResizing = true;
     resizeHandle = handle;
     const coords = getCoords(e);
     dragStartX = coords.x; dragStartY = coords.y;
     
-    // Зберігаємо стан групи
     const groupBBox = getGroupBBox(selectedObjects);
     startResizeState = {
         objects: selectedObjects.map(o => ({
@@ -1176,8 +1143,8 @@ function startResizeGroup(handle, e) {
             rotation: o.rotation || 0
         })),
         groupBBox: groupBBox,
-        originalRotation: selectedObjects[0]?.rotation || 0, // Для обертання
-        startAngle: 0 // Для обертання
+        originalRotation: selectedObjects[0]?.rotation || 0,
+        startAngle: 0
     };
     
     if (handle === 'rotate') {
@@ -1190,7 +1157,6 @@ function startResizeGroup(handle, e) {
     const onMove = (e) => {
         if (!isResizing && !isRotating) return;
         const c = getCoords(e);
-        const dx = c.x - dragStartX, dy = c.y - dragStartY;
         
         if (isRotating) {
             const centerX = startResizeState.groupBBox.x + startResizeState.groupBBox.w / 2;
@@ -1201,12 +1167,6 @@ function startResizeGroup(handle, e) {
             selectedObjects.forEach(obj => {
                 obj.rotation = (startResizeState.originalRotation + deltaAngle) % 360;
             });
-        } else {
-            // Логіка зміни розміру для групи (спрощена: масштабування відносно центру)
-            // Для повноцінного ресайзу групи потрібна складна математика, 
-            // тому поки що реалізуємо тільки переміщення точок прив'язки для одного об'єкта,
-            // а для групи - поки що тільки обертання та переміщення.
-            // Якщо потрібно масштабувати групу - це вимагає зміни координат всіх точок відносно центру.
         }
         draw();
     };
@@ -1282,7 +1242,7 @@ window.addEventListener('wheel', (e) => {
     if (textEditor && editingObject) {
         const bbox = getBBox(editingObject);
         textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+        textEditor.style.top = (bbox.y * scale + offsetY) + 'px';
     }
     draw();
 }, { passive: false });
