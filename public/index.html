@@ -53,6 +53,7 @@
             box-sizing: border-box;
             line-height: 1.4;
             min-width: 50px;
+            cursor: text;
         }
 
         .math-sup, .math-sub {
@@ -134,6 +135,7 @@
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
         .cursor-eraser { cursor: cell !important; }
+        .cursor-text { cursor: text !important; }
     </style>
 </head>
 <body>
@@ -353,15 +355,13 @@ function hitTest(obj, mx, my, padding = 0) {
            my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
 }
 
-// === ВИПРАВЛЕНО: Функція тепер завжди використовує selectedObjects для пошуку хендлів ===
 function hitHandle(mx, my) {
-    // Якщо нічого не виділено, хендлів немає
     if (selectedObjects.length === 0) return null;
 
     const bbox = getGroupBBox(selectedObjects);
     if (!bbox) return null;
     
-    const h = 8 / scale; // Розмір зони кліку в логічних координатах
+    const h = 8 / scale;
     const cx = bbox.x + bbox.w / 2;
     const cy = bbox.y + bbox.h / 2;
     
@@ -672,6 +672,7 @@ function insertMathField(type) {
     return span;
 }
 
+// === ПОКРАЩЕНО: Функція редагування тексту ===
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -686,7 +687,7 @@ function startTextEdit(obj) {
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
     wrapper.style.left = (screenX - 10) + 'px';
-    wrapper.style.top = (screenY) + 'px';
+    wrapper.style.top = (screenY - 5) + 'px';
     wrapper.style.minWidth = '100px';
     wrapper.style.minHeight = (obj.size * 1.2 * scale) + 'px';
     
@@ -713,7 +714,7 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    if (obj.segments) {
+    if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else {
         editorDiv.innerText = obj.text || '';
@@ -731,15 +732,31 @@ function startTextEdit(obj) {
     
     updateSize();
     
+    // === ПОКРАЩЕНО: Фокус та позиціонування курсора ===
     setTimeout(() => {
         editorDiv.focus();
+        
+        // Встановлюємо курсор в кінець тексту
         const range = document.createRange();
-        range.selectNodeContents(editorDiv);
-        range.collapse(false);
         const sel = window.getSelection();
+        
+        if (editorDiv.childNodes.length > 0) {
+            const lastChild = editorDiv.childNodes[editorDiv.childNodes.length - 1];
+            if (lastChild.nodeType === Node.TEXT_NODE) {
+                range.setStart(lastChild, lastChild.length);
+                range.setEnd(lastChild, lastChild.length);
+            } else {
+                range.selectNodeContents(editorDiv);
+                range.collapse(false);
+            }
+        } else {
+            range.selectNodeContents(editorDiv);
+            range.collapse(false);
+        }
+        
         sel.removeAllRanges();
         sel.addRange(range);
-    }, 10);
+    }, 50);
     
     editorDiv.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowRight') {
@@ -801,6 +818,15 @@ function startTextEdit(obj) {
         updateSize();
     });
     
+    // === ДОДАНО: Автозбереження при втраті фокусу ===
+    editorDiv.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (textEditor && document.activeElement !== editorDiv) {
+                stopTextEdit();
+            }
+        }, 200);
+    });
+    
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
@@ -815,12 +841,6 @@ function startTextEdit(obj) {
             startTextDrag(obj, e, wrapper);
         }
     });
-    
-    editorDiv.addEventListener('blur', () => {
-        setTimeout(() => {
-            if (textEditor && document.activeElement !== editorDiv) stopTextEdit();
-        }, 200);
-    });
 }
 
 function stopTextEdit(cancel = false) {
@@ -834,7 +854,9 @@ function stopTextEdit(cancel = false) {
         editingObject.text = editorDiv.innerText.replace(/\u200B/g, '');
         socket.emit('update-all', objects);
     }
-    document.body.removeChild(textEditor);
+    if (textEditor.parentNode) {
+        document.body.removeChild(textEditor);
+    }
     textEditor = null;
     editingObject = null;
     draw();
@@ -898,7 +920,7 @@ function startTextDrag(obj, e, wrapper) {
         obj.y = c.y - dragStartY;
         const bbox = getBBox(obj);
         wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        wrapper.style.top = (bbox.y * scale + offsetY) + 'px';
+        wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
         draw();
     };
     
@@ -914,18 +936,19 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mouseup', onUp);
 }
 
+// === ПОКРАЩЕНО: Обробка подвійного кліку для тексту ===
 canvas.addEventListener('mousedown', (e) => {
-    if (textEditor) { 
-        stopTextEdit(); 
-        selectedObjects = [];
-        draw();
-        return; 
-    }
-    
-    const coords = getCoords(e);
-    
+    // === ПЕРЕВІРКА ПОДВІЙНОГО КЛІКУ ===
     if (e.detail === 2) {
-        const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 5));
+        const coords = getCoords(e);
+        const clickedObj = [...objects].reverse().find(obj => {
+            if (obj.type === 'text') {
+                // Для тексту використовуємо більший padding для кращого попадання
+                return hitTest(obj, coords.x, coords.y, 10);
+            }
+            return hitTest(obj, coords.x, coords.y, 5);
+        });
+        
         if (clickedObj && clickedObj.type === 'text') {
             e.preventDefault();
             e.stopPropagation();
@@ -936,6 +959,15 @@ canvas.addEventListener('mousedown', (e) => {
         }
     }
     
+    if (textEditor) { 
+        stopTextEdit(); 
+        selectedObjects = [];
+        draw();
+        return; 
+    }
+    
+    const coords = getCoords(e);
+    
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
         else if (currentTool === 'text') createNewText(coords);
@@ -945,7 +977,6 @@ canvas.addEventListener('mousedown', (e) => {
     
     if (currentTool === 'select') {
         let clickedObj = null;
-        // === ВИПРАВЛЕНО: hitHandle тепер приймає тільки координати ===
         let clickedHandle = null;
         
         if (selectedObjects.length > 0) {
@@ -1000,7 +1031,6 @@ canvas.addEventListener('mousemove', (e) => {
     const coords = getCoords(e);
     
     if (currentTool === 'select' && selectedObjects.length > 0 && !isDragging && !isResizing && !isRotating && !isSelectingArea) {
-        // === ВИПРАВЛЕНО: Виклик hitHandle без першого аргументу ===
         const handle = hitHandle(coords.x, coords.y);
         canvas.style.cursor = getCursor(handle);
     } else if (currentTool === 'select') canvas.style.cursor = isSelectingArea ? 'crosshair' : 'default';
@@ -1179,7 +1209,6 @@ function startResizeGroup(handle, e) {
     
     const groupBBox = getGroupBBox(selectedObjects);
     
-    // Зберігаємо стан кожного об'єкта для масштабування
     startResizeState = {
         objects: selectedObjects.map(o => ({
             obj: o,
@@ -1215,20 +1244,17 @@ function startResizeGroup(handle, e) {
                 obj.rotation = (startResizeState.originalRotation + deltaAngle) % 360;
             });
         } else {
-            // === ЛОГІКА МАСШТАБУВАННЯ (RESIZE) ===
             const oldBBox = startResizeState.groupBBox;
             let newW = oldBBox.w;
             let newH = oldBBox.h;
             let newX = oldBBox.x;
             let newY = oldBBox.y;
             
-            // Обчислюємо нові розміри та позицію рамки
             if (handle.includes('e')) newW = c.x - oldBBox.x;
             if (handle.includes('w')) { newW = oldBBox.w + (oldBBox.x - c.x); newX = c.x; }
             if (handle.includes('s')) newH = c.y - oldBBox.y;
             if (handle.includes('n')) { newH = oldBBox.h + (oldBBox.y - c.y); newY = c.y; }
             
-            // Запобігаємо інверсії (мінімальний розмір 10px)
             if (newW < 10) newW = 10;
             if (newH < 10) newH = 10;
             if (handle.includes('e') && newW < 10) newW = 10;
@@ -1242,16 +1268,12 @@ function startResizeGroup(handle, e) {
             startResizeState.objects.forEach(state => {
                 const o = state.obj;
                 
-                // 1. Масштабування координат відносно лівого верхнього кута групи
-                // Формула: NewPos = GroupX + (OldPos - GroupX) * Scale
                 if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect') {
-                    // Для ліній та прямокутників масштабуємо обидві точки
                     o.x = newX + (state.x - oldBBox.x) * scaleX;
                     o.y = newY + (state.y - oldBBox.y) * scaleY;
                     o.ex = newX + (state.ex - oldBBox.x) * scaleX;
                     o.ey = newY + (state.ey - oldBBox.y) * scaleY;
                 } else if (o.type === 'pen') {
-                    // Для олівця масштабуємо кожну точку шляху
                     o.x = newX + (state.x - oldBBox.x) * scaleX;
                     o.y = newY + (state.y - oldBBox.y) * scaleY;
                     o.points = state.points.map(p => ({
@@ -1259,16 +1281,13 @@ function startResizeGroup(handle, e) {
                         y: newY + (p.y - oldBBox.y) * scaleY
                     }));
                 } else {
-                    // Для тексту та зображень
                     o.x = newX + (state.x - oldBBox.x) * scaleX;
                     o.y = newY + (state.y - oldBBox.y) * scaleY;
                     
-                    // Масштабування розмірів (для image) або шрифту (для text)
                     if (o.type === 'image') {
                         o.w = state.w * scaleX;
                         o.h = state.h * scaleY;
                     } else if (o.type === 'text') {
-                        // Для тексту використовуємо середнє масштабування, щоб не спотворювати шрифт
                         const avgScale = (scaleX + scaleY) / 2;
                         o.size = Math.max(8, state.obj.size * avgScale);
                     }
@@ -1349,7 +1368,7 @@ window.addEventListener('wheel', (e) => {
     if (textEditor && editingObject) {
         const bbox = getBBox(editingObject);
         textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        textEditor.style.top = (bbox.y * scale + offsetY) + 'px';
+        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
     }
     draw();
 }, { passive: false });
