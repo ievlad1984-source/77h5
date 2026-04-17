@@ -203,6 +203,10 @@ let selectionEnd = { x: 0, y: 0 };
 let textEditor = null;
 let editingObject = null;
 
+// === ДОДАНО: Змінна для відстеження подвійного кліку ===
+let lastClickTime = 0;
+let lastClickPos = { x: 0, y: 0 };
+
 let historyStack = [];
 let historyIndex = -1;
 let isUndoing = false;
@@ -1026,14 +1030,13 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mouseup', onUp);
 }
 
-// === ВИПРАВЛЕНО: Збільшено зону кліку для подвійного натискання ===
+// === ВИПРАВЛЕНО: Обробник подвійного кліку для тексту ===
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
-    // Шукаємо текстовий об'єкт під курсором
+    // Шукаємо текстовий об'єкт під курсором з великим padding
     const clickedObj = [...objects].reverse().find(obj => {
         if (obj.type === 'text') {
-            // Збільшено padding з 15 до 40 для кращого попадання
-            return hitTest(obj, coords.x, coords.y, 40);
+            return hitTest(obj, coords.x, coords.y, 50);
         }
         return false;
     });
@@ -1047,8 +1050,28 @@ canvas.addEventListener('dblclick', (e) => {
 });
 
 canvas.addEventListener('mousedown', (e) => {
-    if (e.detail === 2) {
-        return;
+    // === ВИПРАВЛЕНО: Перевірка на подвійний клік через таймінг ===
+    const now = Date.now();
+    const coords = getCoords(e);
+    const isDoubleClick = (now - lastClickTime < 300) && 
+                          Math.abs(coords.x - lastClickPos.x) < 10 && 
+                          Math.abs(coords.y - lastClickPos.y) < 10;
+    
+    // Зберігаємо інформацію про клік для наступної перевірки
+    lastClickTime = now;
+    lastClickPos = { x: coords.x, y: coords.y };
+    
+    // === ВИПРАВЛЕНО: Якщо подвійний клік по тексту - ігноруємо mousedown ===
+    if (isDoubleClick) {
+        const textObj = [...objects].reverse().find(obj => {
+            if (obj.type === 'text') {
+                return hitTest(obj, coords.x, coords.y, 50);
+            }
+            return false;
+        });
+        if (textObj) {
+            return; // Не обробляємо mousedown, чекаємо dblclick
+        }
     }
     
     if (textEditor) { 
@@ -1057,8 +1080,6 @@ canvas.addEventListener('mousedown', (e) => {
         requestDraw();
         return; 
     }
-    
-    const coords = getCoords(e);
     
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
