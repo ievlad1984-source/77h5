@@ -1182,11 +1182,15 @@ function startResizeGroup(handle, e) {
     dragStartX = coords.x; dragStartY = coords.y;
     
     const groupBBox = getGroupBBox(selectedObjects);
+    
+    // Зберігаємо стан кожного об'єкта для масштабування
     startResizeState = {
         objects: selectedObjects.map(o => ({
             obj: o,
-            x: o.x, y: o.y, ex: o.ex, ey: o.ey, 
-            w: o.w, h: o.h, points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
+            x: o.x, y: o.y, 
+            ex: o.ex, ey: o.ey, 
+            w: o.w, h: o.h, 
+            points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
             rotation: o.rotation || 0
         })),
         groupBBox: groupBBox,
@@ -1213,6 +1217,66 @@ function startResizeGroup(handle, e) {
             
             selectedObjects.forEach(obj => {
                 obj.rotation = (startResizeState.originalRotation + deltaAngle) % 360;
+            });
+        } else {
+            // === ЛОГІКА МАСШТАБУВАННЯ (RESIZE) ===
+            const oldBBox = startResizeState.groupBBox;
+            let newW = oldBBox.w;
+            let newH = oldBBox.h;
+            let newX = oldBBox.x;
+            let newY = oldBBox.y;
+            
+            // Обчислюємо нові розміри та позицію рамки
+            if (handle.includes('e')) newW = c.x - oldBBox.x;
+            if (handle.includes('w')) { newW = oldBBox.w + (oldBBox.x - c.x); newX = c.x; }
+            if (handle.includes('s')) newH = c.y - oldBBox.y;
+            if (handle.includes('n')) { newH = oldBBox.h + (oldBBox.y - c.y); newY = c.y; }
+            
+            // Запобігаємо інверсії (мінімальний розмір 10px)
+            if (newW < 10) newW = 10;
+            if (newH < 10) newH = 10;
+            if (handle.includes('e') && newW < 10) newW = 10;
+            if (handle.includes('w') && newW < 10) { newX = oldBBox.x + oldBBox.w - 10; newW = 10; }
+            if (handle.includes('s') && newH < 10) newH = 10;
+            if (handle.includes('n') && newH < 10) { newY = oldBBox.y + oldBBox.h - 10; newH = 10; }
+
+            const scaleX = newW / oldBBox.w;
+            const scaleY = newH / oldBBox.h;
+
+            startResizeState.objects.forEach(state => {
+                const o = state.obj;
+                
+                // 1. Масштабування координат відносно лівого верхнього кута групи
+                // Формула: NewPos = GroupX + (OldPos - GroupX) * Scale
+                if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect') {
+                    // Для ліній та прямокутників масштабуємо обидві точки
+                    o.x = newX + (state.x - oldBBox.x) * scaleX;
+                    o.y = newY + (state.y - oldBBox.y) * scaleY;
+                    o.ex = newX + (state.ex - oldBBox.x) * scaleX;
+                    o.ey = newY + (state.ey - oldBBox.y) * scaleY;
+                } else if (o.type === 'pen') {
+                    // Для олівця масштабуємо кожну точку шляху
+                    o.x = newX + (state.x - oldBBox.x) * scaleX;
+                    o.y = newY + (state.y - oldBBox.y) * scaleY;
+                    o.points = state.points.map(p => ({
+                        x: newX + (p.x - oldBBox.x) * scaleX,
+                        y: newY + (p.y - oldBBox.y) * scaleY
+                    }));
+                } else {
+                    // Для тексту та зображень
+                    o.x = newX + (state.x - oldBBox.x) * scaleX;
+                    o.y = newY + (state.y - oldBBox.y) * scaleY;
+                    
+                    // Масштабування розмірів (для image) або шрифту (для text)
+                    if (o.type === 'image') {
+                        o.w = state.w * scaleX;
+                        o.h = state.h * scaleY;
+                    } else if (o.type === 'text') {
+                        // Для тексту використовуємо середнє масштабування, щоб не спотворювати шрифт
+                        const avgScale = (scaleX + scaleY) / 2;
+                        o.size = Math.max(8, state.obj.size * avgScale);
+                    }
+                }
             });
         }
         draw();
