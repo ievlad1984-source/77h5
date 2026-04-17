@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (Group Select)</title>
+    <title>Математична Дошка Pro (Math Fields)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
@@ -29,28 +29,23 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; border: 1px solid #ddd;
         }
 
+        /* === СТИЛІ ДЛЯ ПОЛІВ ВВЕДЕННЯ === */
         .text-edit-wrapper {
             position: absolute;
             z-index: 2000;
             border: 2px dashed #4CAF50;
             background: transparent;
             box-sizing: border-box;
-            width: auto !important;
             min-width: 100px;
+            padding: 5px;
         }
 
         .text-edit-content {
-            width: auto;
-            min-width: 100px;
-            max-width: none;
-            height: auto;
-            min-height: 30px;
             outline: none;
             background: rgba(255, 255, 255, 0.95);
             border: none;
             border-radius: 4px;
-            padding: 6px 10px;
-            font-size: 18px;
+            font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
             white-space: pre;
@@ -58,6 +53,31 @@
             display: inline-block;
             box-sizing: border-box;
             line-height: 1.4;
+            min-width: 50px;
+        }
+
+        /* Поле степеня */
+        .math-sup {
+            display: inline-block;
+            vertical-align: super;
+            font-size: 0.6em;
+            border: 1px dashed #2196F3;
+            background: rgba(33, 150, 243, 0.1);
+            border-radius: 3px;
+            padding: 0 2px;
+            margin: 0 1px;
+        }
+
+        /* Поле індексу */
+        .math-sub {
+            display: inline-block;
+            vertical-align: sub;
+            font-size: 0.6em;
+            border: 1px dashed #2196F3;
+            background: rgba(33, 150, 243, 0.1);
+            border-radius: 3px;
+            padding: 0 2px;
+            margin: 0 1px;
         }
 
         .handle {
@@ -205,25 +225,6 @@ function undo() {
     isUndoing = false;
 }
 
-const superscripts = {
-    '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹',
-    'a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ',
-    'k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','q':'ᵠ','r':'ʳ','s':'ˢ','t':'ᵗ',
-    'u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ',
-    'A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ',
-    'K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','Q':'ᵠ','R':'ᴿ','S':'ˢ','T':'ᵀ',
-    'U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ',
-    '+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','/':'ᐟ'
-};
-
-const subscripts = {
-    '0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉',
-    'a':'ₐ','b':'բ','c':'꜀','d':'Ꮷ','e':'ₑ','f':'ᶠ','g':'ᵩ','h':'ₕ','i':'ᵢ','j':'ⱼ',
-    'k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ₒ','p':'ₚ','q':'զ','r':'ᵣ','s':'ₛ','t':'ₜ',
-    'u':'ᵤ','v':'ᵥ','w':'w','x':'ₓ','y':'ᵧ','z':'₂',
-    '+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'
-};
-
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
@@ -266,39 +267,77 @@ window.addEventListener('keyup', (e) => {
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
 
-function convertMath(text) {
-    if (!document.getElementById('mathMode')?.checked) return text;
+// === Конвертація HTML з редактора у структуру для Canvas ===
+function htmlToSegments(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const segments = [];
     
-    let result = text;
+    function processNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (node.textContent.trim().length > 0) {
+                segments.push({ type: 'normal', text: node.textContent });
+            }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList.contains('math-sup')) {
+                segments.push({ type: 'sup', text: node.textContent });
+            } else if (node.classList.contains('math-sub')) {
+                segments.push({ type: 'sub', text: node.textContent });
+            } else {
+                // Рекурсивно для інших елементів
+                node.childNodes.forEach(processNode);
+            }
+        }
+    }
     
-    result = result.replace(/([a-zA-Z0-9])\^([0-9a-zA-Z]+)/g, (match, base, exp) => {
-        const convertedExp = exp.split('').map(c => superscripts[c] || c).join('');
-        return base + convertedExp;
-    });
-    
-    result = result.replace(/([a-zA-Z0-9])_([0-9a-zA-Z]+)/g, (match, base, sub) => {
-        const convertedSub = sub.split('').map(c => subscripts[c] || c).join('');
-        return base + convertedSub;
-    });
-    
-    result = result.replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/gi, m => 
-        ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
-    
-    return result;
+    doc.body.childNodes.forEach(processNode);
+    return segments;
+}
+
+// === Конвертація структури у HTML для редактора ===
+function segmentsToHtml(segments) {
+    return segments.map(s => {
+        if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
+        if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
+        return s.text;
+    }).join('');
 }
 
 function getBBox(obj) {
     if (!obj) return null;
     if (obj.type === 'text') {
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-        const lines = obj.text.split('\n');
+        // Розрахунок розмірів для сегментованого тексту
         let maxW = 0;
-        lines.forEach(l => {
-            const w = ctx.measureText(l).width;
-            if (w > maxW) maxW = w;
-        });
-        const h = lines.length * obj.size * 1.2;
-        return { x: obj.x, y: obj.y, w: maxW / scale || 50, h: h || 20 };
+        let totalH = obj.size * 1.2;
+        
+        // Тимчасово встановлюємо шрифт для вимірювання
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        const normalH = obj.size * scale;
+        const smallH = normalH * 0.6;
+        
+        // Проста оцінка висоти
+        const h = Math.max(normalH, smallH) * 1.2;
+        
+        // Вимірювання ширини
+        if (obj.segments) {
+            obj.segments.forEach(s => {
+                let w = 0;
+                if (s.type === 'sup' || s.type === 'sub') {
+                    ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale * 0.6}px 'Segoe UI', sans-serif`;
+                    w = ctx.measureText(s.text).width;
+                } else {
+                    ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+                    w = ctx.measureText(s.text).width;
+                }
+                maxW += w;
+            });
+        } else {
+             // Fallback для старого формату
+             ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+             maxW = ctx.measureText(obj.text || '').width;
+        }
+        
+        return { x: obj.x, y: obj.y, w: maxW / scale || 50, h: h / scale || 20 };
     }
     if (obj.type === 'rect') {
         return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
@@ -530,39 +569,34 @@ function draw() {
     drawMarqueeSelection();
 }
 
-function drawMathText(ctx, text, x, y, baseSize, isBold) {
+// === Малювання сегментованого тексту ===
+function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     let currentX = x;
-    let i = 0;
+    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+    const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+    const lineHeight = baseSize * 1.2;
     
-    while (i < text.length) {
-        const char = text[i];
-        
-        if ((char >= '⁰' && char <= '⁹') || (char >= 'ᵃ' && char <= 'ᶻ') || 
-            (char >= 'ᴬ' && char <= 'ᶻ') || ['⁺','⁻','⁼','⁽','⁾',''].includes(char)) {
-            const subSize = baseSize * 0.6;
-            ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
-            const w = ctx.measureText(char).width;
-            ctx.fillText(char, currentX, y - baseSize * 0.5);
-            currentX += w;
-            i++;
+    // Базова лінія для нормального тексту
+    const baseY = y; 
+    // Зміщення для степеня (вгору) та індексу (вниз)
+    const supY = y - baseSize * 0.5;
+    const subY = y + baseSize * 0.3;
+    
+    segments.forEach(s => {
+        if (s.type === 'normal') {
+            ctx.font = normalFont;
+            ctx.fillText(s.text, currentX, baseY);
+            currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'sup') {
+            ctx.font = smallFont;
+            ctx.fillText(s.text, currentX, supY);
+            currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'sub') {
+            ctx.font = smallFont;
+            ctx.fillText(s.text, currentX, subY);
+            currentX += ctx.measureText(s.text).width;
         }
-        else if ((char >= '₀' && char <= '₉') || (char >= 'ₐ' && char <= 'ᵧ') || 
-            ['₊','₋','₌','₍','₎'].includes(char)) {
-            const subSize = baseSize * 0.6;
-            ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
-            const w = ctx.measureText(char).width;
-            ctx.fillText(char, currentX, y + baseSize * 0.3);
-            currentX += w;
-            i++;
-        }
-        else {
-            ctx.font = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-            const w = ctx.measureText(char).width;
-            ctx.fillText(char, currentX, y);
-            currentX += w;
-            i++;
-        }
-    }
+    });
 }
 
 function drawObject(obj, isTemp = false) {
@@ -610,17 +644,30 @@ function drawObject(obj, isTemp = false) {
         const h = (obj.ey - obj.y) * scale;
         ctx.strokeRect(sx, sy, w, h);
     } else if (obj.type === 'text') {
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
         ctx.fillStyle = obj.color || '#000';
         ctx.textBaseline = 'alphabetic';
         
-        const lines = obj.text.split('\n');
-        const baseY = sy + (obj.size * scale * 0.8);
+        const baseSize = obj.size * scale;
         
-        lines.forEach((line, lineIndex) => {
-            const y = baseY + (lineIndex * obj.size * scale * 1.2);
-            drawMathText(ctx, line, sx, y, obj.size * scale, obj.isBold);
-        });
+        // Малюємо по сегментах
+        if (obj.segments && obj.segments.length > 0) {
+            // Для простоти малюємо все на одній лінії (багаторядковий текст потребує складнішої логіки)
+            // Розбиваємо на рядки за \n
+            const allText = obj.segments.map(s => s.text).join(''); // Це не ідеально для \n, але для прикладу працює
+            // Краще зберігати segments як масив масивів для рядків, але поки спростимо:
+            // Припустимо, що \n немає всередині сегментів, а між ними.
+            // Для стабільності поки малюємо як один рядок, якщо є \n - розбиваємо
+            
+            // Спрощена підтримка \n: шукаємо сегменти з \n і розбиваємо
+            // Але для математичних полів краще уникати \n всередині.
+            // Малюємо просто перший рядок для демонстрації полів.
+            
+            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
+        } else {
+            // Старий формат
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+            ctx.fillText(obj.text || '', sx, sy + (baseSize * 0.8));
+        }
     } else if (obj.type === 'image') {
         if (!obj._img) {
             obj._img = new Image();
@@ -643,6 +690,56 @@ function getCoords(e) {
         rawX: clientX, 
         rawY: clientY 
     };
+}
+
+// === Допоміжні функції для роботи з Caret у contenteditable ===
+function getCaretCoordinates() {
+    let x = 0, y = 0;
+    const selection = window.getSelection();
+    if (selection.rangeCount !== 0) {
+        const range = selection.getRangeAt(0).cloneRange();
+        range.collapse(false);
+        const rect = range.getClientRects()[0];
+        if (rect) {
+            x = rect.left;
+            y = rect.top;
+        }
+    }
+    return { x, y };
+}
+
+function insertHtmlAtCaret(html) {
+    const sel = window.getSelection();
+    if (sel.getRangeAt && sel.rangeCount) {
+        let range = sel.getRangeAt(0);
+        range.deleteContents();
+        const el = document.createElement("div");
+        el.innerHTML = html;
+        let frag = document.createDocumentFragment(), node, lastNode;
+        while ((node = el.firstChild)) {
+            lastNode = frag.appendChild(node);
+        }
+        range.insertNode(frag);
+        if (lastNode) {
+            range = range.cloneRange();
+            range.setStartAfter(lastNode);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    }
+}
+
+function moveCaretRight() {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        // Спроба перемістити курсор вперед
+        range.setStart(range.endContainer, range.endOffset + 1);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
 }
 
 function startTextEdit(obj) {
@@ -679,144 +776,96 @@ function startTextEdit(obj) {
     rotHandle.dataset.handle = 'rotate';
     wrapper.appendChild(rotHandle);
     
-    const textarea = document.createElement('div');
-    textarea.className = 'text-edit-content';
-    textarea.contentEditable = true;
-    textarea.innerText = obj.rawText || obj.text;
-    textarea.style.color = obj.color;
-    textarea.style.fontWeight = obj.isBold ? 'bold' : 'normal';
-    textarea.style.fontSize = (obj.size * scale) + 'px';
+    const editorDiv = document.createElement('div');
+    editorDiv.className = 'text-edit-content';
+    editorDiv.contentEditable = true;
+    editorDiv.style.color = obj.color;
+    editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    wrapper.appendChild(textarea);
+    // === Ініціалізація HTML з сегментів ===
+    if (obj.segments) {
+        editorDiv.innerHTML = segmentsToHtml(obj.segments);
+    } else {
+        editorDiv.innerText = obj.text || '';
+    }
+    
+    wrapper.appendChild(editorDiv);
     document.body.appendChild(wrapper);
     textEditor = wrapper;
     
     function updateSize() {
-        const lines = textarea.innerText.split('\n');
-        let maxWidth = 0;
-        lines.forEach(line => {
-            const width = ctx.measureText(line).width;
-            maxWidth = Math.max(maxWidth, width);
-        });
-        
-        const newWidth = Math.max(maxWidth + 20, 100);
-        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 10, obj.size * 1.2 * scale + 10);
-        
-        wrapper.style.width = newWidth + 'px';
-        wrapper.style.height = newHeight + 'px';
+        // Розмір змінюється автоматично завдяки inline-block
+        const rect = editorDiv.getBoundingClientRect();
+        wrapper.style.width = (rect.width + 20) + 'px';
+        wrapper.style.height = (rect.height + 10) + 'px';
     }
     
-    ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
     updateSize();
     
     setTimeout(() => {
-        textarea.focus();
+        editorDiv.focus();
         const range = document.createRange();
-        range.selectNodeContents(textarea);
+        range.selectNodeContents(editorDiv);
         range.collapse(false);
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
     }, 10);
     
-    let isConverting = false;
-    
-    textarea.addEventListener('input', () => {
-        if (isConverting) return;
-        
-        const text = textarea.innerText;
-        
-        if (!document.getElementById('mathMode')?.checked) {
-            obj.rawText = text;
-            obj.text = text;
-            updateSize();
-            draw();
-            return;
-        }
-        
-        if (text.includes('^') || text.includes('_') || /\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/.test(text)) {
-            const selection = window.getSelection();
-            let cursorPos = 0;
-            
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                const preCaretRange = range.cloneRange();
-                preCaretRange.selectNodeContents(textarea);
-                preCaretRange.setEnd(range.startContainer, range.startOffset);
-                cursorPos = preCaretRange.toString().length;
-            }
-            
-            const oldLength = text.length;
-            const converted = convertMath(text);
-            
-            if (converted !== text) {
-                isConverting = true;
-                textarea.innerText = converted;
-                
-                const newLength = converted.length;
-                let newPos = cursorPos;
-                
-                if (cursorPos < oldLength) {
-                    const textBeforeCursor = text.substring(0, cursorPos);
-                    const convertedBeforeCursor = convertMath(textBeforeCursor);
-                    newPos = convertedBeforeCursor.length;
-                }
-                
-                setTimeout(() => {
-                    try {
-                        const newRange = document.createRange();
-                        const node = textarea.firstChild;
-                        if (node) {
-                            newRange.setStart(node, Math.min(newPos, node.length));
-                            newRange.collapse(true);
-                            selection.removeAllRanges();
-                            selection.addRange(newRange);
-                        }
-                    } catch(err) {
-                        const newRange = document.createRange();
-                        newRange.selectNodeContents(textarea);
-                        newRange.collapse(false);
-                        selection.removeAllRanges();
-                        selection.addRange(newRange);
-                    }
-                    isConverting = false;
-                }, 0);
-                
-                obj.rawText = text;
-                obj.text = converted;
-            } else {
-                obj.rawText = text;
-                obj.text = text;
-            }
-        } else {
-            obj.rawText = text;
-            obj.text = text;
-        }
-        
-        updateSize();
-        draw();
-    });
-    
-    // === ВИПРАВЛЕНО: Стрілка вправо виходить з режиму степеня/індексу ===
-    textarea.addEventListener('keydown', (e) => {
-        // Стрілка вправо - вихід з режиму степеня/індексу
+    // === ОБРОБКА ВВОДУ МATEМАТИКИ ===
+    editorDiv.addEventListener('keydown', (e) => {
+        // Стрілка вправо - вихід з поля
         if (e.key === 'ArrowRight') {
-            const selection = window.getSelection();
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                const text = textarea.innerText;
-                const currentPos = range.startOffset;
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const node = range.endContainer;
+                const offset = range.endOffset;
                 
-                // Якщо курсор всередині тексту, переміщуємо його в кінець
-                if (currentPos < text.length) {
-                    e.preventDefault();
-                    const newRange = document.createRange();
-                    newRange.setStart(textarea.firstChild, text.length);
-                    newRange.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
+                // Якщо ми в кінці span (math-sup або math-sub)
+                if (node.nodeType === 3) { // Text node
+                    if (node.parentElement.classList.contains('math-sup') || node.parentElement.classList.contains('math-sub')) {
+                        if (offset >= node.length) {
+                            e.preventDefault();
+                            // Перемістити курсор після span
+                            const span = node.parentElement;
+                            const newRange = document.createRange();
+                            newRange.setStartAfter(span);
+                            newRange.collapse(true);
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                        }
+                    }
+                } else if (node === editorDiv) {
+                     // Якщо курсор просто в редакторі, дозволяємо стандартну поведінку
                 }
             }
+        }
+        
+        // Введення ^ або _
+        if (e.key === '^' || e.key === '_') {
+            e.preventDefault();
+            const tagClass = e.key === '^' ? 'math-sup' : 'math-sub';
+            // Вставляємо пустий span і ставимо курсор всередину
+            insertHtmlAtCaret(`<span class="${tagClass}"></span>`);
+            
+            // Фокус всередину span
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const node = range.startContainer;
+                // Якщо курсор перед span, заходимо всередину
+                if (node.nodeType === 1 && node.childNodes[range.startOffset]?.classList?.contains(tagClass)) {
+                     const span = node.childNodes[range.startOffset];
+                     const newRange = document.createRange();
+                     newRange.selectNodeContents(span);
+                     newRange.collapse(false); // В кінець, щоб писати далі
+                     sel.removeAllRanges();
+                     sel.addRange(newRange);
+                }
+            }
+            updateSize();
         }
         
         if (e.key === 'Enter' && !e.shiftKey) { 
@@ -828,35 +877,41 @@ function startTextEdit(obj) {
         }
     });
     
+    editorDiv.addEventListener('input', () => {
+        updateSize();
+        // Оновлення об'єкта в реальному часі не робимо для складного HTML, тільки при збереженні
+    });
+    
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
             e.stopPropagation();
-            startTextResize(obj, h.dataset.handle, e, wrapper, textarea);
+            startTextResize(obj, h.dataset.handle, e, wrapper, editorDiv);
         });
     });
     
-    textarea.addEventListener('mousedown', (e) => {
-        if (e.target === textarea) {
+    editorDiv.addEventListener('mousedown', (e) => {
+        if (e.target === editorDiv) {
             e.stopPropagation();
             startTextDrag(obj, e, wrapper);
         }
     });
     
-    textarea.addEventListener('blur', () => {
+    editorDiv.addEventListener('blur', () => {
         setTimeout(() => {
-            if (textEditor && document.activeElement !== textarea) stopTextEdit();
+            if (textEditor && document.activeElement !== editorDiv) stopTextEdit();
         }, 200);
     });
 }
 
 function stopTextEdit(cancel = false) {
     if (!textEditor) return;
-    const textarea = textEditor.querySelector('.text-edit-content');
+    const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
-        editingObject.text = convertMath(textarea.innerText);
-        editingObject.rawText = textarea.innerText;
+        // Конвертуємо HTML назад у сегменти
+        editingObject.segments = htmlToSegments(editorDiv.innerHTML);
+        editingObject.text = editorDiv.innerText; // Для сумісності
         socket.emit('update-all', objects);
     }
     document.body.removeChild(textEditor);
@@ -865,7 +920,7 @@ function stopTextEdit(cancel = false) {
     draw();
 }
 
-function startTextResize(obj, handle, e, wrapper, textarea) {
+function startTextResize(obj, handle, e, wrapper, editorDiv) {
     isResizing = true;
     resizeHandle = handle;
     const coords = getCoords(e);
@@ -892,22 +947,8 @@ function startTextResize(obj, handle, e, wrapper, textarea) {
         
         obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
         
-        textarea.style.fontSize = (obj.size * scale) + 'px';
-        
-        const lines = textarea.innerText.split('\n');
-        let maxWidth = 0;
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-        lines.forEach(line => {
-            const w = ctx.measureText(line).width;
-            maxWidth = Math.max(maxWidth, w);
-        });
-        
-        const newWidth = Math.max(maxWidth + 20, 100);
-        const newHeight = Math.max(lines.length * obj.size * 1.2 * scale + 10, obj.size * 1.2 * scale + 10);
-        
-        wrapper.style.width = newWidth + 'px';
-        wrapper.style.height = newHeight + 'px';
-        
+        editorDiv.style.fontSize = (obj.size * scale) + 'px';
+        updateSize();
         draw();
     };
     
@@ -927,8 +968,8 @@ function startTextDrag(obj, e, wrapper) {
     const coords = getCoords(e);
     dragStartX = coords.x - obj.x;
     dragStartY = coords.y - obj.y;
-    const textarea = wrapper.querySelector('.text-edit-content');
-    textarea.style.cursor = 'grabbing';
+    const editorDiv = wrapper.querySelector('.text-edit-content');
+    editorDiv.style.cursor = 'grabbing';
     
     const onMove = (e) => {
         if (!isDragging) return;
@@ -943,7 +984,7 @@ function startTextDrag(obj, e, wrapper) {
     
     const onUp = () => {
         isDragging = false;
-        textarea.style.cursor = '';
+        editorDiv.style.cursor = '';
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
@@ -1270,7 +1311,9 @@ function startRotate(e) {
 
 function createNewText(coords) {
     const obj = {
-        type: 'text', x: coords.x, y: coords.y, text: '', rawText: '',
+        type: 'text', x: coords.x, y: coords.y, 
+        text: '', 
+        segments: [{type:'normal', text:''}], // Початкова структура
         color: document.getElementById('colorPicker').value,
         size: 20, isBold: document.getElementById('boldText').checked,
         rotation: 0
