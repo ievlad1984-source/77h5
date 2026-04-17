@@ -55,7 +55,6 @@
             min-width: 50px;
         }
 
-        /* === ВИПРАВЛЕНО: Стилі для полів степеня та індексу === */
         .math-sup, .math-sub {
             display: inline-block;
             font-size: 0.6em;
@@ -354,11 +353,15 @@ function hitTest(obj, mx, my, padding = 0) {
            my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
 }
 
-function hitHandle(obj, mx, my) {
-    const bbox = selectedObjects.length > 1 ? getGroupBBox(selectedObjects) : getBBox(obj);
+// === ВИПРАВЛЕНО: Функція тепер завжди використовує selectedObjects для пошуку хендлів ===
+function hitHandle(mx, my) {
+    // Якщо нічого не виділено, хендлів немає
+    if (selectedObjects.length === 0) return null;
+
+    const bbox = getGroupBBox(selectedObjects);
     if (!bbox) return null;
     
-    const h = 8 / scale; 
+    const h = 8 / scale; // Розмір зони кліку в логічних координатах
     const cx = bbox.x + bbox.w / 2;
     const cy = bbox.y + bbox.h / 2;
     
@@ -648,7 +651,6 @@ function getCoords(e) {
     };
 }
 
-// === ВИПРАВЛЕНО: Функція для вставки HTML та фокусу ===
 function insertMathField(type) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
@@ -656,16 +658,14 @@ function insertMathField(type) {
     const range = sel.getRangeAt(0);
     const span = document.createElement('span');
     span.className = type === 'sup' ? 'math-sup' : 'math-sub';
-    // === ДОДАНО ПРОБІЛ ДЛЯ ІНІЦІАЛІЗАЦІЇ ===
-    span.textContent = '\u200B'; // Zero-width space для фокусу
+    span.textContent = '\u200B'; 
     
     range.deleteContents();
     range.insertNode(span);
     
-    // === ФОКУС ВСЕРЕДИНУ ПОЛЯ ===
     const newRange = document.createRange();
     newRange.selectNodeContents(span);
-    newRange.collapse(false); // В кінець
+    newRange.collapse(false);
     sel.removeAllRanges();
     sel.addRange(newRange);
     
@@ -741,9 +741,7 @@ function startTextEdit(obj) {
         sel.addRange(range);
     }, 10);
     
-    // === ВИПРАВЛЕНО: Обробка клавіш для полів ===
     editorDiv.addEventListener('keydown', (e) => {
-        // Стрілка вправо - вихід з поля
         if (e.key === 'ArrowRight') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -751,7 +749,6 @@ function startTextEdit(obj) {
                 const node = range.endContainer;
                 const offset = range.endOffset;
                 
-                // Якщо ми в кінці span (math-sup або math-sub)
                 if (node.nodeType === 3) {
                     const parent = node.parentElement;
                     if (parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'))) {
@@ -768,7 +765,6 @@ function startTextEdit(obj) {
             }
         }
         
-        // === ВИПРАВЛЕНО: Введення ^ або _ ===
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const span = insertMathField(e.key === '^' ? 'sup' : 'sub');
@@ -776,7 +772,6 @@ function startTextEdit(obj) {
             return;
         }
         
-        // Backspace для видалення порожнього поля
         if (e.key === 'Backspace') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -833,7 +828,6 @@ function stopTextEdit(cancel = false) {
     const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
-        // Очищаємо від zero-width spaces перед збереженням
         let html = editorDiv.innerHTML;
         html = html.replace(/\u200B/g, '');
         editingObject.segments = htmlToSegments(html);
@@ -951,10 +945,11 @@ canvas.addEventListener('mousedown', (e) => {
     
     if (currentTool === 'select') {
         let clickedObj = null;
+        // === ВИПРАВЛЕНО: hitHandle тепер приймає тільки координати ===
         let clickedHandle = null;
         
         if (selectedObjects.length > 0) {
-            clickedHandle = hitHandle(null, coords.x, coords.y);
+            clickedHandle = hitHandle(coords.x, coords.y);
         }
         
         if (!clickedHandle) {
@@ -1005,7 +1000,8 @@ canvas.addEventListener('mousemove', (e) => {
     const coords = getCoords(e);
     
     if (currentTool === 'select' && selectedObjects.length > 0 && !isDragging && !isResizing && !isRotating && !isSelectingArea) {
-        const handle = hitHandle(null, coords.x, coords.y);
+        // === ВИПРАВЛЕНО: Виклик hitHandle без першого аргументу ===
+        const handle = hitHandle(coords.x, coords.y);
         canvas.style.cursor = getCursor(handle);
     } else if (currentTool === 'select') canvas.style.cursor = isSelectingArea ? 'crosshair' : 'default';
     else if (currentTool === 'hand') canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
