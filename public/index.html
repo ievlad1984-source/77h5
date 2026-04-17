@@ -1017,25 +1017,28 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mouseup', onUp);
 }
 
-canvas.addEventListener('mousedown', (e) => {
-    if (e.detail === 2) {
-        const coords = getCoords(e);
-        const clickedObj = [...objects].reverse().find(obj => {
-            if (obj.type === 'text') {
-                return hitTest(obj, coords.x, coords.y, 10);
-            }
-            return hitTest(obj, coords.x, coords.y, 5);
-        });
-        
-        if (clickedObj && clickedObj.type === 'text') {
-            e.preventDefault();
-            e.stopPropagation();
-            selectedObjects = [clickedObj];
-            startTextEdit(clickedObj);
-            requestDraw();
-            return;
+// === ДОДАНО: Обробник подвійного кліку для тексту ===
+canvas.addEventListener('dblclick', (e) => {
+    const coords = getCoords(e);
+    // Шукаємо текстовий об'єкт під курсором
+    const clickedObj = [...objects].reverse().find(obj => {
+        if (obj.type === 'text') {
+            // Збільшений padding для зручності попадання
+            return hitTest(obj, coords.x, coords.y, 15);
         }
+        return false;
+    });
+
+    if (clickedObj) {
+        e.preventDefault();
+        // Відкриваємо редактор з існуючим текстом
+        startTextEdit(clickedObj);
+        requestDraw();
     }
+});
+
+canvas.addEventListener('mousedown', (e) => {
+    // Прибрали перевірку e.detail === 2, так як використовуємо dblclick
     
     if (textEditor) { 
         stopTextEdit(); 
