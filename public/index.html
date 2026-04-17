@@ -29,7 +29,6 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; border: 1px solid #ddd;
         }
 
-        /* === СТИЛІ ДЛЯ ПОЛІВ ВВЕДЕННЯ === */
         .text-edit-wrapper {
             position: absolute;
             z-index: 2000;
@@ -56,29 +55,21 @@
             min-width: 50px;
         }
 
-        /* Поле степеня */
-        .math-sup {
+        /* === ВИПРАВЛЕНО: Стилі для полів степеня та індексу === */
+        .math-sup, .math-sub {
             display: inline-block;
-            vertical-align: super;
             font-size: 0.6em;
             border: 1px dashed #2196F3;
             background: rgba(33, 150, 243, 0.1);
             border-radius: 3px;
-            padding: 0 2px;
+            padding: 0 3px;
             margin: 0 1px;
+            min-width: 10px;
+            min-height: 1em;
         }
 
-        /* Поле індексу */
-        .math-sub {
-            display: inline-block;
-            vertical-align: sub;
-            font-size: 0.6em;
-            border: 1px dashed #2196F3;
-            background: rgba(33, 150, 243, 0.1);
-            border-radius: 3px;
-            padding: 0 2px;
-            margin: 0 1px;
-        }
+        .math-sup { vertical-align: super; }
+        .math-sub { vertical-align: sub; }
 
         .handle {
             position: absolute;
@@ -229,7 +220,6 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
     
-    // === CTRL+A - Виділити всі об'єкти ===
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         if (!textEditor) {
             e.preventDefault();
@@ -239,14 +229,12 @@ window.addEventListener('keydown', (e) => {
         }
     }
     
-    // === CTRL+Z - Undo ===
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         undo();
         return;
     }
     
-    // === DELETE/BACKSPACE - Видалити виділені об'єкти ===
     if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedObjects.length > 0 && !textEditor) {
             e.preventDefault();
@@ -267,7 +255,6 @@ window.addEventListener('keyup', (e) => {
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
 
-// === Конвертація HTML з редактора у структуру для Canvas ===
 function htmlToSegments(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -275,16 +262,15 @@ function htmlToSegments(html) {
     
     function processNode(node) {
         if (node.nodeType === Node.TEXT_NODE) {
-            if (node.textContent.trim().length > 0) {
+            if (node.textContent.length > 0) {
                 segments.push({ type: 'normal', text: node.textContent });
             }
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             if (node.classList.contains('math-sup')) {
-                segments.push({ type: 'sup', text: node.textContent });
+                segments.push({ type: 'sup', text: node.textContent || '' });
             } else if (node.classList.contains('math-sub')) {
-                segments.push({ type: 'sub', text: node.textContent });
+                segments.push({ type: 'sub', text: node.textContent || '' });
             } else {
-                // Рекурсивно для інших елементів
                 node.childNodes.forEach(processNode);
             }
         }
@@ -294,7 +280,6 @@ function htmlToSegments(html) {
     return segments;
 }
 
-// === Конвертація структури у HTML для редактора ===
 function segmentsToHtml(segments) {
     return segments.map(s => {
         if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
@@ -306,34 +291,22 @@ function segmentsToHtml(segments) {
 function getBBox(obj) {
     if (!obj) return null;
     if (obj.type === 'text') {
-        // Розрахунок розмірів для сегментованого тексту
         let maxW = 0;
-        let totalH = obj.size * 1.2;
-        
-        // Тимчасово встановлюємо шрифт для вимірювання
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
         const normalH = obj.size * scale;
-        const smallH = normalH * 0.6;
+        const h = normalH * 1.2;
         
-        // Проста оцінка висоти
-        const h = Math.max(normalH, smallH) * 1.2;
-        
-        // Вимірювання ширини
         if (obj.segments) {
             obj.segments.forEach(s => {
                 let w = 0;
                 if (s.type === 'sup' || s.type === 'sub') {
                     ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale * 0.6}px 'Segoe UI', sans-serif`;
-                    w = ctx.measureText(s.text).width;
                 } else {
                     ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-                    w = ctx.measureText(s.text).width;
                 }
-                maxW += w;
+                maxW += ctx.measureText(s.text).width;
             });
         } else {
-             // Fallback для старого формату
-             ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
              maxW = ctx.measureText(obj.text || '').width;
         }
         
@@ -569,16 +542,12 @@ function draw() {
     drawMarqueeSelection();
 }
 
-// === Малювання сегментованого тексту ===
 function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     let currentX = x;
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
     const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
-    const lineHeight = baseSize * 1.2;
     
-    // Базова лінія для нормального тексту
     const baseY = y; 
-    // Зміщення для степеня (вгору) та індексу (вниз)
     const supY = y - baseSize * 0.5;
     const subY = y + baseSize * 0.3;
     
@@ -649,22 +618,9 @@ function drawObject(obj, isTemp = false) {
         
         const baseSize = obj.size * scale;
         
-        // Малюємо по сегментах
         if (obj.segments && obj.segments.length > 0) {
-            // Для простоти малюємо все на одній лінії (багаторядковий текст потребує складнішої логіки)
-            // Розбиваємо на рядки за \n
-            const allText = obj.segments.map(s => s.text).join(''); // Це не ідеально для \n, але для прикладу працює
-            // Краще зберігати segments як масив масивів для рядків, але поки спростимо:
-            // Припустимо, що \n немає всередині сегментів, а між ними.
-            // Для стабільності поки малюємо як один рядок, якщо є \n - розбиваємо
-            
-            // Спрощена підтримка \n: шукаємо сегменти з \n і розбиваємо
-            // Але для математичних полів краще уникати \n всередині.
-            // Малюємо просто перший рядок для демонстрації полів.
-            
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
         } else {
-            // Старий формат
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             ctx.fillText(obj.text || '', sx, sy + (baseSize * 0.8));
         }
@@ -692,54 +648,28 @@ function getCoords(e) {
     };
 }
 
-// === Допоміжні функції для роботи з Caret у contenteditable ===
-function getCaretCoordinates() {
-    let x = 0, y = 0;
-    const selection = window.getSelection();
-    if (selection.rangeCount !== 0) {
-        const range = selection.getRangeAt(0).cloneRange();
-        range.collapse(false);
-        const rect = range.getClientRects()[0];
-        if (rect) {
-            x = rect.left;
-            y = rect.top;
-        }
-    }
-    return { x, y };
-}
-
-function insertHtmlAtCaret(html) {
+// === ВИПРАВЛЕНО: Функція для вставки HTML та фокусу ===
+function insertMathField(type) {
     const sel = window.getSelection();
-    if (sel.getRangeAt && sel.rangeCount) {
-        let range = sel.getRangeAt(0);
-        range.deleteContents();
-        const el = document.createElement("div");
-        el.innerHTML = html;
-        let frag = document.createDocumentFragment(), node, lastNode;
-        while ((node = el.firstChild)) {
-            lastNode = frag.appendChild(node);
-        }
-        range.insertNode(frag);
-        if (lastNode) {
-            range = range.cloneRange();
-            range.setStartAfter(lastNode);
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
-        }
-    }
-}
-
-function moveCaretRight() {
-    const sel = window.getSelection();
-    if (sel.rangeCount > 0) {
-        const range = sel.getRangeAt(0);
-        // Спроба перемістити курсор вперед
-        range.setStart(range.endContainer, range.endOffset + 1);
-        range.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(range);
-    }
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+    const span = document.createElement('span');
+    span.className = type === 'sup' ? 'math-sup' : 'math-sub';
+    // === ДОДАНО ПРОБІЛ ДЛЯ ІНІЦІАЛІЗАЦІЇ ===
+    span.textContent = '\u200B'; // Zero-width space для фокусу
+    
+    range.deleteContents();
+    range.insertNode(span);
+    
+    // === ФОКУС ВСЕРЕДИНУ ПОЛЯ ===
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    newRange.collapse(false); // В кінець
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    
+    return span;
 }
 
 function startTextEdit(obj) {
@@ -783,7 +713,6 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // === Ініціалізація HTML з сегментів ===
     if (obj.segments) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else {
@@ -795,7 +724,6 @@ function startTextEdit(obj) {
     textEditor = wrapper;
     
     function updateSize() {
-        // Розмір змінюється автоматично завдяки inline-block
         const rect = editorDiv.getBoundingClientRect();
         wrapper.style.width = (rect.width + 20) + 'px';
         wrapper.style.height = (rect.height + 10) + 'px';
@@ -813,7 +741,7 @@ function startTextEdit(obj) {
         sel.addRange(range);
     }, 10);
     
-    // === ОБРОБКА ВВОДУ МATEМАТИКИ ===
+    // === ВИПРАВЛЕНО: Обробка клавіш для полів ===
     editorDiv.addEventListener('keydown', (e) => {
         // Стрілка вправо - вихід з поля
         if (e.key === 'ArrowRight') {
@@ -824,48 +752,45 @@ function startTextEdit(obj) {
                 const offset = range.endOffset;
                 
                 // Якщо ми в кінці span (math-sup або math-sub)
-                if (node.nodeType === 3) { // Text node
-                    if (node.parentElement.classList.contains('math-sup') || node.parentElement.classList.contains('math-sub')) {
+                if (node.nodeType === 3) {
+                    const parent = node.parentElement;
+                    if (parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'))) {
                         if (offset >= node.length) {
                             e.preventDefault();
-                            // Перемістити курсор після span
-                            const span = node.parentElement;
                             const newRange = document.createRange();
-                            newRange.setStartAfter(span);
+                            newRange.setStartAfter(parent);
                             newRange.collapse(true);
                             sel.removeAllRanges();
                             sel.addRange(newRange);
                         }
                     }
-                } else if (node === editorDiv) {
-                     // Якщо курсор просто в редакторі, дозволяємо стандартну поведінку
                 }
             }
         }
         
-        // Введення ^ або _
+        // === ВИПРАВЛЕНО: Введення ^ або _ ===
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
-            const tagClass = e.key === '^' ? 'math-sup' : 'math-sub';
-            // Вставляємо пустий span і ставимо курсор всередину
-            insertHtmlAtCaret(`<span class="${tagClass}"></span>`);
-            
-            // Фокус всередину span
+            const span = insertMathField(e.key === '^' ? 'sup' : 'sub');
+            updateSize();
+            return;
+        }
+        
+        // Backspace для видалення порожнього поля
+        if (e.key === 'Backspace') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
                 const range = sel.getRangeAt(0);
-                const node = range.startContainer;
-                // Якщо курсор перед span, заходимо всередину
-                if (node.nodeType === 1 && node.childNodes[range.startOffset]?.classList?.contains(tagClass)) {
-                     const span = node.childNodes[range.startOffset];
-                     const newRange = document.createRange();
-                     newRange.selectNodeContents(span);
-                     newRange.collapse(false); // В кінець, щоб писати далі
-                     sel.removeAllRanges();
-                     sel.addRange(newRange);
+                if (range.startOffset === 0 && range.endOffset === 0) {
+                    const node = range.startContainer;
+                    if (node.nodeType === 1 && (node.classList.contains('math-sup') || node.classList.contains('math-sub'))) {
+                        e.preventDefault();
+                        node.remove();
+                        updateSize();
+                        return;
+                    }
                 }
             }
-            updateSize();
         }
         
         if (e.key === 'Enter' && !e.shiftKey) { 
@@ -879,7 +804,6 @@ function startTextEdit(obj) {
     
     editorDiv.addEventListener('input', () => {
         updateSize();
-        // Оновлення об'єкта в реальному часі не робимо для складного HTML, тільки при збереженні
     });
     
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
@@ -909,9 +833,11 @@ function stopTextEdit(cancel = false) {
     const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
-        // Конвертуємо HTML назад у сегменти
-        editingObject.segments = htmlToSegments(editorDiv.innerHTML);
-        editingObject.text = editorDiv.innerText; // Для сумісності
+        // Очищаємо від zero-width spaces перед збереженням
+        let html = editorDiv.innerHTML;
+        html = html.replace(/\u200B/g, '');
+        editingObject.segments = htmlToSegments(html);
+        editingObject.text = editorDiv.innerText.replace(/\u200B/g, '');
         socket.emit('update-all', objects);
     }
     document.body.removeChild(textEditor);
@@ -996,7 +922,6 @@ function startTextDrag(obj, e, wrapper) {
 
 canvas.addEventListener('mousedown', (e) => {
     if (textEditor) { 
-        // === Клік по пустому місцю знімає виділення та виходить з редагування ===
         stopTextEdit(); 
         selectedObjects = [];
         draw();
@@ -1305,15 +1230,13 @@ function startResizeGroup(handle, e) {
     document.addEventListener('mouseup', onUp);
 }
 
-function startRotate(e) {
-    // Викликається через startResizeGroup для групи
-}
+function startRotate(e) {}
 
 function createNewText(coords) {
     const obj = {
         type: 'text', x: coords.x, y: coords.y, 
         text: '', 
-        segments: [{type:'normal', text:''}], // Початкова структура
+        segments: [{type:'normal', text:''}],
         color: document.getElementById('colorPicker').value,
         size: 20, isBold: document.getElementById('boldText').checked,
         rotation: 0
