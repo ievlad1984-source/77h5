@@ -48,7 +48,8 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            white-space: pre-wrap;
+            /* ИЗМЕНЕНИЕ 1: Убрано pre-wrap, добавлено white-space: pre (или nowrap) */
+            white-space: pre; 
             overflow: visible;
             display: inline-block;
             box-sizing: border-box;
@@ -901,6 +902,14 @@ function startTextEdit(obj) {
     
     editorDiv.addEventListener('input', () => {
         updateSize();
+        // === ИЗМЕНЕНИЕ 2: Отправка текста в реальном времени при каждом вводе ===
+        if (editingObject) {
+            let html = editorDiv.innerHTML;
+            html = html.replace(/\u200B/g, '');
+            editingObject.segments = htmlToSegments(html);
+            editingObject.text = editorDiv.innerText.replace(/\u200B/g, '');
+            if (socket && socket.connected) socket.emit('update-all', objects);
+        }
     });
     
     editorDiv.addEventListener('blur', () => {
