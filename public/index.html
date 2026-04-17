@@ -37,7 +37,6 @@
             box-sizing: border-box;
             min-width: 100px;
             padding: 5px;
-            user-select: none; 
         }
 
         .text-edit-content {
@@ -54,21 +53,19 @@
             box-sizing: border-box;
             line-height: 1.4;
             min-width: 50px;
-            cursor: text;
-            vertical-align: baseline;
         }
 
+        /* === ВИПРАВЛЕНО: Стилі для полів степеня та індексу === */
         .math-sup, .math-sub {
             display: inline-block;
             font-size: 0.6em;
             border: 1px dashed #2196F3;
-            background: rgba(33, 150, 243, 0.15);
+            background: rgba(33, 150, 243, 0.1);
             border-radius: 3px;
             padding: 0 3px;
             margin: 0 1px;
             min-width: 10px;
             min-height: 1em;
-            line-height: 1.2;
         }
 
         .math-sup { vertical-align: super; }
@@ -76,53 +73,53 @@
 
         .handle {
             position: absolute;
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             background: #4CAF50;
             border: 1px solid white;
-            border-radius: 2px;
+            border-radius: 1px;
             z-index: 2001;
             cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         
-        .handle:hover { background: #45a049; transform: scale(1.2); }
-        .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
-        .handle.n { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
-        .handle.e { top: 50%; right: -4px; transform: translateY(-50%); cursor: ew-resize; }
-        .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
-        .handle.s { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
-        .handle.w { top: 50%; left: -4px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle:hover { background: #45a049; transform: scale(1.3); }
+        .handle.nw { top: -3px; left: -3px; cursor: nw-resize; }
+        .handle.n { top: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.ne { top: -3px; right: -3px; cursor: ne-resize; }
+        .handle.e { top: 50%; right: -3px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle.se { bottom: -3px; right: -3px; cursor: se-resize; }
+        .handle.s { bottom: -3px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.sw { bottom: -3px; left: -3px; cursor: sw-resize; }
+        .handle.w { top: 50%; left: -3px; transform: translateY(-50%); cursor: ew-resize; }
         
         .rotate-handle {
             position: absolute;
-            top: -20px;
+            top: -15px;
             left: 50%;
             transform: translateX(-50%);
-            width: 10px;
-            height: 10px;
+            width: 7px;
+            height: 7px;
             background: #2196F3;
-            border: 2px solid white;
+            border: 1px solid white;
             border-radius: 50%;
             cursor: alias;
             z-index: 2001;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         
         .rotate-line {
             position: absolute;
-            top: -10px;
+            top: -8px;
             left: 50%;
             width: 1px;
-            height: 10px;
+            height: 8px;
             background: #2196F3;
             transform: translateX(-50%);
             pointer-events: none;
         }
 
-        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; padding: 0; }
+        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }
         input[type="range"] { cursor: pointer; }
         .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
         
@@ -138,15 +135,6 @@
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
         .cursor-eraser { cursor: cell !important; }
-        .cursor-text { cursor: text !important; }
-        
-        .cursor-pencil { 
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>') 0 24, auto !important; 
-        }
-        
-        .cursor-rect { 
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>') 0 24, auto !important; 
-        }
     </style>
 </head>
 <body>
@@ -176,14 +164,7 @@
 
 <script>
 const boardId = window.location.pathname.replace('/', '') || 'main';
-let socket;
-try {
-    socket = io({ query: { boardId } });
-} catch (e) {
-    console.warn("Socket.io not loaded or connection failed. Running in local mode.");
-    socket = { emit: () => {}, on: () => {} };
-}
-
+const socket = io({ query: { boardId } });
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
@@ -207,30 +188,14 @@ let historyStack = [];
 let historyIndex = -1;
 let isUndoing = false;
 
-let needsRedraw = false;
-let animationFrameId = null;
-
 const MAX_HISTORY = 50;
-
-function requestDraw() {
-    if (!needsRedraw) {
-        needsRedraw = true;
-        animationFrameId = requestAnimationFrame(() => {
-            draw();
-            needsRedraw = false;
-        });
-    }
-}
 
 function saveHistory() {
     if (isUndoing) return;
     if (historyIndex < historyStack.length - 1) {
         historyStack = historyStack.slice(0, historyIndex + 1);
     }
-    const state = {
-        objects: JSON.parse(JSON.stringify(objects)),
-        view: { scale, offsetX, offsetY }
-    };
+    const state = JSON.parse(JSON.stringify(objects));
     historyStack.push(state);
     if (historyStack.length > MAX_HISTORY) {
         historyStack.shift();
@@ -243,25 +208,12 @@ function undo() {
     if (historyIndex <= 0 || isUndoing) return;
     isUndoing = true;
     historyIndex--;
-    const state = historyStack[historyIndex];
-    objects = JSON.parse(JSON.stringify(state.objects));
-    
-    if (state.view) {
-        scale = state.view.scale;
-        offsetX = state.view.offsetX;
-        offsetY = state.view.offsetY;
-        updateZoomDisplay();
-    }
-
+    objects = JSON.parse(JSON.stringify(historyStack[historyIndex]));
     selectedObjects = [];
     if (textEditor) stopTextEdit(true);
-    if (socket && socket.connected) socket.emit('update-all', objects);
-    requestDraw();
+    socket.emit('update-all', objects);
+    draw();
     isUndoing = false;
-}
-
-function updateZoomDisplay() {
-    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
 }
 
 window.addEventListener('keydown', (e) => { 
@@ -272,7 +224,7 @@ window.addEventListener('keydown', (e) => {
         if (!textEditor) {
             e.preventDefault();
             selectedObjects = [...objects];
-            requestDraw();
+            draw();
             return;
         }
     }
@@ -289,8 +241,8 @@ window.addEventListener('keydown', (e) => {
             saveHistory();
             objects = objects.filter(o => !selectedObjects.includes(o));
             selectedObjects = [];
-            if (socket && socket.connected) socket.emit('update-all', objects);
-            requestDraw();
+            socket.emit('update-all', objects);
+            draw();
             return;
         }
     }
@@ -318,9 +270,6 @@ function htmlToSegments(html) {
                 segments.push({ type: 'sup', text: node.textContent || '' });
             } else if (node.classList.contains('math-sub')) {
                 segments.push({ type: 'sub', text: node.textContent || '' });
-            } else if (node.tagName === 'DIV' || node.tagName === 'BR') {
-                 segments.push({ type: 'normal', text: '\n' });
-                 node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
             }
@@ -335,7 +284,6 @@ function segmentsToHtml(segments) {
     return segments.map(s => {
         if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
         if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
-        if (s.text === '\n') return '<br>';
         return s.text;
     }).join('');
 }
@@ -343,54 +291,26 @@ function segmentsToHtml(segments) {
 function getBBox(obj) {
     if (!obj) return null;
     if (obj.type === 'text') {
-        const baseSize = obj.size; 
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-        
-        const lineH = baseSize * 1.2;
-        
         let maxW = 0;
-        let currentLineW = 0;
-        let lines = 1;
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
+        const normalH = obj.size * scale;
+        const h = normalH * 1.2;
         
         if (obj.segments) {
-            let currentSegments = [];
-            
-            for (let s of obj.segments) {
-                if (s.text === '\n') {
-                    if (currentLineW > maxW) maxW = currentLineW;
-                    currentLineW = 0;
-                    lines++;
-                    continue;
-                }
-                
+            obj.segments.forEach(s => {
                 let w = 0;
                 if (s.type === 'sup' || s.type === 'sub') {
-                    ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+                    ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale * 0.6}px 'Segoe UI', sans-serif`;
                 } else {
-                    ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+                    ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
                 }
-                w = ctx.measureText(s.text).width;
-                currentLineW += w;
-            }
-            if (currentLineW > maxW) maxW = currentLineW;
-            
-        } else {
-            const text = obj.text || '';
-            const textLines = text.split('\n');
-            lines = textLines.length;
-            textLines.forEach(line => {
-                ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-                const w = ctx.measureText(line).width;
-                if (w > maxW) maxW = w;
+                maxW += ctx.measureText(s.text).width;
             });
+        } else {
+             maxW = ctx.measureText(obj.text || '').width;
         }
         
-        return { 
-            x: obj.x, 
-            y: obj.y, 
-            w: maxW || 10, 
-            h: (lineH * lines) 
-        };
+        return { x: obj.x, y: obj.y, w: maxW / scale || 50, h: h / scale || 20 };
     }
     if (obj.type === 'rect') {
         return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
@@ -434,13 +354,11 @@ function hitTest(obj, mx, my, padding = 0) {
            my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
 }
 
-function hitHandle(mx, my) {
-    if (selectedObjects.length === 0) return null;
-
-    const bbox = getGroupBBox(selectedObjects);
+function hitHandle(obj, mx, my) {
+    const bbox = selectedObjects.length > 1 ? getGroupBBox(selectedObjects) : getBBox(obj);
     if (!bbox) return null;
     
-    const h = 10 / scale;
+    const h = 8 / scale; 
     const cx = bbox.x + bbox.w / 2;
     const cy = bbox.y + bbox.h / 2;
     
@@ -453,7 +371,7 @@ function hitHandle(mx, my) {
         s: { x: cx, y: bbox.y + bbox.h },
         sw: { x: bbox.x, y: bbox.y + bbox.h },
         w: { x: bbox.x, y: cy },
-        rotate: { x: cx, y: bbox.y - 20 / scale }
+        rotate: { x: cx, y: bbox.y - 15 / scale }
     };
     
     for (let [name, pos] of Object.entries(handles)) {
@@ -491,7 +409,7 @@ function getCursor(handle) {
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    requestDraw();
+    draw();
 }
 window.addEventListener('resize', resize);
 resize();
@@ -555,7 +473,7 @@ function drawSelection() {
     ctx.strokeRect(sx, sy, sw, sh);
     ctx.restore();
     
-    const handleSize = 8;
+    const handleSize = 6;
     const handles = [
         { x: sx, y: sy }, { x: sx + sw/2, y: sy }, { x: sx + sw, y: sy },
         { x: sx + sw, y: sy + sh/2 }, { x: sx + sw, y: sy + sh },
@@ -572,7 +490,7 @@ function drawSelection() {
     
     ctx.fillStyle = '#2196F3';
     ctx.beginPath();
-    ctx.arc(sx + sw/2, sy - 15, 5, 0, Math.PI * 2);
+    ctx.arc(sx + sw/2, sy - 12, 4, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 1.5;
@@ -580,7 +498,7 @@ function drawSelection() {
     
     ctx.beginPath();
     ctx.moveTo(sx + sw/2, sy);
-    ctx.lineTo(sx + sw/2, sy - 10);
+    ctx.lineTo(sx + sw/2, sy - 8);
     ctx.strokeStyle = '#2196F3';
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
@@ -626,33 +544,25 @@ function draw() {
 
 function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     let currentX = x;
-    let currentY = y;
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
     const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
     
     const baseY = y; 
     const supY = y - baseSize * 0.5;
     const subY = y + baseSize * 0.3;
-    const lineH = baseSize * 1.2;
     
     segments.forEach(s => {
-        if (s.text === '\n') {
-            currentX = x;
-            currentY += lineH;
-            return;
-        }
-        
         if (s.type === 'normal') {
             ctx.font = normalFont;
-            ctx.fillText(s.text, currentX, currentY);
+            ctx.fillText(s.text, currentX, baseY);
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'sup') {
             ctx.font = smallFont;
-            ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
+            ctx.fillText(s.text, currentX, supY);
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'sub') {
             ctx.font = smallFont;
-            ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
+            ctx.fillText(s.text, currentX, subY);
             currentX += ctx.measureText(s.text).width;
         }
     });
@@ -718,7 +628,7 @@ function drawObject(obj, isTemp = false) {
         if (!obj._img) {
             obj._img = new Image();
             obj._img.src = obj.src;
-            obj._img.onload = () => requestDraw();
+            obj._img.onload = () => draw();
         }
         if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
             ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
@@ -738,6 +648,7 @@ function getCoords(e) {
     };
 }
 
+// === ВИПРАВЛЕНО: Функція для вставки HTML та фокусу ===
 function insertMathField(type) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
@@ -745,14 +656,16 @@ function insertMathField(type) {
     const range = sel.getRangeAt(0);
     const span = document.createElement('span');
     span.className = type === 'sup' ? 'math-sup' : 'math-sub';
-    span.textContent = '\u200B'; 
+    // === ДОДАНО ПРОБІЛ ДЛЯ ІНІЦІАЛІЗАЦІЇ ===
+    span.textContent = '\u200B'; // Zero-width space для фокусу
     
     range.deleteContents();
     range.insertNode(span);
     
+    // === ФОКУС ВСЕРЕДИНУ ПОЛЯ ===
     const newRange = document.createRange();
     newRange.selectNodeContents(span);
-    newRange.collapse(false);
+    newRange.collapse(false); // В кінець
     sel.removeAllRanges();
     sel.addRange(newRange);
     
@@ -764,7 +677,7 @@ function startTextEdit(obj) {
     
     editingObject = obj;
     selectedObjects = [];
-    requestDraw();
+    draw();
     
     const bbox = getBBox(obj);
     const screenX = bbox.x * scale + offsetX;
@@ -773,7 +686,7 @@ function startTextEdit(obj) {
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
     wrapper.style.left = (screenX - 10) + 'px';
-    wrapper.style.top = (screenY - 5) + 'px';
+    wrapper.style.top = (screenY) + 'px';
     wrapper.style.minWidth = '100px';
     wrapper.style.minHeight = (obj.size * 1.2 * scale) + 'px';
     
@@ -800,12 +713,10 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    if (obj.segments && obj.segments.length > 0) {
+    if (obj.segments) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
-    } else if (obj.text && obj.text.trim() !== '') {
-        editorDiv.innerText = obj.text;
     } else {
-        editorDiv.innerText = '';
+        editorDiv.innerText = obj.text || '';
     }
     
     wrapper.appendChild(editorDiv);
@@ -813,7 +724,6 @@ function startTextEdit(obj) {
     textEditor = wrapper;
     
     function updateSize() {
-        if (!editorDiv) return;
         const rect = editorDiv.getBoundingClientRect();
         wrapper.style.width = (rect.width + 20) + 'px';
         wrapper.style.height = (rect.height + 10) + 'px';
@@ -822,31 +732,18 @@ function startTextEdit(obj) {
     updateSize();
     
     setTimeout(() => {
-        if (!editorDiv) return;
         editorDiv.focus();
-        
         const range = document.createRange();
+        range.selectNodeContents(editorDiv);
+        range.collapse(false);
         const sel = window.getSelection();
-        
-        if (editorDiv.childNodes.length > 0) {
-            const lastChild = editorDiv.childNodes[editorDiv.childNodes.length - 1];
-            if (lastChild.nodeType === Node.TEXT_NODE) {
-                range.setStart(lastChild, lastChild.length);
-                range.setEnd(lastChild, lastChild.length);
-            } else {
-                range.selectNodeContents(editorDiv);
-                range.collapse(false);
-            }
-        } else {
-            range.selectNodeContents(editorDiv);
-            range.collapse(false);
-        }
-        
         sel.removeAllRanges();
         sel.addRange(range);
-    }, 50);
+    }, 10);
     
+    // === ВИПРАВЛЕНО: Обробка клавіш для полів ===
     editorDiv.addEventListener('keydown', (e) => {
+        // Стрілка вправо - вихід з поля
         if (e.key === 'ArrowRight') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -854,6 +751,7 @@ function startTextEdit(obj) {
                 const node = range.endContainer;
                 const offset = range.endOffset;
                 
+                // Якщо ми в кінці span (math-sup або math-sub)
                 if (node.nodeType === 3) {
                     const parent = node.parentElement;
                     if (parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'))) {
@@ -870,6 +768,7 @@ function startTextEdit(obj) {
             }
         }
         
+        // === ВИПРАВЛЕНО: Введення ^ або _ ===
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const span = insertMathField(e.key === '^' ? 'sup' : 'sub');
@@ -877,6 +776,7 @@ function startTextEdit(obj) {
             return;
         }
         
+        // Backspace для видалення порожнього поля
         if (e.key === 'Backspace') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -893,6 +793,10 @@ function startTextEdit(obj) {
             }
         }
         
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault(); 
+            stopTextEdit(); 
+        }
         if (e.key === 'Escape') { 
             stopTextEdit(true); 
         }
@@ -900,21 +804,6 @@ function startTextEdit(obj) {
     
     editorDiv.addEventListener('input', () => {
         updateSize();
-        if (editingObject) {
-            let html = editorDiv.innerHTML;
-            html = html.replace(/\u200B/g, '');
-            editingObject.segments = htmlToSegments(html);
-            editingObject.text = editorDiv.innerText.replace(/\u200B/g, '');
-            if (socket && socket.connected) socket.emit('update-all', objects);
-        }
-    });
-    
-    editorDiv.addEventListener('blur', () => {
-        setTimeout(() => {
-            if (textEditor && document.activeElement !== editorDiv) {
-                stopTextEdit();
-            }
-        }, 200);
     });
     
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
@@ -931,6 +820,12 @@ function startTextEdit(obj) {
             startTextDrag(obj, e, wrapper);
         }
     });
+    
+    editorDiv.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (textEditor && document.activeElement !== editorDiv) stopTextEdit();
+        }, 200);
+    });
 }
 
 function stopTextEdit(cancel = false) {
@@ -938,18 +833,17 @@ function stopTextEdit(cancel = false) {
     const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
+        // Очищаємо від zero-width spaces перед збереженням
         let html = editorDiv.innerHTML;
         html = html.replace(/\u200B/g, '');
         editingObject.segments = htmlToSegments(html);
         editingObject.text = editorDiv.innerText.replace(/\u200B/g, '');
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        socket.emit('update-all', objects);
     }
-    if (textEditor.parentNode) {
-        document.body.removeChild(textEditor);
-    }
+    document.body.removeChild(textEditor);
     textEditor = null;
     editingObject = null;
-    requestDraw();
+    draw();
 }
 
 function startTextResize(obj, handle, e, wrapper, editorDiv) {
@@ -981,7 +875,7 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
         
         editorDiv.style.fontSize = (obj.size * scale) + 'px';
         updateSize();
-        requestDraw();
+        draw();
     };
     
     const onUp = () => {
@@ -989,7 +883,7 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -1010,8 +904,8 @@ function startTextDrag(obj, e, wrapper) {
         obj.y = c.y - dragStartY;
         const bbox = getBBox(obj);
         wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
-        requestDraw();
+        wrapper.style.top = (bbox.y * scale + offsetY) + 'px';
+        draw();
     };
     
     const onUp = () => {
@@ -1020,59 +914,30 @@ function startTextDrag(obj, e, wrapper) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
 
-// === ВИПРАВЛЕНО: Подвійний клік тепер працює надійніше ===
-canvas.addEventListener('dblclick', (e) => {
-    const coords = getCoords(e);
-    
-    // Шукаємо текстовий об'єкт під курсором з великим padding
-    const clickedObj = [...objects].reverse().find(obj => {
-        if (obj.type === 'text') {
-            return hitTest(obj, coords.x, coords.y, 60);
-        }
-        return false;
-    });
-
-    if (clickedObj) {
-        e.preventDefault();
-        e.stopPropagation();
-        startTextEdit(clickedObj);
-        requestDraw();
-    }
-});
-
 canvas.addEventListener('mousedown', (e) => {
-    if (e.detail === 2) {
-        return;
-    }
-    
     if (textEditor) { 
         stopTextEdit(); 
         selectedObjects = [];
-        requestDraw();
+        draw();
         return; 
     }
     
     const coords = getCoords(e);
     
-    // === ВИПРАВЛЕНО: Перевіряємо чи клікнули на існуючий текст ПЕРЕД створенням нового ===
-    if (currentTool === 'text') {
-        const existingText = [...objects].reverse().find(obj => {
-            if (obj.type === 'text') {
-                return hitTest(obj, coords.x, coords.y, 60);
-            }
-            return false;
-        });
-        
-        if (existingText) {
-            // Клікнули на існуючий текст - відкриваємо редактор
-            startTextEdit(existingText);
-            requestDraw();
+    if (e.detail === 2) {
+        const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 5));
+        if (clickedObj && clickedObj.type === 'text') {
+            e.preventDefault();
+            e.stopPropagation();
+            selectedObjects = [clickedObj];
+            startTextEdit(clickedObj);
+            draw();
             return;
         }
     }
@@ -1089,7 +954,7 @@ canvas.addEventListener('mousedown', (e) => {
         let clickedHandle = null;
         
         if (selectedObjects.length > 0) {
-            clickedHandle = hitHandle(coords.x, coords.y);
+            clickedHandle = hitHandle(null, coords.x, coords.y);
         }
         
         if (!clickedHandle) {
@@ -1121,13 +986,13 @@ canvas.addEventListener('mousedown', (e) => {
                 points: o.points ? JSON.parse(JSON.stringify(o.points)) : null
             }));
             
-            requestDraw();
+            draw();
         } else {
             selectedObjects = [];
             isSelectingArea = true;
             selectionStart = { x: coords.x, y: coords.y };
             selectionEnd = { x: coords.x, y: coords.y };
-            requestDraw();
+            draw();
         }
     } else if (currentTool === 'hand') {
         isDragging = true;
@@ -1140,19 +1005,13 @@ canvas.addEventListener('mousemove', (e) => {
     const coords = getCoords(e);
     
     if (currentTool === 'select' && selectedObjects.length > 0 && !isDragging && !isResizing && !isRotating && !isSelectingArea) {
-        const handle = hitHandle(coords.x, coords.y);
+        const handle = hitHandle(null, coords.x, coords.y);
         canvas.style.cursor = getCursor(handle);
     } else if (currentTool === 'select') canvas.style.cursor = isSelectingArea ? 'crosshair' : 'default';
     else if (currentTool === 'hand') canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
     else if (currentTool === 'eraser') {
         canvas.style.cursor = 'cell';
         if (e.buttons === 1) eraseAt(coords.x, coords.y);
-    } else if (currentTool === 'pen') {
-        canvas.style.cursor = 'pencil';
-    } else if (currentTool === 'line' || currentTool === 'arrow') {
-        canvas.style.cursor = 'crosshair';
-    } else if (currentTool === 'rect') {
-        canvas.style.cursor = 'rect';
     } else canvas.style.cursor = 'crosshair';
     
     if (!isDragging && !isResizing && !isRotating && !isDrawing && !isSelectingArea) return;
@@ -1177,23 +1036,23 @@ canvas.addEventListener('mousemove', (e) => {
                 o.y = state.y + dy;
             }
         });
-        requestDraw();
+        draw();
     } 
     else if (isSelectingArea) {
         selectionEnd = { x: coords.x, y: coords.y };
-        requestDraw();
+        draw();
     }
     else if (isDragging && currentTool === 'hand') {
         offsetX += coords.rawX - dragStartX;
         offsetY += coords.rawY - dragStartY;
         dragStartX = coords.rawX;
         dragStartY = coords.rawY;
-        requestDraw();
+        draw();
     } 
     else if (isDrawing && currentPath) {
         if (currentPath.type === 'pen') currentPath.points.push({x: coords.x, y: coords.y});
         else { currentPath.ex = coords.x; currentPath.ey = coords.y; }
-        requestDraw();
+        draw();
     } 
     else if (isRotating && selectedObjects.length > 0) {
         const bbox = getGroupBBox(selectedObjects);
@@ -1208,7 +1067,7 @@ canvas.addEventListener('mousemove', (e) => {
              const originalRotation = startResizeState.originalRotation || 0;
              obj.rotation = originalRotation + (degrees - startResizeState.startAngle);
         });
-        requestDraw();
+        draw();
     }
 });
 
@@ -1233,7 +1092,7 @@ canvas.addEventListener('mouseup', () => {
                 if (!selectedObjects.includes(obj)) selectedObjects.push(obj);
             });
         }
-        requestDraw();
+        draw();
         return;
     }
     
@@ -1241,17 +1100,17 @@ canvas.addEventListener('mouseup', () => {
         if (currentPath.type === 'pen' && currentPath.points.length > 1) {
             saveHistory();
             objects.push(currentPath);
-            if (socket && socket.connected) socket.emit('new-object', currentPath);
+            socket.emit('new-object', currentPath);
         } else if (currentPath.type !== 'pen') {
             if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
                 saveHistory();
                 objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', currentPath);
+                socket.emit('new-object', currentPath);
             }
         }
         isDrawing = false;
         currentPath = null;
-        requestDraw();
+        draw();
     }
     
     if (isDragging || isResizing || isRotating) {
@@ -1259,7 +1118,7 @@ canvas.addEventListener('mouseup', () => {
             saveHistory();
         }
         isDragging = false; isResizing = false; isRotating = false;
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        socket.emit('update-all', objects);
     }
 });
 
@@ -1302,10 +1161,7 @@ function eraseAt(mx, my) {
             changed = true;
         }
     }
-    if (changed) { 
-        if (socket && socket.connected) socket.emit('update-all', objects); 
-        requestDraw(); 
-    }
+    if (changed) { socket.emit('update-all', objects); draw(); }
 }
 
 function startDrawing(coords) {
@@ -1326,14 +1182,11 @@ function startResizeGroup(handle, e) {
     dragStartX = coords.x; dragStartY = coords.y;
     
     const groupBBox = getGroupBBox(selectedObjects);
-    
     startResizeState = {
         objects: selectedObjects.map(o => ({
             obj: o,
-            x: o.x, y: o.y, 
-            ex: o.ex, ey: o.ey, 
-            w: o.w, h: o.h, 
-            points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
+            x: o.x, y: o.y, ex: o.ex, ey: o.ey, 
+            w: o.w, h: o.h, points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
             rotation: o.rotation || 0
         })),
         groupBBox: groupBBox,
@@ -1361,58 +1214,8 @@ function startResizeGroup(handle, e) {
             selectedObjects.forEach(obj => {
                 obj.rotation = (startResizeState.originalRotation + deltaAngle) % 360;
             });
-        } else {
-            const oldBBox = startResizeState.groupBBox;
-            let newW = oldBBox.w;
-            let newH = oldBBox.h;
-            let newX = oldBBox.x;
-            let newY = oldBBox.y;
-            
-            if (handle.includes('e')) newW = c.x - oldBBox.x;
-            if (handle.includes('w')) { newW = oldBBox.w + (oldBBox.x - c.x); newX = c.x; }
-            if (handle.includes('s')) newH = c.y - oldBBox.y;
-            if (handle.includes('n')) { newH = oldBBox.h + (oldBBox.y - c.y); newY = c.y; }
-            
-            if (newW < 10) newW = 10;
-            if (newH < 10) newH = 10;
-            if (handle.includes('e') && newW < 10) newW = 10;
-            if (handle.includes('w') && newW < 10) { newX = oldBBox.x + oldBBox.w - 10; newW = 10; }
-            if (handle.includes('s') && newH < 10) newH = 10;
-            if (handle.includes('n') && newH < 10) { newY = oldBBox.y + oldBBox.h - 10; newH = 10; }
-
-            const scaleX = newW / oldBBox.w;
-            const scaleY = newH / oldBBox.h;
-
-            startResizeState.objects.forEach(state => {
-                const o = state.obj;
-                
-                if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect') {
-                    o.x = newX + (state.x - oldBBox.x) * scaleX;
-                    o.y = newY + (state.y - oldBBox.y) * scaleY;
-                    o.ex = newX + (state.ex - oldBBox.x) * scaleX;
-                    o.ey = newY + (state.ey - oldBBox.y) * scaleY;
-                } else if (o.type === 'pen') {
-                    o.x = newX + (state.x - oldBBox.x) * scaleX;
-                    o.y = newY + (state.y - oldBBox.y) * scaleY;
-                    o.points = state.points.map(p => ({
-                        x: newX + (p.x - oldBBox.x) * scaleX,
-                        y: newY + (p.y - oldBBox.y) * scaleY
-                    }));
-                } else {
-                    o.x = newX + (state.x - oldBBox.x) * scaleX;
-                    o.y = newY + (state.y - oldBBox.y) * scaleY;
-                    
-                    if (o.type === 'image') {
-                        o.w = state.w * scaleX;
-                        o.h = state.h * scaleY;
-                    } else if (o.type === 'text') {
-                        const avgScale = (scaleX + scaleY) / 2;
-                        o.size = Math.max(8, state.obj.size * avgScale);
-                    }
-                }
-            });
         }
-        requestDraw();
+        draw();
     };
     
     const onUp = () => { 
@@ -1421,7 +1224,7 @@ function startResizeGroup(handle, e) {
         document.removeEventListener('mousemove', onMove); 
         document.removeEventListener('mouseup', onUp); 
         saveHistory(); 
-        if (socket && socket.connected) socket.emit('update-all', objects); 
+        socket.emit('update-all', objects); 
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -1440,8 +1243,8 @@ function createNewText(coords) {
     };
     saveHistory();
     objects.push(obj); selectedObjects = [obj];
-    if (socket && socket.connected) socket.emit('new-object', obj);
-    requestDraw();
+    socket.emit('new-object', obj);
+    draw();
     startTextEdit(obj);
 }
 
@@ -1449,16 +1252,11 @@ function setTool(tool) {
     currentTool = tool;
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
-    if (tool !== 'select' && selectedObjects.length > 0) { selectedObjects = []; requestDraw(); }
-    
-    if (tool === 'select') canvas.className = 'cursor-default';
-    else if (tool === 'hand') canvas.className = 'cursor-grab';
-    else if (tool === 'eraser') canvas.className = 'cursor-eraser';
-    else if (tool === 'pen') canvas.className = 'cursor-pencil';
-    else if (tool === 'line' || tool === 'arrow') canvas.className = 'cursor-crosshair';
-    else if (tool === 'rect') canvas.className = 'cursor-rect';
-    else if (tool === 'text') canvas.className = 'cursor-text';
-    else canvas.className = 'cursor-crosshair';
+    if (tool !== 'select' && selectedObjects.length > 0) { selectedObjects = []; draw(); }
+    if (tool === 'select') canvas.style.cursor = 'default';
+    else if (tool === 'hand') canvas.style.cursor = 'grab';
+    else if (tool === 'eraser') canvas.style.cursor = 'cell';
+    else canvas.style.cursor = 'crosshair';
 }
 
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = () => setTool(btn.dataset.tool));
@@ -1468,8 +1266,7 @@ document.getElementById('clearBtn').onclick = () => {
         saveHistory();
         objects = []; selectedObjects = [];
         if (textEditor) stopTextEdit();
-        if (socket && socket.connected) socket.emit('delete-board');
-        requestDraw();
+        socket.emit('delete-board');
     }
 };
 
@@ -1488,13 +1285,13 @@ window.addEventListener('wheel', (e) => {
     const my = (e.clientY - offsetY) / oldScale;
     offsetX = e.clientX - mx * scale;
     offsetY = e.clientY - my * scale;
-    updateZoomDisplay();
+    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
     if (textEditor && editingObject) {
         const bbox = getBBox(editingObject);
         textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+        textEditor.style.top = (bbox.y * scale + offsetY) + 'px';
     }
-    requestDraw();
+    draw();
 }, { passive: false });
 
 window.addEventListener('paste', (e) => {
@@ -1513,7 +1310,7 @@ window.addEventListener('paste', (e) => {
                     const obj = { type: 'image', src: event.target.result, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2, rotation: 0 };
                     saveHistory();
                     objects.push(obj); selectedObjects = [obj];
-                    if (socket && socket.connected) socket.emit('new-object', obj); requestDraw();
+                    socket.emit('new-object', obj); draw();
                 };
             };
             reader.readAsDataURL(blob);
@@ -1523,13 +1320,13 @@ window.addEventListener('paste', (e) => {
 
 socket.on('init-history', (h) => { 
     objects = h;
-    historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
+    historyStack = [JSON.parse(JSON.stringify(objects))];
     historyIndex = 0;
     let imagesLoaded = 0;
     const totalImages = objects.filter(o => o.type === 'image').length;
     
     if (totalImages === 0) {
-        requestDraw();
+        draw();
     } else {
         objects.forEach(obj => {
             if (obj.type === 'image') {
@@ -1537,11 +1334,11 @@ socket.on('init-history', (h) => {
                 obj._img.src = obj.src;
                 obj._img.onload = () => {
                     imagesLoaded++;
-                    if (imagesLoaded >= totalImages) requestDraw();
+                    if (imagesLoaded >= totalImages) draw();
                 };
                 obj._img.onerror = () => {
                     imagesLoaded++;
-                    if (imagesLoaded >= totalImages) requestDraw();
+                    if (imagesLoaded >= totalImages) draw();
                 };
             }
         });
@@ -1551,7 +1348,7 @@ socket.on('init-history', (h) => {
 socket.on('new-object', (o) => { 
     objects.push(o); 
     saveHistory();
-    requestDraw(); 
+    draw(); 
 });
 
 socket.on('update-all', (newObjects) => { 
@@ -1559,7 +1356,7 @@ socket.on('update-all', (newObjects) => {
     if (!isUndoing) {
         saveHistory();
     }
-    requestDraw(); 
+    draw(); 
 });
 
 socket.on('board-deleted', () => { 
@@ -1567,7 +1364,7 @@ socket.on('board-deleted', () => {
     selectedObjects = []; 
     historyStack = [];
     historyIndex = -1;
-    requestDraw(); 
+    draw(); 
 });
 
 </script>
