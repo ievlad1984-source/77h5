@@ -147,6 +147,10 @@
         .cursor-rect { 
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>') 0 24, auto !important; 
         }
+
+        .cursor-grid { 
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
+        }
     </style>
 </head>
 <body>
@@ -159,6 +163,7 @@
     <button class="tool-btn" data-tool="line">Лінія</button>
     <button class="tool-btn" data-tool="arrow">Стрілка</button>
     <button class="tool-btn" data-tool="rect">Прямокутник</button>
+    <button class="tool-btn" data-tool="grid">📊 Сітка</button>
     <button class="tool-btn" data-tool="text">Текст</button>
     <button class="tool-btn" data-tool="eraser">Ластик</button>
     <div class="separator"></div>
@@ -297,6 +302,7 @@ window.addEventListener('keydown', (e) => {
     
     if (e.key === 'v' || e.key === 'V') setTool('select');
     if (e.key === 'h' || e.key === 'H') setTool('hand');
+    if (e.key === 'g' || e.key === 'G') setTool('grid');
 });
 window.addEventListener('keyup', (e) => { 
     if (e.key === 'Shift') shiftKey = false;
@@ -406,6 +412,9 @@ function getBBox(obj) {
         const xs = [obj.x, ...obj.points.map(p => p.x)];
         const ys = [obj.y, ...obj.points.map(p => p.y)];
         return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    }
+    if (obj.type === 'grid') {
+        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
     }
     return { x: obj.x, y: obj.y, w: 0, h: 0 };
 }
@@ -658,6 +667,108 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     });
 }
 
+// === НОВИЙ МЕТОД: Малювання координатної сітки ===
+function drawCoordinateGrid(obj) {
+    const sx = obj.x * scale + offsetX;
+    const sy = obj.y * scale + offsetY;
+    const sw = obj.w * scale;
+    const sh = obj.h * scale;
+    
+    const gridSpacing = obj.gridSpacing || 50;
+    const axisColor = obj.axisColor || '#000000';
+    const gridColor = obj.gridColor || '#cccccc';
+    
+    // Малюємо сітку
+    ctx.save();
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    
+    // Вертикальні лінії
+    for (let x = 0; x <= sw; x += gridSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(sx + x, sy);
+        ctx.lineTo(sx + x, sy + sh);
+        ctx.stroke();
+    }
+    
+    // Горизонтальні лінії
+    for (let y = 0; y <= sh; y += gridSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(sx, sy + y);
+        ctx.lineTo(sx + sw, sy + y);
+        ctx.stroke();
+    }
+    
+    // Малюємо осі
+    ctx.strokeStyle = axisColor;
+    ctx.lineWidth = 2;
+    
+    // Вісь X (горизонтальна, посередині)
+    const centerX = sx + sw / 2;
+    const centerY = sy + sh / 2;
+    
+    ctx.beginPath();
+    ctx.moveTo(sx, centerY);
+    ctx.lineTo(sx + sw, centerY);
+    ctx.stroke();
+    
+    // Вісь Y (вертикальна, посередині)
+    ctx.beginPath();
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX, sy + sh);
+    ctx.stroke();
+    
+    // Стрілки на осях
+    const arrowSize = 10;
+    
+    // Стрілка X вправо
+    ctx.beginPath();
+    ctx.moveTo(sx + sw, centerY);
+    ctx.lineTo(sx + sw - arrowSize, centerY - arrowSize);
+    ctx.moveTo(sx + sw, centerY);
+    ctx.lineTo(sx + sw - arrowSize, centerY + arrowSize);
+    ctx.stroke();
+    
+    // Стрілка Y вгору
+    ctx.beginPath();
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX - arrowSize, sy + arrowSize);
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX + arrowSize, sy + arrowSize);
+    ctx.stroke();
+    
+    // Позначки на осях
+    ctx.fillStyle = axisColor;
+    ctx.font = '12px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    // Позначки на осі X
+    for (let i = 1; i < sw / gridSpacing; i++) {
+        const x = sx + i * gridSpacing;
+        if (Math.abs(x - centerX) > 5) {
+            ctx.fillText((i - sw / gridSpacing / 2).toString(), x, centerY + 5);
+        }
+    }
+    
+    // Позначки на осі Y
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 1; i < sh / gridSpacing; i++) {
+        const y = sy + i * gridSpacing;
+        if (Math.abs(y - centerY) > 5) {
+            ctx.fillText((sh / gridSpacing / 2 - i).toString(), centerX - 5, y);
+        }
+    }
+    
+    // Позначення осей
+    ctx.font = 'bold 14px Segoe UI';
+    ctx.fillText('X', sx + sw - 15, centerY - 20);
+    ctx.fillText('Y', centerX + 10, sy + 15);
+    
+    ctx.restore();
+}
+
 function drawObject(obj, isTemp = false) {
     ctx.save();
     const sx = obj.x * scale + offsetX;
@@ -714,6 +825,9 @@ function drawObject(obj, isTemp = false) {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             ctx.fillText(obj.text || '', sx, sy + (baseSize * 0.8));
         }
+    } else if (obj.type === 'grid') {
+        // === НОВИЙ ТИП: Координатна сітка ===
+        drawCoordinateGrid(obj);
     } else if (obj.type === 'image') {
         if (!obj._img) {
             obj._img = new Image();
@@ -846,7 +960,6 @@ function startTextEdit(obj) {
         sel.addRange(range);
     }, 50);
     
-    // === ВИПРАВЛЕНО: Покращений обробник стрілки вправо для виходу з sup/sub ===
     editorDiv.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowRight') {
             const sel = window.getSelection();
@@ -855,24 +968,19 @@ function startTextEdit(obj) {
                 const node = range.endContainer;
                 const offset = range.endOffset;
                 
-                // Перевіряємо чи ми всередині math-sup або math-sub
                 let parent = node.nodeType === 3 ? node.parentElement : node;
                 const isInsideMath = parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'));
                 
                 if (isInsideMath) {
-                    // Перевіряємо чи ми в кінці текстового вузла
                     const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
                                     (node.nodeType === 1 && offset >= node.childNodes.length);
                     
                     if (isAtEnd) {
                         e.preventDefault();
-                        
-                        // Спробуємо перейти до наступного сусіда батьківського елемента
                         const mathParent = parent;
                         const nextSibling = mathParent.nextSibling;
                         
                         if (nextSibling) {
-                            // Є наступний сусід - переходимо до нього
                             const newRange = document.createRange();
                             if (nextSibling.nodeType === 3) {
                                 newRange.setStart(nextSibling, 0);
@@ -883,7 +991,6 @@ function startTextEdit(obj) {
                             sel.removeAllRanges();
                             sel.addRange(newRange);
                         } else {
-                            // Немає наступного сусіда - виходимо за межі math-елемента
                             const newRange = document.createRange();
                             newRange.setStartAfter(mathParent);
                             newRange.collapse(true);
@@ -1169,6 +1276,11 @@ canvas.addEventListener('mousedown', (e) => {
             }
             createNewText(coords);
         }
+        else if (currentTool === 'grid') {
+            // === НОВИЙ ІНСТРУМЕНТ: Створення сітки ===
+            startDrawing(coords);
+            return;
+        }
         else startDrawing(coords);
         return;
     }
@@ -1207,7 +1319,8 @@ canvas.addEventListener('mousedown', (e) => {
                 obj: o,
                 x: o.x, y: o.y,
                 ex: o.ex, ey: o.ey,
-                points: o.points ? JSON.parse(JSON.stringify(o.points)) : null
+                points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
+                w: o.w, h: o.h
             }));
             
             requestDraw();
@@ -1242,6 +1355,8 @@ canvas.addEventListener('mousemove', (e) => {
         canvas.style.cursor = 'crosshair';
     } else if (currentTool === 'rect') {
         canvas.style.cursor = 'rect';
+    } else if (currentTool === 'grid') {
+        canvas.style.cursor = 'crosshair';
     } else canvas.style.cursor = 'crosshair';
     
     if (!isDragging && !isResizing && !isRotating && !isDrawing && !isSelectingArea) return;
@@ -1252,11 +1367,13 @@ canvas.addEventListener('mousemove', (e) => {
         
         startResizeState.forEach(state => {
             const o = state.obj;
-            if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect') {
+            if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid') {
                 o.x = state.x + dx;
                 o.y = state.y + dy;
                 o.ex = state.ex + dx;
                 o.ey = state.ey + dy;
+                if (o.w !== undefined) o.w = state.w;
+                if (o.h !== undefined) o.h = state.h;
             } else if (o.type === 'pen') {
                 o.x = state.x + dx;
                 o.y = state.y + dy;
@@ -1281,6 +1398,10 @@ canvas.addEventListener('mousemove', (e) => {
     } 
     else if (isDrawing && currentPath) {
         if (currentPath.type === 'pen') currentPath.points.push({x: coords.x, y: coords.y});
+        else if (currentPath.type === 'grid') {
+            currentPath.w = coords.x - currentPath.x;
+            currentPath.h = coords.y - currentPath.y;
+        }
         else { currentPath.ex = coords.x; currentPath.ey = coords.y; }
         requestDraw();
     } 
@@ -1331,6 +1452,17 @@ canvas.addEventListener('mouseup', () => {
             saveHistory();
             objects.push(currentPath);
             if (socket && socket.connected) socket.emit('new-object', currentPath);
+        } else if (currentPath.type === 'grid') {
+            // Завершуємо створення сітки
+            if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
+                saveHistory();
+                currentPath.type = 'grid';
+                currentPath.gridSpacing = 50;
+                currentPath.axisColor = '#000000';
+                currentPath.gridColor = '#cccccc';
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
+            }
         } else if (currentPath.type !== 'pen') {
             if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
                 saveHistory();
@@ -1377,7 +1509,7 @@ function eraseAt(mx, my) {
                              (Math.abs(my - bbox.y) < eraserRadius || Math.abs(my - (bbox.y + bbox.h)) < eraserRadius) &&
                              mx >= bbox.x && mx <= bbox.x + bbox.w;
             if (onBorder || hitTest(obj, mx, my)) shouldRemove = true;
-        } else if (obj.type === 'text' || obj.type === 'image') {
+        } else if (obj.type === 'text' || obj.type === 'image' || obj.type === 'grid') {
             const bbox = getBBox(obj);
             if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
                 shouldRemove = true;
@@ -1406,6 +1538,10 @@ function startDrawing(coords) {
         x: coords.x, y: coords.y, ex: coords.x, ey: coords.y
     };
     if (currentTool === 'pen') currentPath.points = [];
+    if (currentTool === 'grid') {
+        currentPath.w = 0;
+        currentPath.h = 0;
+    }
 }
 
 function startResizeGroup(handle, e) {
@@ -1475,11 +1611,15 @@ function startResizeGroup(handle, e) {
             startResizeState.objects.forEach(state => {
                 const o = state.obj;
                 
-                if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect') {
+                if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid') {
                     o.x = newX + (state.x - oldBBox.x) * scaleX;
                     o.y = newY + (state.y - oldBBox.y) * scaleY;
                     o.ex = newX + (state.ex - oldBBox.x) * scaleX;
                     o.ey = newY + (state.ey - oldBBox.y) * scaleY;
+                    if (o.type === 'grid') {
+                        o.w = state.w * scaleX;
+                        o.h = state.h * scaleY;
+                    }
                 } else if (o.type === 'pen') {
                     o.x = newX + (state.x - oldBBox.x) * scaleX;
                     o.y = newY + (state.y - oldBBox.y) * scaleY;
@@ -1546,6 +1686,7 @@ function setTool(tool) {
     else if (tool === 'pen') canvas.className = 'cursor-pencil';
     else if (tool === 'line' || tool === 'arrow') canvas.className = 'cursor-crosshair';
     else if (tool === 'rect') canvas.className = 'cursor-rect';
+    else if (tool === 'grid') canvas.className = 'cursor-grid';
     else if (tool === 'text') canvas.className = 'cursor-text';
     else canvas.className = 'cursor-crosshair';
 }
