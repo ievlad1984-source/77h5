@@ -678,8 +678,18 @@ function drawCoordinateGrid(obj) {
     const axisColor = obj.axisColor || '#000000';
     const gridColor = obj.gridColor || '#cccccc';
     
-    // Малюємо сітку
     ctx.save();
+    
+    // === ВИПРАВЛЕНО 1: Малюємо непрозорий білий фон ===
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(sx, sy, sw, sh);
+    
+    // Рамка навколо сітки
+    ctx.strokeStyle = '#dddddd';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx, sy, sw, sh);
+    
+    // Малюємо сітку
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     
@@ -703,10 +713,10 @@ function drawCoordinateGrid(obj) {
     ctx.strokeStyle = axisColor;
     ctx.lineWidth = 2;
     
-    // Вісь X (горизонтальна, посередині)
     const centerX = sx + sw / 2;
     const centerY = sy + sh / 2;
     
+    // Вісь X (горизонтальна, посередині)
     ctx.beginPath();
     ctx.moveTo(sx, centerY);
     ctx.lineTo(sx + sw, centerY);
@@ -737,27 +747,35 @@ function drawCoordinateGrid(obj) {
     ctx.lineTo(centerX + arrowSize, sy + arrowSize);
     ctx.stroke();
     
-    // Позначки на осях
+    // === ВИПРАВЛЕНО 2: Тільки цілі числа на осях ===
     ctx.fillStyle = axisColor;
     ctx.font = '12px Segoe UI';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     
-    // Позначки на осі X
-    for (let i = 1; i < sw / gridSpacing; i++) {
-        const x = sx + i * gridSpacing;
-        if (Math.abs(x - centerX) > 5) {
-            ctx.fillText((i - sw / gridSpacing / 2).toString(), x, centerY + 5);
+    // Обчислюємо кількість клітинок до центру
+    const cellsToCenterX = Math.floor(sw / gridSpacing / 2);
+    const cellsToCenterY = Math.floor(sh / gridSpacing / 2);
+    
+    // Позначки на осі X (тільки цілі числа)
+    for (let i = -cellsToCenterX; i <= cellsToCenterX; i++) {
+        if (i !== 0) {
+            const x = centerX + i * gridSpacing;
+            if (x >= sx + 20 && x <= sx + sw - 20) {
+                ctx.fillText(i.toString(), x, centerY + 5);
+            }
         }
     }
     
-    // Позначки на осі Y
+    // Позначки на осі Y (тільки цілі числа)
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    for (let i = 1; i < sh / gridSpacing; i++) {
-        const y = sy + i * gridSpacing;
-        if (Math.abs(y - centerY) > 5) {
-            ctx.fillText((sh / gridSpacing / 2 - i).toString(), centerX - 5, y);
+    for (let i = -cellsToCenterY; i <= cellsToCenterY; i++) {
+        if (i !== 0) {
+            const y = centerY - i * gridSpacing;
+            if (y >= sy + 20 && y <= sy + sh - 20) {
+                ctx.fillText(i.toString(), centerX - 5, y);
+            }
         }
     }
     
@@ -765,6 +783,10 @@ function drawCoordinateGrid(obj) {
     ctx.font = 'bold 14px Segoe UI';
     ctx.fillText('X', sx + sw - 15, centerY - 20);
     ctx.fillText('Y', centerX + 10, sy + 15);
+    
+    // Центр (0, 0)
+    ctx.font = '10px Segoe UI';
+    ctx.fillText('0', centerX - 8, centerY + 15);
     
     ctx.restore();
 }
@@ -826,7 +848,6 @@ function drawObject(obj, isTemp = false) {
             ctx.fillText(obj.text || '', sx, sy + (baseSize * 0.8));
         }
     } else if (obj.type === 'grid') {
-        // === НОВИЙ ТИП: Координатна сітка ===
         drawCoordinateGrid(obj);
     } else if (obj.type === 'image') {
         if (!obj._img) {
@@ -1277,7 +1298,6 @@ canvas.addEventListener('mousedown', (e) => {
             createNewText(coords);
         }
         else if (currentTool === 'grid') {
-            // === НОВИЙ ІНСТРУМЕНТ: Створення сітки ===
             startDrawing(coords);
             return;
         }
@@ -1453,7 +1473,6 @@ canvas.addEventListener('mouseup', () => {
             objects.push(currentPath);
             if (socket && socket.connected) socket.emit('new-object', currentPath);
         } else if (currentPath.type === 'grid') {
-            // Завершуємо створення сітки
             if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
                 saveHistory();
                 currentPath.type = 'grid';
