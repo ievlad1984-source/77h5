@@ -144,10 +144,6 @@
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>') 0 24, auto !important; 
         }
         
-        .cursor-line { 
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/></svg>') 0 24, auto !important; 
-        }
-        
         .cursor-rect { 
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>') 0 24, auto !important; 
         }
@@ -895,7 +891,6 @@ function startTextEdit(obj) {
             }
         }
         
-        // Enter теперь не закрывает редактор, а создает новую строку
         if (e.key === 'Escape') { 
             stopTextEdit(true); 
         }
@@ -1023,7 +1018,6 @@ function startTextDrag(obj, e, wrapper) {
 }
 
 canvas.addEventListener('mousedown', (e) => {
-    // Подвійний клік для редагування тексту
     if (e.detail === 2) {
         const coords = getCoords(e);
         const clickedObj = [...objects].reverse().find(obj => {
@@ -1125,7 +1119,7 @@ canvas.addEventListener('mousemove', (e) => {
     } else if (currentTool === 'pen') {
         canvas.style.cursor = 'pencil';
     } else if (currentTool === 'line' || currentTool === 'arrow') {
-        canvas.style.cursor = 'line';
+        canvas.style.cursor = 'crosshair';
     } else if (currentTool === 'rect') {
         canvas.style.cursor = 'rect';
     } else canvas.style.cursor = 'crosshair';
@@ -1430,7 +1424,7 @@ function setTool(tool) {
     else if (tool === 'hand') canvas.className = 'cursor-grab';
     else if (tool === 'eraser') canvas.className = 'cursor-eraser';
     else if (tool === 'pen') canvas.className = 'cursor-pencil';
-    else if (tool === 'line' || tool === 'arrow') canvas.className = 'cursor-line';
+    else if (tool === 'line' || tool === 'arrow') canvas.className = 'cursor-crosshair';
     else if (tool === 'rect') canvas.className = 'cursor-rect';
     else if (tool === 'text') canvas.className = 'cursor-text';
     else canvas.className = 'cursor-crosshair';
