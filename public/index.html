@@ -205,30 +205,61 @@ function undo() {
     isUndoing = false;
 }
 
-const superscripts = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ','A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ','K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','R':'ᴿ','T':'ᵀ','U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ','+':'⁺','-':'','=':'⁼','(':'⁽',')':'⁾'};
-const subscripts = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ᵒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ','y':'ᵧ','z':'₂','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'};
+const superscripts = {
+    '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹',
+    'a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ',
+    'k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','q':'ᵠ','r':'ʳ','s':'ˢ','t':'ᵗ',
+    'u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ',
+    'A':'ᴬ','B':'ᴮ','C':'ᶜ','D':'ᴰ','E':'ᴱ','F':'ᶠ','G':'ᴳ','H':'ᴴ','I':'ᴵ','J':'ᴶ',
+    'K':'ᴷ','L':'ᴸ','M':'ᴹ','N':'ᴺ','O':'ᴼ','P':'ᴾ','Q':'ᵠ','R':'ᴿ','S':'ˢ','T':'ᵀ',
+    'U':'ᵁ','V':'ⱽ','W':'ᵂ','X':'ˣ','Y':'ʸ','Z':'ᶻ',
+    '+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','/':'ᐟ'
+};
+
+const subscripts = {
+    '0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉',
+    'a':'ₐ','b':'բ','c':'꜀','d':'Ꮷ','e':'ₑ','f':'ᶠ','g':'ᵩ','h':'ₕ','i':'ᵢ','j':'ⱼ',
+    'k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ₒ','p':'ₚ','q':'զ','r':'ᵣ','s':'ₛ','t':'ₜ',
+    'u':'ᵤ','v':'ᵥ','w':'w','x':'ₓ','y':'ᵧ','z':'₂',
+    '+':'₊','-':'₋','=':'₌','(':'₍',')':'₎'
+};
 
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
     
+    // === CTRL+A - Виділити всі об'єкти ===
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        if (!textEditor) {
+            e.preventDefault();
+            selectedObjects = [...objects];
+            draw();
+            return;
+        }
+    }
+    
+    // === CTRL+Z - Undo ===
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         undo();
         return;
     }
     
-    if (e.key === 'v' || e.key === 'V') setTool('select');
-    if (e.key === 'h' || e.key === 'H') setTool('hand');
+    // === DELETE/BACKSPACE - Видалити виділені об'єкти ===
     if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedObjects.length > 0 && !textEditor) {
+            e.preventDefault();
             saveHistory();
             objects = objects.filter(o => !selectedObjects.includes(o));
             selectedObjects = [];
             socket.emit('update-all', objects);
             draw();
+            return;
         }
     }
+    
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'h' || e.key === 'H') setTool('hand');
 });
 window.addEventListener('keyup', (e) => { 
     if (e.key === 'Shift') shiftKey = false;
@@ -237,11 +268,23 @@ window.addEventListener('keyup', (e) => {
 
 function convertMath(text) {
     if (!document.getElementById('mathMode')?.checked) return text;
-    return text
-        .replace(/([a-zA-Z0-9])\^([0-9]+)/g, (m,b,e) => b + e.split('').map(c => superscripts[c] || c).join(''))
-        .replace(/([a-zA-Z0-9])_([0-9]+)/g, (m,b,s) => b + s.split('').map(c => subscripts[c] || c).join(''))
-        .replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/gi, m => 
-            ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
+    
+    let result = text;
+    
+    result = result.replace(/([a-zA-Z0-9])\^([0-9a-zA-Z]+)/g, (match, base, exp) => {
+        const convertedExp = exp.split('').map(c => superscripts[c] || c).join('');
+        return base + convertedExp;
+    });
+    
+    result = result.replace(/([a-zA-Z0-9])_([0-9a-zA-Z]+)/g, (match, base, sub) => {
+        const convertedSub = sub.split('').map(c => subscripts[c] || c).join('');
+        return base + convertedSub;
+    });
+    
+    result = result.replace(/\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/gi, m => 
+        ({sqrt:'√',pi:'π',inf:'∞',alpha:'α',beta:'β',gamma:'γ',delta:'δ',sum:'∑',pm:'±',infty:'∞'})[m.toLowerCase()] || m);
+    
+    return result;
 }
 
 function getBBox(obj) {
@@ -495,7 +538,7 @@ function drawMathText(ctx, text, x, y, baseSize, isBold) {
         const char = text[i];
         
         if ((char >= '⁰' && char <= '⁹') || (char >= 'ᵃ' && char <= 'ᶻ') || 
-            (char >= 'ᴬ' && char <= 'ᶻ') || ['⁺','⁻','⁼','⁽','⁾'].includes(char)) {
+            (char >= 'ᴬ' && char <= 'ᶻ') || ['⁺','⁻','⁼','⁽','⁾',''].includes(char)) {
             const subSize = baseSize * 0.6;
             ctx.font = `${isBold ? 'bold' : ''} ${subSize}px 'Segoe UI', sans-serif`;
             const w = ctx.measureText(char).width;
@@ -693,8 +736,16 @@ function startTextEdit(obj) {
         
         if (text.includes('^') || text.includes('_') || /\b(sqrt|pi|inf|alpha|beta|gamma|delta|sum|pm|infty)\b/.test(text)) {
             const selection = window.getSelection();
-            const range = selection.getRangeAt(0);
-            const cursorPos = range.startOffset;
+            let cursorPos = 0;
+            
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const preCaretRange = range.cloneRange();
+                preCaretRange.selectNodeContents(textarea);
+                preCaretRange.setEnd(range.startContainer, range.startOffset);
+                cursorPos = preCaretRange.toString().length;
+            }
+            
             const oldLength = text.length;
             const converted = convertMath(text);
             
@@ -703,23 +754,34 @@ function startTextEdit(obj) {
                 textarea.innerText = converted;
                 
                 const newLength = converted.length;
-                const newPos = Math.min(cursorPos + (newLength - oldLength), newLength);
+                let newPos = cursorPos;
                 
-                try {
-                    const newRange = document.createRange();
-                    const node = textarea.firstChild || textarea;
-                    newRange.setStart(node, Math.max(0, Math.min(newPos, node.length || 0)));
-                    newRange.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
-                } catch(err) {
-                    const newRange = document.createRange();
-                    newRange.selectNodeContents(textarea);
-                    newRange.collapse(false);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
+                if (cursorPos < oldLength) {
+                    const textBeforeCursor = text.substring(0, cursorPos);
+                    const convertedBeforeCursor = convertMath(textBeforeCursor);
+                    newPos = convertedBeforeCursor.length;
                 }
-                isConverting = false;
+                
+                setTimeout(() => {
+                    try {
+                        const newRange = document.createRange();
+                        const node = textarea.firstChild;
+                        if (node) {
+                            newRange.setStart(node, Math.min(newPos, node.length));
+                            newRange.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                        }
+                    } catch(err) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(textarea);
+                        newRange.collapse(false);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                    }
+                    isConverting = false;
+                }, 0);
+                
                 obj.rawText = text;
                 obj.text = converted;
             } else {
@@ -735,6 +797,37 @@ function startTextEdit(obj) {
         draw();
     });
     
+    // === ВИПРАВЛЕНО: Стрілка вправо виходить з режиму степеня/індексу ===
+    textarea.addEventListener('keydown', (e) => {
+        // Стрілка вправо - вихід з режиму степеня/індексу
+        if (e.key === 'ArrowRight') {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const text = textarea.innerText;
+                const currentPos = range.startOffset;
+                
+                // Якщо курсор всередині тексту, переміщуємо його в кінець
+                if (currentPos < text.length) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+                    newRange.setStart(textarea.firstChild, text.length);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                }
+            }
+        }
+        
+        if (e.key === 'Enter' && !e.shiftKey) { 
+            e.preventDefault(); 
+            stopTextEdit(); 
+        }
+        if (e.key === 'Escape') { 
+            stopTextEdit(true); 
+        }
+    });
+    
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
@@ -747,16 +840,6 @@ function startTextEdit(obj) {
         if (e.target === textarea) {
             e.stopPropagation();
             startTextDrag(obj, e, wrapper);
-        }
-    });
-    
-    textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { 
-            e.preventDefault(); 
-            stopTextEdit(); 
-        }
-        if (e.key === 'Escape') { 
-            stopTextEdit(true); 
         }
     });
     
@@ -871,7 +954,13 @@ function startTextDrag(obj, e, wrapper) {
 }
 
 canvas.addEventListener('mousedown', (e) => {
-    if (textEditor) { stopTextEdit(); return; }
+    if (textEditor) { 
+        // === Клік по пустому місцю знімає виділення та виходить з редагування ===
+        stopTextEdit(); 
+        selectedObjects = [];
+        draw();
+        return; 
+    }
     
     const coords = getCoords(e);
     
@@ -1067,7 +1156,6 @@ canvas.addEventListener('mouseup', () => {
     }
 });
 
-// === ВИПРАВЛЕНО: Ластик видаляє весь об'єкт олівця цілком ===
 function eraseAt(mx, my) {
     const eraserRadius = 30 / scale;
     let changed = false;
@@ -1077,7 +1165,6 @@ function eraseAt(mx, my) {
         let shouldRemove = false;
         
         if (obj.type === 'pen') {
-            // === ВИДАЛЯЄМО ВЕСЬ ОБ'ЄКТ ОЛІВЦЯ ЦІЛКОМ ===
             const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
             for (let p of allPoints) {
                 if (Math.hypot(p.x - mx, p.y - my) < eraserRadius) {
