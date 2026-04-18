@@ -471,7 +471,6 @@ let selectedShapeType = null;
 let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
 
-// Буфер для копіювання/вставки
 let clipboardObjects = null;
 let clipboardOffset = { x: 20, y: 20 };
 
@@ -531,7 +530,6 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
     
-    // Ctrl+C - Копіювати
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         if (!textEditor && selectedObjects.length > 0) {
             e.preventDefault();
@@ -541,7 +539,6 @@ window.addEventListener('keydown', (e) => {
         }
     }
     
-    // Ctrl+V - Вставити
     if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         if (!textEditor && clipboardObjects && clipboardObjects.length > 0) {
             e.preventDefault();
@@ -1643,57 +1640,73 @@ function startTextEdit(obj) {
             return;
         }
         
+        // НАВІГАЦІЯ СТРІЛКАМИ В ДРОБУ
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
             if (isAtEnd && parent) {
-                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub') || parent.classList.contains('math-den')) {
+                // З чисельника (верхнє поле) → в знаменник (нижнє поле)
+                if (parent.classList.contains('math-num')) {
                     e.preventDefault();
-                    
-                    if (parent.classList.contains('math-den')) {
-                        const frac = parent.parentElement;
-                        const nextSibling = frac.nextSibling;
-                        if (nextSibling) {
-                            const newRange = document.createRange();
-                            if (nextSibling.nodeType === Node.TEXT_NODE) {
-                                newRange.setStart(nextSibling, 0);
-                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                                newRange.selectNodeContents(nextSibling);
-                                newRange.collapse(true);
-                            }
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        } else {
-                            const textNode = document.createTextNode('\u200B');
-                            frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                            const newRange = document.createRange();
-                            newRange.setStart(textNode, 0);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
+                    const frac = parent.parentElement;
+                    const denSpan = frac.querySelector('.math-den');
+                    if (denSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(denSpan);
+                        newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                // З знаменника (нижнє поле) → в текст після дробу
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const nextSibling = frac.nextSibling;
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
                         }
-                    } 
-                    else {
-                        const nextSibling = parent.nextSibling;
-                        if (nextSibling) {
-                            const newRange = document.createRange();
-                            if (nextSibling.nodeType === Node.TEXT_NODE) {
-                                newRange.setStart(nextSibling, 0);
-                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                                newRange.selectNodeContents(nextSibling);
-                                newRange.collapse(true);
-                            }
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        } else {
-                             const textNode = document.createTextNode('\u200B');
-                             parent.parentNode.insertBefore(textNode, parent.nextSibling);
-                             const newRange = document.createRange();
-                             newRange.setStart(textNode, 0);
-                             sel.removeAllRanges();
-                             sel.addRange(newRange);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                // З степені/індексу → далі
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const nextSibling = parent.nextSibling;
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
                         }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                         const textNode = document.createTextNode('\u200B');
+                         parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                         const newRange = document.createRange();
+                         newRange.setStart(textNode, 0);
+                         sel.removeAllRanges();
+                         sel.addRange(newRange);
                     }
                     return;
                 }
@@ -1706,9 +1719,11 @@ function startTextEdit(obj) {
                             (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
             
             if (isAtStart && parent) {
+                // З знаменника (нижнє поле) → в чисельник (верхнє поле)
                 if (parent.classList.contains('math-den')) {
                     e.preventDefault();
-                    const numSpan = parent.parentElement.querySelector('.math-num');
+                    const frac = parent.parentElement;
+                    const numSpan = frac.querySelector('.math-num');
                     if (numSpan) {
                         const newRange = document.createRange();
                         newRange.selectNodeContents(numSpan);
@@ -1718,6 +1733,7 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
+                // З чисельника (верхнє поле) → в текст перед дробом
                 if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const frac = parent.parentElement;
@@ -1742,6 +1758,7 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
+                // З степені/індексу → назад
                 if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
                     e.preventDefault();
                     const prevSibling = parent.previousSibling;
@@ -1764,6 +1781,22 @@ function startTextEdit(obj) {
                         sel.addRange(newRange);
                     }
                     return;
+                }
+                // З тексту після дробу → в знаменник
+                if (!parent.classList.contains('math-frac')) {
+                    const prevSibling = node.previousSibling;
+                    if (prevSibling && prevSibling.classList && prevSibling.classList.contains('math-frac')) {
+                        e.preventDefault();
+                        const denSpan = prevSibling.querySelector('.math-den');
+                        if (denSpan) {
+                            const newRange = document.createRange();
+                            newRange.selectNodeContents(denSpan);
+                            newRange.collapse(false);
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                        }
+                        return;
+                    }
                 }
             }
         }
