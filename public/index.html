@@ -388,6 +388,11 @@
         <div class="shape-item" onclick="selectLineTool('line')" title="Лінія">
             <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);"><line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-linecap="round" /></svg>
         </div>
+        <div class="shape-item" onclick="selectLineTool('dotted')" title="Пунктирна лінія">
+            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);">
+                <line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-dasharray="4,4" stroke-linecap="round" />
+            </svg>
+        </div>
         <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
             <div class="compass-icon-bg">
                 <svg viewBox="0 0 24 24">
@@ -1286,6 +1291,13 @@ function drawObject(obj, isTemp = false) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
+    // ПУНКТИРНА ЛІНІЯ: встановлюємо стиль лінії
+    if (obj.lineStyle === 'dotted') {
+        ctx.setLineDash([5 * scale, 5 * scale]);
+    } else {
+        ctx.setLineDash([]);
+    }
+    
     if (obj.rotation) {
         ctx.translate(sx, sy);
         ctx.rotate(obj.rotation * Math.PI / 180);
@@ -1489,14 +1501,11 @@ function insertFraction(editorDiv, numeratorText = '') {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    // ВИПРАВЛЕННЯ: Курсор у знаменнику якщо були символи, у чисельнику якщо пусто
     const newRange = document.createRange();
     if (numeratorText && numeratorText.trim().length > 0) {
-        // Були символи перед / → курсор у знаменнику
         newRange.selectNodeContents(denSpan);
         newRange.collapse(false);
     } else {
-        // Пусто перед / → курсор у чисельнику
         newRange.selectNodeContents(numSpan);
         newRange.collapse(false);
     }
@@ -1601,7 +1610,6 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
-        // Створення дробу через / з захопленням слова перед ним
         if (e.key === '/') {
             e.preventDefault();
             
@@ -2293,6 +2301,12 @@ function startDrawing(coords) {
         x: coords.x, y: coords.y, ex: coords.x, ey: coords.y,
         w: 0, h: 0
     };
+    
+    // ПУНКТИРНА ЛІНІЯ: зберігаємо стиль лінії
+    if (selectedLineToolType === 'dotted') {
+        currentPath.lineStyle = 'dotted';
+    }
+    
     if (currentTool === 'pen') currentPath.points = [];
     if (currentTool === 'shape') {
         currentPath.shapeType = selectedShapeType;
