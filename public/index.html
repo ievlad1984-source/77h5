@@ -154,7 +154,7 @@
             flex-direction: column;
             align-items: center;
             vertical-align: middle;
-            margin: 0 8px; /* ЗБІЛЬШЕНО: було 4px, тепер 8px для кращого відступу від операторів */
+            margin: 0 8px;
             border: 1px dashed #9C27B0;
             background: rgba(156, 39, 176, 0.1);
             border-radius: 3px;
@@ -1489,10 +1489,17 @@ function insertFraction(editorDiv, numeratorText = '') {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    // Курсор у ЧИСЕЛЬНИКУ
+    // ВИПРАВЛЕННЯ: Курсор у знаменнику якщо були символи, у чисельнику якщо пусто
     const newRange = document.createRange();
-    newRange.selectNodeContents(numSpan);
-    newRange.collapse(false);
+    if (numeratorText && numeratorText.trim().length > 0) {
+        // Були символи перед / → курсор у знаменнику
+        newRange.selectNodeContents(denSpan);
+        newRange.collapse(false);
+    } else {
+        // Пусто перед / → курсор у чисельнику
+        newRange.selectNodeContents(numSpan);
+        newRange.collapse(false);
+    }
     sel.removeAllRanges();
     sel.addRange(newRange);
     
@@ -1600,22 +1607,18 @@ function startTextEdit(obj) {
             
             let numeratorText = '';
             
-            // Перевіряємо чи є текст перед курсором
             if (node.nodeType === Node.TEXT_NODE) {
                 const textNode = node;
                 const offset = range.startOffset;
                 
                 if (offset > 0) {
-                    // Знаходимо початок слова (без пробілів)
                     let wordStart = offset;
                     while (wordStart > 0 && !/\s/.test(textNode.textContent[wordStart - 1])) {
                         wordStart--;
                     }
                     
-                    // Захоплюємо слово перед /
                     if (wordStart < offset) {
                         numeratorText = textNode.textContent.substring(wordStart, offset);
-                        // Видаляємо слово з текстового вузла
                         textNode.textContent = textNode.textContent.substring(0, wordStart) + textNode.textContent.substring(offset);
                         range.setStart(textNode, wordStart);
                         range.setEnd(textNode, wordStart);
