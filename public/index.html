@@ -154,7 +154,7 @@
             flex-direction: column;
             align-items: center;
             vertical-align: middle;
-            margin: 0 4px;
+            margin: 0 8px; /* ЗБІЛЬШЕНО: було 4px, тепер 8px для кращого відступу від операторів */
             border: 1px dashed #9C27B0;
             background: rgba(156, 39, 176, 0.1);
             border-radius: 3px;
@@ -1463,13 +1463,12 @@ function insertMathField(type) {
     return span;
 }
 
-function insertFraction(editorDiv) {
+function insertFraction(editorDiv, numeratorText = '') {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
     
     const range = sel.getRangeAt(0);
     
-    // Створюємо дріб з курсором у ЧИСЕЛЬНИКУ
     const fracDiv = document.createElement('div');
     fracDiv.className = 'math-frac';
     fracDiv.style.display = 'inline-flex';
@@ -1478,11 +1477,11 @@ function insertFraction(editorDiv) {
     
     const numSpan = document.createElement('span');
     numSpan.className = 'math-num';
-    numSpan.textContent = '\u200B'; // Порожній чисельник з курсором
+    numSpan.textContent = numeratorText || '\u200B';
     
     const denSpan = document.createElement('span');
     denSpan.className = 'math-den';
-    denSpan.textContent = '\u200B'; // Порожній знаменник
+    denSpan.textContent = '\u200B';
     
     fracDiv.appendChild(numSpan);
     fracDiv.appendChild(denSpan);
@@ -1595,10 +1594,36 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
-        // Створення дробу через /
+        // Створення дробу через / з захопленням слова перед ним
         if (e.key === '/') {
             e.preventDefault();
-            insertFraction(editorDiv);
+            
+            let numeratorText = '';
+            
+            // Перевіряємо чи є текст перед курсором
+            if (node.nodeType === Node.TEXT_NODE) {
+                const textNode = node;
+                const offset = range.startOffset;
+                
+                if (offset > 0) {
+                    // Знаходимо початок слова (без пробілів)
+                    let wordStart = offset;
+                    while (wordStart > 0 && !/\s/.test(textNode.textContent[wordStart - 1])) {
+                        wordStart--;
+                    }
+                    
+                    // Захоплюємо слово перед /
+                    if (wordStart < offset) {
+                        numeratorText = textNode.textContent.substring(wordStart, offset);
+                        // Видаляємо слово з текстового вузла
+                        textNode.textContent = textNode.textContent.substring(0, wordStart) + textNode.textContent.substring(offset);
+                        range.setStart(textNode, wordStart);
+                        range.setEnd(textNode, wordStart);
+                    }
+                }
+            }
+            
+            insertFraction(editorDiv, numeratorText);
             updateSize();
             return;
         }
