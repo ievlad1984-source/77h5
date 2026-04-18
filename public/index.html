@@ -143,7 +143,7 @@
             min-width: 10px;
             min-height: 1em;
             line-height: 1.2;
-            vertical-align: baseline; /* Змінено для кращого контролю всередині дробів */
+            vertical-align: baseline;
         }
 
         .math-sup { vertical-align: super; }
@@ -159,7 +159,7 @@
             background: rgba(156, 39, 176, 0.1);
             border-radius: 3px;
             padding: 2px 4px;
-            line-height: 1.0; /* Зменшено, щоб контролювати відступи вручну */
+            line-height: 1.0;
         }
         .math-num {
             border-bottom: 2px solid currentColor;
@@ -645,7 +645,6 @@ document.addEventListener('mousedown', (e) => {
     }
 });
 
-// --- Helper: Measure text segments for dynamic sizing ---
 function measureSegments(segments, baseSize, isBold) {
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
     const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
@@ -654,7 +653,6 @@ function measureSegments(segments, baseSize, isBold) {
     let maxHeight = 0;
     let maxAscent = 0;
     
-    // Temporary context for measurement
     const tempCtx = canvas.getContext('2d');
     
     segments.forEach(s => {
@@ -668,8 +666,7 @@ function measureSegments(segments, baseSize, isBold) {
             tempCtx.font = smallFont;
             const metrics = tempCtx.measureText(s.text);
             totalWidth += metrics.width;
-            // Sup height is roughly 0.6 * baseSize, but positioned higher
-            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5)); // Account for vertical shift
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5));
         } else if (s.type === 'sub') {
             tempCtx.font = smallFont;
             const metrics = tempCtx.measureText(s.text);
@@ -680,8 +677,7 @@ function measureSegments(segments, baseSize, isBold) {
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
             const fracWidth = Math.max(numMetrics.w, denMetrics.w);
-            // Fraction height = numHeight + denHeight + gap + line
-            const fracHeight = numMetrics.h + denMetrics.h + 4 + 2; 
+            const fracHeight = numMetrics.h + denMetrics.h + 6;
             
             totalWidth += fracWidth;
             maxHeight = Math.max(maxHeight, fracHeight);
@@ -712,7 +708,6 @@ function htmlToSegments(html) {
                 const numNode = node.querySelector('.math-num');
                 const denNode = node.querySelector('.math-den');
                 
-                // Рекурсивний парсинг вкладених елементів
                 const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
                 const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
                 
@@ -756,19 +751,16 @@ function getBBox(obj) {
     if (obj.type === 'text') {
         const baseSize = obj.size; 
         
-        // Якщо є сегменти, використовуємо динамічний розрахунок висоти
         if (obj.segments && obj.segments.length > 0) {
             const metrics = measureSegments(obj.segments, baseSize, obj.isBold);
-            // Додаємо невеликий відступ
             return { 
                 x: obj.x, 
-                y: obj.y - (metrics.ascent * 0.2), // Корекція по вертикалі
+                y: obj.y - (metrics.ascent * 0.2),
                 w: metrics.w || 2, 
                 h: metrics.h * 1.2 
             };
         }
 
-        // Старий метод для простого тексту
         ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
         const lineH = baseSize * 1.4;
         
@@ -1055,85 +1047,58 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'frac') {
-            // ВИПРАВЛЕННЯ: Динамічний розрахунок розмірів дробу
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
             const fracW = Math.max(numMetrics.w, denMetrics.w);
-            const gap = 4; // Відступ між чисельником і знаменником
+            const gap = 3;
             
-            // Центрування по ширині
             const numStartX = currentX + (fracW - numMetrics.w) / 2;
             const denStartX = currentX + (fracW - denMetrics.w) / 2;
             
-            // Розрахунок вертикальних позицій
-            // Базова лінія (currentY) проходить приблизно посередині дробу
-            // Чисельник малюється вище, знаменник нижче
+            const fractionCenterY = currentY - (baseSize * 0.15);
+            const lineY = fractionCenterY;
             
-            const numY = currentY - (denMetrics.h + gap/2); 
-            const denY = currentY + (gap/2);
+            const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
+            const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
             
-            // Малювання чисельника
             ctx.font = normalFont;
             let cx = numStartX;
             s.numerator.forEach(seg => {
-                // Рекурсивний виклик для вкладених елементів чисельника
-                // Але тут ми просто малюємо плоский список сегментів чисельника
                 if(seg.type === 'normal') {
-                    ctx.fillText(seg.text, cx, numY);
+                    ctx.fillText(seg.text, cx, numBaselineY);
                     cx += ctx.measureText(seg.text).width;
                 } else if (seg.type === 'sup') {
                     ctx.font = smallFont;
-                    ctx.fillText(seg.text, cx, numY - baseSize * 0.5);
-                    ctx.font = normalFont; // повертаємо шрифт
+                    ctx.fillText(seg.text, cx, numBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
                     cx += ctx.measureText(seg.text).width;
                 } else if (seg.type === 'sub') {
                     ctx.font = smallFont;
-                    ctx.fillText(seg.text, cx, numY + baseSize * 0.3);
+                    ctx.fillText(seg.text, cx, numBaselineY + baseSize * 0.3);
                     ctx.font = normalFont;
                     cx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'frac') {
-                     // Рекурсивне відображення вкладеного дробу (спрощене)
-                     // Для повної рекурсії краще викликати drawSegmentedText, але потрібно коригувати Y
-                     // Тут ми використовуємо логіку "всередині"
-                     const subNumMetrics = measureSegments(seg.numerator, baseSize, isBold);
-                     const subDenMetrics = measureSegments(seg.denominator, baseSize, isBold);
-                     const subFracW = Math.max(subNumMetrics.w, subDenMetrics.w);
-                     const subNumY = numY - (subDenMetrics.h + 2);
-                     const subDenY = numY + 2;
-                     
-                     // Малюємо вкладений дріб
-                     let scx = cx + (subFracW - subNumMetrics.w)/2;
-                     seg.numerator.forEach(ns => {
-                         if(ns.type==='normal') { ctx.fillText(ns.text, scx, subNumY); scx+=ctx.measureText(ns.text).width; }
-                         // ... (спрощено для прикладу, повна рекурсія складна в одному циклі)
-                     });
-                     ctx.beginPath(); ctx.moveTo(cx + (subFracW - subNumMetrics.w)/2, numY); ctx.lineTo(cx + (subFracW - subNumMetrics.w)/2 + subFracW, numY); ctx.stroke();
-                     // ...
-                     cx += subFracW;
                 }
             });
             
-            // Лінія дробу
             ctx.beginPath();
-            ctx.moveTo(currentX, currentY - gap/2);
-            ctx.lineTo(currentX + fracW, currentY - gap/2);
+            ctx.moveTo(currentX, lineY);
+            ctx.lineTo(currentX + fracW, lineY);
             ctx.stroke();
             
-            // Малювання знаменника
             let dx = denStartX;
             s.denominator.forEach(seg => {
                 if(seg.type === 'normal') {
-                    ctx.fillText(seg.text, dx, denY);
+                    ctx.fillText(seg.text, dx, denBaselineY);
                     dx += ctx.measureText(seg.text).width;
                 } else if (seg.type === 'sup') {
                     ctx.font = smallFont;
-                    ctx.fillText(seg.text, dx, denY - baseSize * 0.5);
+                    ctx.fillText(seg.text, dx, denBaselineY - baseSize * 0.5);
                     ctx.font = normalFont;
                     dx += ctx.measureText(seg.text).width;
                 } else if (seg.type === 'sub') {
                     ctx.font = smallFont;
-                    ctx.fillText(seg.text, dx, denY + baseSize * 0.3);
+                    ctx.fillText(seg.text, dx, denBaselineY + baseSize * 0.3);
                     ctx.font = normalFont;
                     dx += ctx.measureText(seg.text).width;
                 }
@@ -1713,17 +1678,15 @@ function startTextEdit(obj) {
             return;
         }
         
-        // ВИПРАВЛЕННЯ: Навігація стрілками всередині дробів
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
             if (isAtEnd && parent) {
-                // Якщо ми в знаменнику (.math-den)
                 if (parent.classList.contains('math-den')) {
                     e.preventDefault();
-                    const frac = parent.parentElement; // .math-frac
+                    const frac = parent.parentElement;
                     const nextSibling = frac.nextSibling;
                     if (nextSibling) {
                         const newRange = document.createRange();
@@ -1745,22 +1708,18 @@ function startTextEdit(obj) {
                     }
                     return;
                 } 
-                // Якщо ми в чисельнику (.math-num) -> переходимо в знаменник
                 else if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const denSpan = parent.parentElement.querySelector('.math-den');
                     if (denSpan) {
                         const newRange = document.createRange();
                         newRange.selectNodeContents(denSpan);
-                        newRange.collapse(false); // В кінець знаменника або на початок? Краще в кінець чисельника, але тут логіка переходу
-                        // Ставимо курсор на початок знаменника
-                        newRange.collapse(true); 
+                        newRange.collapse(true);
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     }
                     return;
                 }
-                // Якщо ми в степені/індексі
                 else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
                     e.preventDefault();
                     const nextSibling = parent.nextSibling;
@@ -1793,20 +1752,18 @@ function startTextEdit(obj) {
                             (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
             
             if (isAtStart && parent) {
-                // Якщо ми в знаменнику -> переходимо в чисельник
                 if (parent.classList.contains('math-den')) {
                     e.preventDefault();
                     const numSpan = parent.parentElement.querySelector('.math-num');
                     if (numSpan) {
                         const newRange = document.createRange();
                         newRange.selectNodeContents(numSpan);
-                        newRange.collapse(false); // В кінець чисельника
+                        newRange.collapse(false);
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     }
                     return;
                 }
-                // Якщо ми в чисельнику -> переходимо до попереднього елемента дробу
                 if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const frac = parent.parentElement;
@@ -1831,7 +1788,6 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
-                // Якщо ми в степені/індексі
                 if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
                     e.preventDefault();
                     const prevSibling = parent.previousSibling;
