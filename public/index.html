@@ -1291,7 +1291,6 @@ function drawObject(obj, isTemp = false) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
-    // ПУНКТИРНА ЛІНІЯ: встановлюємо стиль лінії
     if (obj.lineStyle === 'dotted') {
         ctx.setLineDash([5 * scale, 5 * scale]);
     } else {
@@ -1647,12 +1646,14 @@ function startTextEdit(obj) {
             return;
         }
         
+        // ВИПРАВЛЕНА НАВІГАЦІЯ СТРІЛКАМИ
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
             if (isAtEnd && parent) {
+                // Вихід зі знаменника дробу
                 if (parent.classList.contains('math-den')) {
                     e.preventDefault();
                     const frac = parent.parentElement;
@@ -1677,6 +1678,7 @@ function startTextEdit(obj) {
                     }
                     return;
                 } 
+                // Перехід з чисельника в знаменник
                 else if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const denSpan = parent.parentElement.querySelector('.math-den');
@@ -1689,6 +1691,7 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
+                // Вихід зі степеня або індексу
                 else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
                     e.preventDefault();
                     const nextSibling = parent.nextSibling;
@@ -1721,6 +1724,7 @@ function startTextEdit(obj) {
                             (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
             
             if (isAtStart && parent) {
+                // Перехід зі знаменника в чисельник
                 if (parent.classList.contains('math-den')) {
                     e.preventDefault();
                     const numSpan = parent.parentElement.querySelector('.math-num');
@@ -1733,6 +1737,7 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
+                // Вихід з чисельника дробу назад
                 if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const frac = parent.parentElement;
@@ -1757,6 +1762,7 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
+                // Вихід зі степеня або індексу назад
                 if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
                     e.preventDefault();
                     const prevSibling = parent.previousSibling;
@@ -2302,7 +2308,6 @@ function startDrawing(coords) {
         w: 0, h: 0
     };
     
-    // ПУНКТИРНА ЛІНІЯ: зберігаємо стиль лінії
     if (selectedLineToolType === 'dotted') {
         currentPath.lineStyle = 'dotted';
     }
