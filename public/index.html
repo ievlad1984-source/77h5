@@ -48,7 +48,8 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            white-space: pre-wrap;
+            /* ВИПРАВЛЕНО: pre забороняє автоматичне перенесення, але зберігає Enter */
+            white-space: pre; 
             overflow: visible;
             display: inline-block;
             box-sizing: border-box;
@@ -743,14 +744,13 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     });
 }
 
-// ВИПРАВЛЕНО: Осі тепер завжди на лініях сітки
 function drawCoordinateGrid(obj) {
     const sx = obj.x * scale + offsetX;
     const sy = obj.y * scale + offsetY;
     const sw = obj.w * scale;
     const sh = obj.h * scale;
     
-    const gridSpacing = obj.gridSpacing || 40; // Зменшено масштаб з 50 до 40
+    const gridSpacing = obj.gridSpacing || 40;
     const axisColor = obj.axisColor || '#000000';
     const gridColor = obj.gridColor || '#cccccc';
     
@@ -780,33 +780,26 @@ function drawCoordinateGrid(obj) {
         ctx.stroke();
     }
     
-    // ВИПРАВЛЕНО: Прив'язка осей до ліній сітки
-    // Знаходимо геометричний центр прямокутника
     const rawCenterX = sx + sw / 2;
     const rawCenterY = sy + sh / 2;
     
-    // Знаходимо відстань від початку (sx) до центру
     const offsetXFromStart = rawCenterX - sx;
     const offsetYFromStart = rawCenterY - sy;
     
-    // Округлюємо кількість кроків сітки до найближчого цілого
     const stepsX = Math.round(offsetXFromStart / gridSpacing);
     const stepsY = Math.round(offsetYFromStart / gridSpacing);
     
-    // Обчислюємо нові координати осей, які точно потрапляють на лінію
     const centerX = sx + stepsX * gridSpacing;
     const centerY = sy + stepsY * gridSpacing;
     
     ctx.strokeStyle = axisColor;
     ctx.lineWidth = 2;
     
-    // Вісь X
     ctx.beginPath();
     ctx.moveTo(sx, centerY);
     ctx.lineTo(sx + sw, centerY);
     ctx.stroke();
     
-    // Вісь Y
     ctx.beginPath();
     ctx.moveTo(centerX, sy);
     ctx.lineTo(centerX, sy + sh);
@@ -814,7 +807,6 @@ function drawCoordinateGrid(obj) {
     
     const arrowSize = 10;
     
-    // Стрілка X
     ctx.beginPath();
     ctx.moveTo(sx + sw, centerY);
     ctx.lineTo(sx + sw - arrowSize, centerY - arrowSize);
@@ -822,7 +814,6 @@ function drawCoordinateGrid(obj) {
     ctx.lineTo(sx + sw - arrowSize, centerY + arrowSize);
     ctx.stroke();
     
-    // Стрілка Y
     ctx.beginPath();
     ctx.moveTo(centerX, sy);
     ctx.lineTo(centerX - arrowSize, sy + arrowSize);
@@ -835,24 +826,20 @@ function drawCoordinateGrid(obj) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     
-    // Обчислюємо кількість клітинок від центру до країв
     const cellsRight = Math.floor((sx + sw - centerX) / gridSpacing);
     const cellsLeft = Math.floor((centerX - sx) / gridSpacing);
     const cellsUp = Math.floor((centerY - sy) / gridSpacing);
     const cellsDown = Math.floor((sy + sh - centerY) / gridSpacing);
     
-    // Позначки на осі X
     for (let i = -cellsLeft; i <= cellsRight; i++) {
         if (i !== 0) {
             const x = centerX + i * gridSpacing;
-            // Малюємо тільки якщо є місце
             if (x >= sx + 15 && x <= sx + sw - 15) {
                 ctx.fillText(i.toString(), x, centerY + 5);
             }
         }
     }
     
-    // Позначки на осі Y
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let i = -cellsDown; i <= cellsUp; i++) {
@@ -1657,7 +1644,7 @@ canvas.addEventListener('mouseup', () => {
             if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
                 saveHistory();
                 currentPath.type = 'grid';
-                currentPath.gridSpacing = 40; // Зменшено масштаб при створенні
+                currentPath.gridSpacing = 40;
                 currentPath.axisColor = '#000000';
                 currentPath.gridColor = '#cccccc';
                 objects.push(currentPath);
