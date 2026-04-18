@@ -196,11 +196,9 @@
     <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
     <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
     <div class="separator"></div>
-    <!-- ЗАМІНЕНО: Текст на іконку -->
     <button class="tool-btn" data-tool="pen" title="Олівець">✏️</button>
     <button class="tool-btn" data-tool="line">Лінія</button>
     <button class="tool-btn" data-tool="arrow">Стрілка</button>
-    <!-- ЗАМІНЕНО: Текст на іконку -->
     <button class="tool-btn" data-tool="rect" title="Прямокутник">⬜</button>
     <button class="tool-btn" data-tool="grid">📊 Сітка</button>
     <button class="tool-btn" data-tool="text">Текст</button>
@@ -1118,6 +1116,32 @@ function startTextEdit(obj) {
             updateSize();
             return;
         }
+
+        // ДОДАНО: Обробка комбінації +- для знаку ±
+        if (e.key === '-') {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const node = range.startContainer;
+                const offset = range.startOffset;
+
+                // Перевіряємо, чи попередній символ '+'
+                if (node.nodeType === Node.TEXT_NODE && offset > 0 && node.textContent[offset - 1] === '+') {
+                    e.preventDefault();
+                    // Замінюємо '+' на '±'
+                    const text = node.textContent;
+                    node.textContent = text.substring(0, offset - 1) + '±' + text.substring(offset);
+                    
+                    // Повертаємо курсор після знаку ±
+                    range.setStart(node, offset);
+                    range.setEnd(node, offset);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    updateSize();
+                    return;
+                }
+            }
+        }
         
         if (e.key === 'ArrowRight') {
             const sel = window.getSelection();
@@ -2007,4 +2031,3 @@ socket.on('board-deleted', () => {
 </script>
 </body>
 </html>
-```
