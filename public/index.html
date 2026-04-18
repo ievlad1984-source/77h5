@@ -61,60 +61,29 @@
         .tool-btn.active .dropdown-trigger { border-left-color: rgba(255,255,255,0.3); }
         .tool-btn.active .dropdown-trigger:hover { background: rgba(255,255,255,0.2); }
         
-        /* Стиль для кнопок вибору кольору (Олівці) */
-        .pen-color-btn {
-            width: 44px;
-            height: 44px;
-            padding: 0;
+        /* Кнопки вибору кольору (квадрати) */
+        .color-btn {
+            width: 28px;
+            height: 28px;
             cursor: pointer;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            background: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
             transition: all 0.2s;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Ефект прозорості (шахматний фон) */
-        .pen-color-btn::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: 
-                linear-gradient(45deg, #eee 25%, transparent 25%), 
-                linear-gradient(-45deg, #eee 25%, transparent 25%), 
-                linear-gradient(45deg, transparent 75%, #eee 75%), 
-                linear-gradient(-45deg, transparent 75%, #eee 75%);
-            background-size: 8px 8px;
-            background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
-            z-index: 0;
-            opacity: 0.5;
         }
         
-        .pen-color-btn:hover {
+        .color-btn:hover {
+            transform: scale(1.1);
             border-color: #007bff;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
-        .pen-color-btn.active {
+        .color-btn.active {
             border-color: #007bff;
             box-shadow: 0 0 0 2px rgba(0,123,255,0.3);
-            background: #e3f2fd;
-        }
-        .pen-color-btn.active::before {
-            opacity: 0.2;
         }
         
-        .pen-color-btn svg {
-            width: 36px;
-            height: 36px;
-            z-index: 1;
-            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.2));
-        }
+        .color-black { background: #000000; }
+        .color-blue { background: #0055FF; }
+        .color-red { background: #FF3333; }
         
         .tool-icon {
             width: 20px;
@@ -148,10 +117,9 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            white-space: pre !important;
-            overflow-wrap: normal !important;
-            word-wrap: normal !important;
-            word-break: keep-all !important;
+            white-space: pre-wrap !important;
+            overflow-wrap: break-word !important;
+            word-wrap: break-word !important;
             overflow: visible;
             display: inline-block;
             box-sizing: border-box;
@@ -371,53 +339,7 @@
     <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
     <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
     <div class="separator"></div>
-    
-    <button class="tool-btn" data-tool="pen" id="penToolBtn" title="Олівець">
-        <svg class="tool-icon" viewBox="0 0 24 24">
-            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" fill="currentColor"/>
-            <path d="m15 5 4 4" stroke="currentColor" stroke-width="2"/>
-        </svg>
-    </button>
-    
-    <!-- КНОПКИ ВИБОРУ КОЛЬОРУ (Як на малюнку 88) -->
-    <div class="pen-color-btn active" id="penColorBlack" onclick="selectPenColor('#000000')" title="Чорний">
-        <svg viewBox="0 0 64 64">
-            <!-- Лінія -->
-            <path d="M10 50 Q20 30 30 30" stroke="#000000" stroke-width="3" fill="none" stroke-linecap="round"/>
-            <!-- Корпус олівця -->
-            <path d="M35 25 L55 5 L60 10 L40 30 Z" fill="#333"/>
-            <path d="M40 30 L50 40 L45 45 L35 35 Z" fill="#333"/>
-            <!-- Дерево -->
-            <path d="M35 35 L45 45 L40 50 L30 40 Z" fill="#E0C090"/>
-            <!-- Грифель -->
-            <path d="M30 40 L40 50 L38 52 L28 42 Z" fill="#111"/>
-            <circle cx="38" cy="52" r="1" fill="#111"/>
-            <!-- Металева окантовка -->
-            <path d="M55 5 L60 10 L58 12 L53 7 Z" fill="#999"/>
-        </svg>
-    </div>
-    <div class="pen-color-btn" id="penColorBlue" onclick="selectPenColor('#0055FF')" title="Синій">
-        <svg viewBox="0 0 64 64">
-            <path d="M10 50 Q20 30 30 30" stroke="#0055FF" stroke-width="3" fill="none" stroke-linecap="round"/>
-            <path d="M35 25 L55 5 L60 10 L40 30 Z" fill="#0055FF"/>
-            <path d="M40 30 L50 40 L45 45 L35 35 Z" fill="#0055FF"/>
-            <path d="M35 35 L45 45 L40 50 L30 40 Z" fill="#E0C090"/>
-            <path d="M30 40 L40 50 L38 52 L28 42 Z" fill="#111"/>
-            <circle cx="38" cy="52" r="1" fill="#111"/>
-            <path d="M55 5 L60 10 L58 12 L53 7 Z" fill="#999"/>
-        </svg>
-    </div>
-    <div class="pen-color-btn" id="penColorRed" onclick="selectPenColor('#FF3333')" title="Червоний">
-        <svg viewBox="0 0 64 64">
-            <path d="M10 50 Q20 30 30 30" stroke="#FF3333" stroke-width="3" fill="none" stroke-linecap="round"/>
-            <path d="M35 25 L55 5 L60 10 L40 30 Z" fill="#FF3333"/>
-            <path d="M40 30 L50 40 L45 45 L35 35 Z" fill="#FF3333"/>
-            <path d="M35 35 L45 45 L40 50 L30 40 Z" fill="#E0C090"/>
-            <path d="M30 40 L40 50 L38 52 L28 42 Z" fill="#111"/>
-            <circle cx="38" cy="52" r="1" fill="#111"/>
-            <path d="M55 5 L60 10 L58 12 L53 7 Z" fill="#999"/>
-        </svg>
-    </div>
+    <button class="tool-btn" data-tool="pen" id="penToolBtn" title="Олівець">✏️</button>
     
     <button class="tool-btn split-btn" data-tool="line" id="lineToolBtn" title="Лінія">
         <svg class="tool-icon" viewBox="0 0 24 24" style="transform: rotate(-45deg);">
@@ -445,8 +367,14 @@
     </button>
 
     <div class="separator"></div>
+    
+    <!-- ВИБІР КОЛЬОРУ (після ластика) -->
+    <div class="color-btn color-black active" id="colorBlack" onclick="selectPenColor('#000000')" title="Чорний"></div>
+    <div class="color-btn color-blue" id="colorBlue" onclick="selectPenColor('#0055FF')" title="Синій"></div>
+    <div class="color-btn color-red" id="colorRed" onclick="selectPenColor('#FF3333')" title="Червоний"></div>
+    
+    <div class="separator"></div>
     <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
-    <label title="Формули"><input type="checkbox" id="mathMode" checked> 𝑥²</label>
     <input type="color" id="colorPicker" value="#212529" title="Колір" style="display:none;">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
@@ -642,10 +570,10 @@ function selectPenColor(color) {
     currentPenColor = color;
     document.getElementById('colorPicker').value = color;
     
-    document.querySelectorAll('.pen-color-btn').forEach(btn => btn.classList.remove('active'));
-    if (color === '#000000') document.getElementById('penColorBlack').classList.add('active');
-    else if (color === '#0055FF') document.getElementById('penColorBlue').classList.add('active');
-    else if (color === '#FF3333') document.getElementById('penColorRed').classList.add('active');
+    document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+    if (color === '#000000') document.getElementById('colorBlack').classList.add('active');
+    else if (color === '#0055FF') document.getElementById('colorBlue').classList.add('active');
+    else if (color === '#FF3333') document.getElementById('colorRed').classList.add('active');
 }
 
 function selectShape(type) {
@@ -752,10 +680,8 @@ function htmlToSegments(html) {
                     numerator: numSegs, 
                     denominator: denSegs 
                 });
-            } else if (node.tagName === 'BR') {
+            } else if (node.tagName === 'BR' || node.tagName === 'DIV') {
                  segments.push({ type: 'normal', text: '\n' });
-            } else if (node.tagName === 'DIV') {
-                node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
             }
@@ -775,7 +701,7 @@ function segmentsToHtml(segments) {
             const denHtml = segmentsToHtml(s.denominator);
             return `<div class="math-frac"><span class="math-num">${numHtml}</span><span class="math-den">${denHtml}</span></div>`;
         }
-        if (s.text === '\n') return '<br>';
+        if (s.text === '\n') return '<div><br></div>';
         return s.text;
     }).join('');
 }
@@ -786,47 +712,21 @@ function getBBox(obj) {
         const baseSize = obj.size; 
         ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
         
-        const lineH = baseSize * 1.2;
+        const lineH = baseSize * 1.4;
         
         let maxW = 0;
         let currentLineW = 0;
         let lines = 1;
         
-        if (obj.segments) {
-            for (let s of obj.segments) {
-                if (s.text === '\n') {
-                    if (currentLineW > maxW) maxW = currentLineW;
-                    currentLineW = 0;
-                    lines++;
-                    continue;
-                }
-                
-                let w = 0;
-                if (s.type === 'sup' || s.type === 'sub') {
-                    ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
-                } else if (s.type === 'frac') {
-                    const numW = s.numerator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
-                    const denW = s.denominator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
-                    w = Math.max(numW, denW) + 10;
-                    ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-                } else {
-                    ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-                }
-                w = ctx.measureText(s.text).width;
-                currentLineW += w;
-            }
-            if (currentLineW > maxW) maxW = currentLineW;
-            
-        } else {
-            const text = obj.text || '';
-            const textLines = text.split('\n');
-            lines = textLines.length;
-            textLines.forEach(line => {
-                ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-                const w = ctx.measureText(line).width;
-                if (w > maxW) maxW = w;
-            });
-        }
+        const text = obj.text || '';
+        const textLines = text.split('\n');
+        lines = textLines.length;
+        
+        textLines.forEach(line => {
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+            const w = ctx.measureText(line).width;
+            if (w > maxW) maxW = w;
+        });
         
         return { 
             x: obj.x, 
@@ -836,7 +736,7 @@ function getBBox(obj) {
         };
     }
     if (obj.type === 'rect' || obj.type === 'shape') {
-        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
+        return { x: obj.x, y: obj.y, w: Math.abs(obj.w), h: Math.abs(obj.h) };
     }
     if (obj.type === 'image') {
         return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
@@ -1331,8 +1231,8 @@ function drawObject(obj, isTemp = false) {
             ctx.stroke();
         }
     } else if (obj.type === 'rect') {
-        const w = (obj.ex - obj.x) * scale;
-        const h = (obj.ey - obj.y) * scale;
+        const w = obj.w * scale;
+        const h = obj.h * scale;
         ctx.strokeRect(sx, sy, w, h);
     } else if (obj.type === 'shape') {
         const w = obj.w * scale;
@@ -1427,7 +1327,11 @@ function drawObject(obj, isTemp = false) {
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
         } else {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-            ctx.fillText(obj.text || '', sx, sy + (baseSize * 0.8));
+            const textLines = (obj.text || '').split('\n');
+            const lineH = baseSize * 1.4;
+            textLines.forEach((line, i) => {
+                ctx.fillText(line, sx, sy + (baseSize * 0.8) + (i * lineH));
+            });
         }
     } else if (obj.type === 'grid') {
         drawCoordinateGrid(obj);
@@ -1545,7 +1449,7 @@ function startTextEdit(obj) {
     wrapper.style.left = (screenX - 10) + 'px';
     wrapper.style.top = (screenY - 5) + 'px';
     wrapper.style.minWidth = '100px';
-    wrapper.style.minHeight = (obj.size * 1.2 * scale) + 'px';
+    wrapper.style.minHeight = (obj.size * 1.4 * scale) + 'px';
     
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
@@ -1570,12 +1474,11 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    if (obj.segments && obj.segments.length > 0) {
-        editorDiv.innerHTML = segmentsToHtml(obj.segments);
-    } else if (obj.text && obj.text.trim() !== '') {
-        editorDiv.innerText = obj.text;
+    if (obj.text && obj.text.trim() !== '') {
+        const lines = obj.text.split('\n');
+        editorDiv.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
     } else {
-        editorDiv.innerText = '';
+        editorDiv.innerHTML = '<div><br></div>';
     }
     
     wrapper.appendChild(editorDiv);
@@ -1598,15 +1501,10 @@ function startTextEdit(obj) {
         const range = document.createRange();
         const sel = window.getSelection();
         
-        if (editorDiv.childNodes.length > 0) {
-            const lastChild = editorDiv.childNodes[editorDiv.childNodes.length - 1];
-            if (lastChild.nodeType === Node.TEXT_NODE) {
-                range.setStart(lastChild, lastChild.length);
-                range.setEnd(lastChild, lastChild.length);
-            } else {
-                range.selectNodeContents(editorDiv);
-                range.collapse(false);
-            }
+        const lastDiv = editorDiv.lastElementChild;
+        if (lastDiv) {
+            range.selectNodeContents(lastDiv);
+            range.collapse(false);
         } else {
             range.selectNodeContents(editorDiv);
             range.collapse(false);
@@ -1619,194 +1517,11 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            const selection = window.getSelection();
-            if (!selection.rangeCount) return;
-            
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            
-            const newLine = document.createElement('div');
-            newLine.textContent = '\u200B';
-            
-            range.insertNode(newLine);
-            
-            const newRange = document.createRange();
-            newRange.selectNodeContents(newLine);
-            newRange.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-            
+            document.execCommand('insertLineBreak');
             updateSize();
             return;
         }
 
-        if (e.key === '-') {
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) {
-                const range = sel.getRangeAt(0);
-                const node = range.startContainer;
-                const offset = range.startOffset;
-
-                if (node.nodeType === Node.TEXT_NODE && offset > 0 && node.textContent[offset - 1] === '+') {
-                    e.preventDefault();
-                    const text = node.textContent;
-                    node.textContent = text.substring(0, offset - 1) + '±' + text.substring(offset);
-                    
-                    range.setStart(node, offset);
-                    range.setEnd(node, offset);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                    updateSize();
-                    return;
-                }
-            }
-        }
-        
-        if (e.key === 'ArrowRight') {
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) {
-                const range = sel.getRangeAt(0);
-                const node = range.endContainer;
-                const offset = range.endOffset;
-                
-                let parent = node.nodeType === 3 ? node.parentElement : node;
-                
-                const isDenominator = parent && parent.classList.contains('math-den');
-                
-                if (isDenominator) {
-                    const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
-                                    (node.nodeType === 1 && offset >= node.childNodes.length);
-                    
-                    if (isAtEnd) {
-                        e.preventDefault();
-                        const fracDiv = parent.parentElement;
-                        const nextSibling = fracDiv.nextSibling;
-                        
-                        if (nextSibling) {
-                            const newRange = document.createRange();
-                            if (nextSibling.nodeType === 3) {
-                                newRange.setStart(nextSibling, 0);
-                            } else {
-                                newRange.setStart(nextSibling, 0);
-                            }
-                            newRange.collapse(true);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        } else {
-                            const newRange = document.createRange();
-                            newRange.setStartAfter(fracDiv);
-                            newRange.collapse(true);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        }
-                        return;
-                    }
-                }
-                
-                const isInsideMath = parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'));
-                if (isInsideMath) {
-                    const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
-                                    (node.nodeType === 1 && offset >= node.childNodes.length);
-                    
-                    if (isAtEnd) {
-                        e.preventDefault();
-                        const mathParent = parent;
-                        const nextSibling = mathParent.nextSibling;
-                        
-                        if (nextSibling) {
-                            const newRange = document.createRange();
-                            if (nextSibling.nodeType === 3) {
-                                newRange.setStart(nextSibling, 0);
-                            } else {
-                                newRange.setStart(nextSibling, 0);
-                            }
-                            newRange.collapse(true);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        } else {
-                            const newRange = document.createRange();
-                            newRange.setStartAfter(mathParent);
-                            newRange.collapse(true);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        }
-                        return;
-                    }
-                }
-            }
-        }
-        
-        if (e.key === 'ArrowLeft') {
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) {
-                const range = sel.getRangeAt(0);
-                const node = range.startContainer;
-                const offset = range.startOffset;
-                
-                let parent = node.nodeType === 3 ? node.parentElement : node;
-                const isInsideMath = parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'));
-                
-                if (isInsideMath) {
-                    const isAtStart = (node.nodeType === 3 && offset <= 0) || 
-                                      (node.nodeType === 1 && offset <= 0);
-                    
-                    if (isAtStart) {
-                        e.preventDefault();
-                        const mathParent = parent;
-                        const prevSibling = mathParent.previousSibling;
-                        
-                        if (prevSibling) {
-                            const newRange = document.createRange();
-                            if (prevSibling.nodeType === 3) {
-                                newRange.setStart(prevSibling, prevSibling.length);
-                            } else {
-                                newRange.setStart(prevSibling, prevSibling.childNodes.length);
-                            }
-                            newRange.collapse(true);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        } else {
-                            const newRange = document.createRange();
-                            newRange.setStartBefore(mathParent);
-                            newRange.collapse(true);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        }
-                        return;
-                    }
-                }
-            }
-        }
-        
-        if (e.key === '/') {
-            e.preventDefault();
-            insertFraction(editorDiv);
-            return;
-        }
-        
-        if (e.key === '^' || e.key === '_') {
-            e.preventDefault();
-            const span = insertMathField(e.key === '^' ? 'sup' : 'sub');
-            updateSize();
-            return;
-        }
-        
-        if (e.key === 'Backspace') {
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) {
-                const range = sel.getRangeAt(0);
-                if (range.startOffset === 0 && range.endOffset === 0) {
-                    const node = range.startContainer;
-                    if (node.nodeType === 1 && (node.classList.contains('math-sup') || node.classList.contains('math-sub'))) {
-                        e.preventDefault();
-                        node.remove();
-                        updateSize();
-                        return;
-                    }
-                }
-            }
-        }
-        
         if (e.key === 'Escape') { 
             stopTextEdit(true); 
         }
@@ -1815,10 +1530,7 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
-            let html = editorDiv.innerHTML;
-            html = html.replace(/\u200B/g, '');
-            editingObject.segments = htmlToSegments(html);
-            editingObject.text = editorDiv.innerText.replace(/\u200B/g, '');
+            editingObject.text = editorDiv.innerText;
             if (socket && socket.connected) socket.emit('update-all', objects);
         }
     });
@@ -1852,10 +1564,7 @@ function stopTextEdit(cancel = false) {
     const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
-        let html = editorDiv.innerHTML;
-        html = html.replace(/\u200B/g, '');
-        editingObject.segments = htmlToSegments(html);
-        editingObject.text = editorDiv.innerText.replace(/\u200B/g, '');
+        editingObject.text = editorDiv.innerText;
         if (socket && socket.connected) socket.emit('update-all', objects);
     }
     if (textEditor.parentNode) {
@@ -1975,10 +1684,7 @@ canvas.addEventListener('mousedown', (e) => {
         
         if (clickedText) {
             saveHistory();
-            let html = textEditor.querySelector('.text-edit-content').innerHTML;
-            html = html.replace(/\u200B/g, '');
-            editingObject.segments = htmlToSegments(html);
-            editingObject.text = textEditor.querySelector('.text-edit-content').innerText.replace(/\u200B/g, '');
+            editingObject.text = textEditor.querySelector('.text-edit-content').innerText;
             
             if (textEditor.parentNode) {
                 document.body.removeChild(textEditor);
@@ -2305,15 +2011,12 @@ function startDrawing(coords) {
         type: currentTool,
         color: currentPenColor,
         width: document.getElementById('lineWidth').value,
-        x: coords.x, y: coords.y, ex: coords.x, ey: coords.y
+        x: coords.x, y: coords.y, ex: coords.x, ey: coords.y,
+        w: 0, h: 0
     };
     if (currentTool === 'pen') currentPath.points = [];
-    if (currentTool === 'grid' || currentTool === 'shape' || currentTool === 'rect') {
-        currentPath.w = 0;
-        currentPath.h = 0;
-        if (currentTool === 'shape') {
-            currentPath.shapeType = selectedShapeType;
-        }
+    if (currentTool === 'shape') {
+        currentPath.shapeType = selectedShapeType;
     }
     if (currentTool === 'line' && selectedLineToolType === 'compass') {
         currentPath.type = 'compass';
@@ -2439,7 +2142,6 @@ function createNewText(coords) {
     const obj = {
         type: 'text', x: coords.x, y: coords.y, 
         text: '', 
-        segments: [{type:'normal', text:''}],
         color: currentPenColor,
         size: 20, isBold: document.getElementById('boldText').checked,
         rotation: 0
