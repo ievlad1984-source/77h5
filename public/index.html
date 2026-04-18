@@ -1,6 +1,3 @@
-Ось повний код з додаванням **панелі фігур**. Я додав кнопку "Фігури" на панель інструментів, яка відкриває меню з різними геометричними формами (квадрати, трикутники, кола, зірки тощо).
-
-```html
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -21,11 +18,89 @@
             padding: 8px 14px; cursor: pointer; border: 1px solid #e0e0e0; 
             background: #fff; border-radius: 6px; font-size: 14px; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; user-select: none;
+            position: relative;
+        }
+        
+        /* Стиль для кнопок з випадаючим меню */
+        .tool-btn.split-btn {
+            padding-right: 24px;
+        }
+        
+        .dropdown-arrow {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: #666;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .dropdown-trigger {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 20px;
+            cursor: pointer;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 1px solid rgba(0,0,0,0.1);
+            border-top-right-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }
+        .dropdown-trigger:hover {
+            background: rgba(0,0,0,0.05);
         }
         
         .tool-btn:hover { background: #f0f7ff; border-color: #007bff; }
         .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
+        .tool-btn.active .dropdown-arrow { color: white; }
+        .tool-btn.active .dropdown-trigger { border-left-color: rgba(255,255,255,0.3); }
+        .tool-btn.active .dropdown-trigger:hover { background: rgba(255,255,255,0.2); }
         
+        /* Кнопки вибору кольору ручки */
+        .pen-color-btn {
+            width: 36px;
+            height: 36px;
+            padding: 4px;
+            cursor: pointer;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .pen-color-btn:hover {
+            background: #f0f7ff;
+            border-color: #007bff;
+        }
+        
+        .pen-color-btn.active {
+            background: #e3f2fd;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.3);
+        }
+        
+        .pen-color-btn svg {
+            width: 28px;
+            height: 28px;
+        }
+        
+        /* Іконки інструментів */
+        .tool-icon {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            fill: currentColor;
+        }
+
         #zoom-display { 
             position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); 
             padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px;
@@ -191,12 +266,12 @@
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
         }
 
-        /* Стилі для палітри фігур */
-        #shapes-palette {
+        /* Стилі для палітр */
+        #shapes-palette, #line-palette {
             position: absolute;
             top: 70px;
             left: 15px;
-            width: 220px;
+            width: 240px;
             background: white;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -227,8 +302,8 @@
         }
 
         .shape-item {
-            width: 40px;
-            height: 40px;
+            width: 45px;
+            height: 45px;
             border: 1px solid #eee;
             border-radius: 4px;
             display: flex;
@@ -244,11 +319,28 @@
         }
 
         .shape-item svg {
-            width: 24px;
-            height: 24px;
+            width: 28px;
+            height: 28px;
             stroke: #333;
             stroke-width: 2;
             fill: none;
+        }
+        
+        /* Стиль для іконки циркуля (як на малюнку 87) */
+        .compass-icon-bg {
+            width: 32px;
+            height: 32px;
+            background-color: #5a7d9a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .compass-icon-bg svg {
+            stroke: white;
+            fill: white;
+            width: 20px;
+            height: 20px;
         }
     </style>
 </head>
@@ -258,23 +350,93 @@
     <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
     <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
     <div class="separator"></div>
-    <button class="tool-btn" data-tool="pen" title="Олівець">✏️</button>
-    <button class="tool-btn" data-tool="line">Лінія</button>
-    <button class="tool-btn" data-tool="arrow">Стрілка</button>
-    <button class="tool-btn" data-tool="rect" title="Прямокутник">⬜</button>
-    <!-- НОВА КНОПКА ФІГУРИ -->
-    <button class="tool-btn" id="shapesBtn" title="Фігури">🔷</button>
-    <button class="tool-btn" data-tool="grid">📊 Сітка</button>
-    <button class="tool-btn" data-tool="text">Текст</button>
-    <button class="tool-btn" data-tool="eraser">Ластик</button>
+    
+    <!-- КНОПКА ОЛІВЕЦЬ -->
+    <button class="tool-btn" data-tool="pen" id="penToolBtn" title="Олівець">
+        <svg class="tool-icon" viewBox="0 0 24 24">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" fill="currentColor"/>
+            <path d="m15 5 4 4" stroke="currentColor" stroke-width="2"/>
+        </svg>
+    </button>
+    
+    <!-- ВИБІР КОЛЬОРУ РУЧКИ (на панелі, як на малюнку 88) -->
+    <div class="pen-color-btn active" id="penColorBlack" onclick="selectPenColor('#000000')" title="Чорний">
+        <svg viewBox="0 0 40 40">
+            <path d="M10 30 L30 10" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+            <path d="M25 15 L30 10 L20 0 L15 5 Z" fill="#333"/>
+            <path d="M15 5 L5 15 L10 20 L20 10 Z" fill="#666"/>
+        </svg>
+    </div>
+    <div class="pen-color-btn" id="penColorBlue" onclick="selectPenColor('#0055FF')" title="Синій">
+        <svg viewBox="0 0 40 40">
+            <path d="M10 30 Q20 10 30 10" stroke="#0055FF" stroke-width="4" stroke-linecap="round" fill="none"/>
+            <path d="M25 15 L30 10 L20 0 L15 5 Z" fill="#333"/>
+            <path d="M15 5 L5 15 L10 20 L20 10 Z" fill="#0055FF"/>
+        </svg>
+    </div>
+    <div class="pen-color-btn" id="penColorRed" onclick="selectPenColor('#FF3333')" title="Червоний">
+        <svg viewBox="0 0 40 40">
+            <path d="M10 30 Q20 5 30 15" stroke="#FF3333" stroke-width="4" stroke-linecap="round" fill="none"/>
+            <path d="M25 15 L30 10 L20 0 L15 5 Z" fill="#333"/>
+            <path d="M15 5 L5 15 L10 20 L20 10 Z" fill="#FF3333"/>
+        </svg>
+    </div>
+    
+    <!-- КНОПКА ЛІНІЯ (Split Button) -->
+    <button class="tool-btn split-btn" data-tool="line" id="lineToolBtn" title="Лінія">
+        <svg class="tool-icon" viewBox="0 0 24 24" style="transform: rotate(-45deg);">
+            <line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        </svg>
+        <div class="dropdown-trigger" id="lineDropdownTrigger" title="Інші інструменти">
+            <span class="dropdown-arrow">▼</span>
+        </div>
+    </button>
+    
+    <button class="tool-btn split-btn" data-tool="rect" id="rectToolBtn" title="Прямокутник">
+        <span>⬜</span>
+        <div class="dropdown-trigger" id="rectDropdownTrigger" title="Інші фігури">
+            <span class="dropdown-arrow">▼</span>
+        </div>
+    </button>
+    
+    <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
+    <button class="tool-btn" data-tool="text" title="Текст">Т</button>
+    
+    <!-- КНОПКА ЛАСТИК -->
+    <button class="tool-btn" data-tool="eraser" title="Ластик">
+        <svg class="tool-icon" viewBox="0 0 24 24">
+            <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
+        </svg>
+    </button>
+
     <div class="separator"></div>
     <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
     <label title="Формули"><input type="checkbox" id="mathMode" checked> 𝑥²</label>
-    <input type="color" id="colorPicker" value="#212529" title="Колір">
+    <input type="color" id="colorPicker" value="#212529" title="Колір" style="display:none;">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
     <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
+</div>
+
+<!-- ПАЛІТРА ЛІНІЙ (Лінія / Циркуль) -->
+<div id="line-palette">
+    <div class="shape-category">Інструменти</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectLineTool('line')" title="Лінія">
+            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);"><line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-linecap="round" /></svg>
+        </div>
+        <!-- ІКОНКА ЦИРКУЛЯ (Як на малюнку 87) -->
+        <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
+            <div class="compass-icon-bg">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="5" r="3" fill="white" stroke="white" stroke-width="1"/>
+                    <path d="M12 8 L8 20 M12 8 L16 20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 5 L12 8" stroke="white" stroke-width="2"/>
+                </svg>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ПАЛІТРА ФІГУР -->
@@ -346,8 +508,9 @@ let animationFrameId = null;
 const MAX_HISTORY = 50;
 const SMOOTHING_FACTOR = 0.5;
 
-// Змінна для зберігання вибраної фігури
 let selectedShapeType = null;
+let selectedLineToolType = 'line';
+let currentPenColor = '#000000';
 
 function requestDraw() {
     if (!needsRedraw) {
@@ -441,40 +604,95 @@ window.addEventListener('keyup', (e) => {
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
 
-// Функція для вибору фігури
+// Вибір кольору ручки
+function selectPenColor(color) {
+    currentPenColor = color;
+    document.getElementById('colorPicker').value = color;
+    
+    // Оновлення активної кнопки
+    document.querySelectorAll('.pen-color-btn').forEach(btn => btn.classList.remove('active'));
+    if (color === '#000000') document.getElementById('penColorBlack').classList.add('active');
+    else if (color === '#0055FF') document.getElementById('penColorBlue').classList.add('active');
+    else if (color === '#FF3333') document.getElementById('penColorRed').classList.add('active');
+}
+
 function selectShape(type) {
     selectedShapeType = type;
     currentTool = 'shape';
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('shapesBtn').classList.add('active');
-    
-    // Закриваємо палітру після вибору
+    document.getElementById('rectToolBtn').classList.add('active');
     document.getElementById('shapes-palette').style.display = 'none';
     canvas.className = 'cursor-crosshair';
 }
 
-// Відкриття/закриття палітри
-document.getElementById('shapesBtn').addEventListener('click', () => {
+function selectLineTool(type) {
+    selectedLineToolType = type;
+    currentTool = 'line';
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('lineToolBtn').classList.add('active');
+    document.getElementById('line-palette').style.display = 'none';
+    canvas.className = 'cursor-crosshair';
+}
+
+// Логіка для кнопки Лінія
+const lineBtn = document.getElementById('lineToolBtn');
+const lineTrigger = document.getElementById('lineDropdownTrigger');
+
+lineTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const palette = document.getElementById('line-palette');
+    if (palette.style.display === 'flex') {
+        palette.style.display = 'none';
+    } else {
+        palette.style.display = 'flex';
+        if (currentTool !== 'line') {
+            selectedLineToolType = 'line';
+        }
+    }
+});
+
+lineBtn.addEventListener('click', (e) => {
+    if (e.target === lineTrigger || lineTrigger.contains(e.target)) return;
+    selectLineTool('line');
+});
+
+// Логіка для кнопки Прямокутник
+const rectBtn = document.getElementById('rectToolBtn');
+const rectTrigger = document.getElementById('rectDropdownTrigger');
+
+rectTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
     const palette = document.getElementById('shapes-palette');
     if (palette.style.display === 'flex') {
         palette.style.display = 'none';
     } else {
         palette.style.display = 'flex';
-        // Якщо вже обрано інструмент фігури, знімаємо виділення
         if (currentTool !== 'shape') {
             selectedShapeType = null;
         }
     }
 });
 
-// Закриття палітри при кліку поза нею
+rectBtn.addEventListener('click', (e) => {
+    if (e.target === rectTrigger || rectTrigger.contains(e.target)) return;
+    setTool('rect');
+});
+
+// Закриття палітр при кліку поза ними
 document.addEventListener('mousedown', (e) => {
-    const palette = document.getElementById('shapes-palette');
-    const btn = document.getElementById('shapesBtn');
-    if (palette.style.display === 'flex' && 
-        !palette.contains(e.target) && 
-        !btn.contains(e.target)) {
-        palette.style.display = 'none';
+    const linePalette = document.getElementById('line-palette');
+    const shapePalette = document.getElementById('shapes-palette');
+    
+    if (linePalette.style.display === 'flex' && 
+        !linePalette.contains(e.target) && 
+        !lineBtn.contains(e.target)) {
+        linePalette.style.display = 'none';
+    }
+    
+    if (shapePalette.style.display === 'flex' && 
+        !shapePalette.contains(e.target) && 
+        !rectBtn.contains(e.target)) {
+        shapePalette.style.display = 'none';
     }
 });
 
@@ -589,7 +807,6 @@ function getBBox(obj) {
         };
     }
     if (obj.type === 'rect' || obj.type === 'shape') {
-        // Для фігур використовуємо w та h
         return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
     }
     if (obj.type === 'image') {
@@ -1053,7 +1270,7 @@ function drawObject(obj, isTemp = false) {
     
     ctx.lineWidth = (obj.width || 2) * scale;
     ctx.strokeStyle = obj.color || '#000';
-    ctx.fillStyle = obj.color || '#000'; // Для заповнення (якщо потрібно)
+    ctx.fillStyle = obj.color || '#000';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
@@ -1089,12 +1306,11 @@ function drawObject(obj, isTemp = false) {
         const h = (obj.ey - obj.y) * scale;
         ctx.strokeRect(sx, sy, w, h);
     } else if (obj.type === 'shape') {
-        // Малювання нових фігур
         const w = obj.w * scale;
         const h = obj.h * scale;
         const cx = sx + w / 2;
         const cy = sy + h / 2;
-        const minDim = Math.min(w, h);
+        const minDim = Math.min(Math.abs(w), Math.abs(h));
         
         ctx.beginPath();
         
@@ -1151,7 +1367,7 @@ function drawObject(obj, isTemp = false) {
             ctx.lineTo(sx, sy + h);
             ctx.closePath();
         } else if (obj.shapeType === 'rounded-rect') {
-            const radius = Math.min(w, h) * 0.2;
+            const radius = Math.min(Math.abs(w), Math.abs(h)) * 0.2;
             ctx.roundRect(sx, sy, w, h, radius);
         } else if (obj.shapeType === 'semi-circle') {
             ctx.arc(cx, cy, minDim/2, Math.PI, 0);
@@ -1163,7 +1379,6 @@ function drawObject(obj, isTemp = false) {
             ctx.lineTo(sx, sy + h);
             ctx.closePath();
         } else if (obj.shapeType === 'heart') {
-            // Спрощене серце через криві Безьє
             const topCurveHeight = h * 0.3;
             ctx.moveTo(cx, sy + h * 0.2);
             ctx.bezierCurveTo(cx, sy, sx, sy, sx, cy);
@@ -1754,7 +1969,6 @@ canvas.addEventListener('mousedown', (e) => {
         return; 
     }
     
-    // Обробка інструменту ФІГУРИ
     if (currentTool === 'shape' && selectedShapeType) {
         startDrawing(coords);
         return;
@@ -1851,10 +2065,8 @@ canvas.addEventListener('mousemove', (e) => {
         if (e.buttons === 1) eraseAt(coords.x, coords.y);
     } else if (currentTool === 'pen') {
         canvas.style.cursor = 'pencil';
-    } else if (currentTool === 'line' || currentTool === 'arrow' || currentTool === 'shape') {
+    } else if (currentTool === 'line' || currentTool === 'arrow' || currentTool === 'shape' || currentTool === 'rect') {
         canvas.style.cursor = 'crosshair';
-    } else if (currentTool === 'rect') {
-        canvas.style.cursor = 'rect';
     } else if (currentTool === 'grid') {
         canvas.style.cursor = 'crosshair';
     } else canvas.style.cursor = 'crosshair';
@@ -1909,16 +2121,18 @@ canvas.addEventListener('mousemove', (e) => {
                 currentPath.points.push({ x: smoothedX, y: smoothedY });
             }
         }
-        else if (currentPath.type === 'shape') {
-            // Оновлення розміру фігури при малюванні
+        else if (currentPath.type === 'shape' || currentPath.type === 'rect') {
             currentPath.w = coords.x - currentPath.x;
             currentPath.h = coords.y - currentPath.y;
+        }
+        else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
+            currentPath.ex = coords.x;
+            currentPath.ey = coords.y;
         }
         else if (currentPath.type === 'grid') {
             currentPath.w = coords.x - currentPath.x;
             currentPath.h = coords.y - currentPath.y;
         }
-        else { currentPath.ex = coords.x; currentPath.ey = coords.y; }
         requestDraw();
     } 
     else if (isRotating && selectedObjects.length > 0) {
@@ -1969,11 +2183,22 @@ canvas.addEventListener('mouseup', () => {
             objects.push(currentPath);
             if (socket && socket.connected) socket.emit('new-object', currentPath);
         } else if (currentPath.type === 'shape') {
-            // Збереження фігури, якщо вона достатнього розміру
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
                 currentPath.type = 'shape';
                 currentPath.shapeType = selectedShapeType;
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
+            }
+        } else if (currentPath.type === 'rect') {
+            if (Math.abs(currentPath.w) > 2 && Math.abs(currentPath.h) > 2) {
+                saveHistory();
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
+            }
+        } else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
+            if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
+                saveHistory();
                 objects.push(currentPath);
                 if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
@@ -1984,12 +2209,6 @@ canvas.addEventListener('mouseup', () => {
                 currentPath.gridSpacing = 40;
                 currentPath.axisColor = '#000000';
                 currentPath.gridColor = '#cccccc';
-                objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', currentPath);
-            }
-        } else if (currentPath.type !== 'pen') {
-            if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
-                saveHistory();
                 objects.push(currentPath);
                 if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
@@ -2055,14 +2274,18 @@ function startDrawing(coords) {
     isDrawing = true;
     currentPath = {
         type: currentTool,
-        color: document.getElementById('colorPicker').value,
+        color: currentPenColor,
         width: document.getElementById('lineWidth').value,
         x: coords.x, y: coords.y, ex: coords.x, ey: coords.y
     };
     if (currentTool === 'pen') currentPath.points = [];
-    if (currentTool === 'grid' || currentTool === 'shape') {
+    if (currentTool === 'grid' || currentTool === 'shape' || currentTool === 'rect') {
         currentPath.w = 0;
         currentPath.h = 0;
+    }
+    if (currentTool === 'line' && selectedLineToolType === 'compass') {
+        currentPath.type = 'compass';
+        currentPath.radius = 0;
     }
 }
 
@@ -2185,7 +2408,7 @@ function createNewText(coords) {
         type: 'text', x: coords.x, y: coords.y, 
         text: '', 
         segments: [{type:'normal', text:''}],
-        color: document.getElementById('colorPicker').value,
+        color: currentPenColor,
         size: 20, isBold: document.getElementById('boldText').checked,
         rotation: 0
     };
@@ -2206,8 +2429,7 @@ function setTool(tool) {
     else if (tool === 'hand') canvas.className = 'cursor-grab';
     else if (tool === 'eraser') canvas.className = 'cursor-eraser';
     else if (tool === 'pen') canvas.className = 'cursor-pencil';
-    else if (tool === 'line' || tool === 'arrow' || tool === 'shape') canvas.className = 'cursor-crosshair';
-    else if (tool === 'rect') canvas.className = 'cursor-rect';
+    else if (tool === 'line' || tool === 'arrow' || tool === 'shape' || tool === 'rect') canvas.className = 'cursor-crosshair';
     else if (tool === 'grid') canvas.className = 'cursor-grid';
     else if (tool === 'text') canvas.className = 'cursor-text';
     else canvas.className = 'cursor-crosshair';
