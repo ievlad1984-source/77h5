@@ -74,6 +74,33 @@
         .math-sup { vertical-align: super; }
         .math-sub { vertical-align: sub; }
 
+        /* Стилі для дробів */
+        .math-frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 2px;
+            border: 1px dashed #9C27B0;
+            background: rgba(156, 39, 176, 0.1);
+            border-radius: 3px;
+            padding: 2px;
+            line-height: 1;
+        }
+        .math-num {
+            border-bottom: 1px solid currentColor;
+            padding-bottom: 1px;
+            margin-bottom: 1px;
+            display: block;
+            text-align: center;
+            width: 100%;
+        }
+        .math-den {
+            display: block;
+            text-align: center;
+            width: 100%;
+        }
+
         .handle {
             position: absolute;
             width: 8px;
@@ -173,7 +200,8 @@
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
-    </div>
+    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
+</div>
 
 <div id="zoom-display">100%</div>
 <canvas id="board"></canvas>
@@ -323,6 +351,19 @@ function htmlToSegments(html) {
                 segments.push({ type: 'sup', text: node.textContent || '' });
             } else if (node.classList.contains('math-sub')) {
                 segments.push({ type: 'sub', text: node.textContent || '' });
+            } else if (node.classList.contains('math-frac')) {
+                // Обробка дробу
+                const numNode = node.querySelector('.math-num');
+                const denNode = node.querySelector('.math-den');
+                
+                const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
+                const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
+                
+                segments.push({ 
+                    type: 'frac', 
+                    numerator: numSegs, 
+                    denominator: denSegs 
+                });
             } else if (node.tagName === 'DIV' || node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
                  node.childNodes.forEach(processNode);
@@ -340,6 +381,11 @@ function segmentsToHtml(segments) {
     return segments.map(s => {
         if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
         if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
+        if (s.type === 'frac') {
+            const numHtml = segmentsToHtml(s.numerator);
+            const denHtml = segmentsToHtml(s.denominator);
+            return `<div class="math-frac"><span class="math-num">${numHtml}</span><span class="math-den">${denHtml}</span></div>`;
+        }
         if (s.text === '\n') return '<br>';
         return s.text;
     }).join('');
@@ -371,6 +417,12 @@ function getBBox(obj) {
                 let w = 0;
                 if (s.type === 'sup' || s.type === 'sub') {
                     ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+                } else if (s.type === 'frac') {
+                    // Спрощене наближення для дробів
+                    const numW = s.numerator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+                    const denW = s.denominator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+                    w = Math.max(numW, denW) + 10;
+                    ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
                 } else {
                     ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
                 }
@@ -662,6 +714,37 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             ctx.font = smallFont;
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
             currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'frac') {
+            // Малювання дробу
+            const numW = s.numerator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+            const denW = s.denominator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+            const fracW = Math.max(numW, denW);
+            
+            const startX = currentX + (fracW - numW) / 2;
+            const denStartX = currentX + (fracW - denW) / 2;
+            
+            // Малюємо чисельник
+            ctx.font = normalFont;
+            let cx = startX;
+            s.numerator.forEach(seg => {
+                ctx.fillText(seg.text, cx, currentY - baseSize * 0.5);
+                cx += ctx.measureText(seg.text).width;
+            });
+            
+            // Лінія
+            ctx.beginPath();
+            ctx.moveTo(currentX, currentY - baseSize * 0.1);
+            ctx.lineTo(currentX + fracW, currentY - baseSize * 0.1);
+            ctx.stroke();
+            
+            // Малюємо знаменник
+            let dx = denStartX;
+            s.denominator.forEach(seg => {
+                ctx.fillText(seg.text, dx, currentY + baseSize * 0.5);
+                dx += ctx.measureText(seg.text).width;
+            });
+            
+            currentX += fracW;
         }
     });
 }
@@ -893,6 +976,51 @@ function insertMathField(type) {
     return span;
 }
 
+function insertFraction(editorDiv, wrapper) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+    
+    // Отримуємо текст перед курсором (якщо він виділений або просто перед курсором)
+    // Для простоти: беремо весь текст перед курсором у поточному вузлі, якщо це текстовий вузол
+    // Але краще просто створити структуру і перемістити курсор
+    
+    // Створення HTML дробу
+    const fracDiv = document.createElement('div');
+    fracDiv.className = 'math-frac';
+    
+    const numSpan = document.createElement('span');
+    numSpan.className = 'math-num';
+    numSpan.textContent = '\u200B'; // Порожній чисельник
+    
+    const denSpan = document.createElement('span');
+    denSpan.className = 'math-den';
+    denSpan.textContent = '\u200B'; // Порожній знаменник
+    
+    fracDiv.appendChild(numSpan);
+    fracDiv.appendChild(denSpan);
+    
+    range.deleteContents();
+    range.insertNode(fracDiv);
+    
+    // Переміщення курсору в знаменник
+    const newRange = document.createRange();
+    newRange.selectNodeContents(denSpan);
+    newRange.collapse(false); // В кінець знаменника (або true, щоб в початок)
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    
+    if (wrapper) {
+        const editorDiv = wrapper.querySelector('.text-edit-content');
+        editorDiv.focus();
+        // Оновити розмір обгортки
+        const rect = editorDiv.getBoundingClientRect();
+        wrapper.style.width = (rect.width + 20) + 'px';
+        wrapper.style.height = (rect.height + 10) + 'px';
+    }
+}
+
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -981,6 +1109,7 @@ function startTextEdit(obj) {
     }, 50);
     
     editorDiv.addEventListener('keydown', (e) => {
+        // Логіка для стрілки вправо (вихід з дробу)
         if (e.key === 'ArrowRight') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -989,8 +1118,30 @@ function startTextEdit(obj) {
                 const offset = range.endOffset;
                 
                 let parent = node.nodeType === 3 ? node.parentElement : node;
-                const isInsideMath = parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'));
                 
+                // Перевірка: чи ми всередині знаменника дробу
+                const isDenominator = parent && parent.classList.contains('math-den');
+                
+                if (isDenominator) {
+                    // Якщо курсор в кінці знаменника
+                    const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
+                                    (node.nodeType === 1 && offset >= node.childNodes.length);
+                    
+                    if (isAtEnd) {
+                        e.preventDefault();
+                        // Виходимо за межі дробу
+                        const fracDiv = parent.parentElement; // .math-frac
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(fracDiv);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        return;
+                    }
+                }
+                
+                // Стара логіка для sup/sub
+                const isInsideMath = parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'));
                 if (isInsideMath) {
                     const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
                                     (node.nodeType === 1 && offset >= node.childNodes.length);
@@ -1023,6 +1174,7 @@ function startTextEdit(obj) {
             }
         }
         
+        // Логіка для стрілки вліво
         if (e.key === 'ArrowLeft') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -1065,6 +1217,14 @@ function startTextEdit(obj) {
             }
         }
         
+        // Логіка для дробу (/)
+        if (e.key === '/') {
+            e.preventDefault();
+            insertFraction(editorDiv, wrapper);
+            return;
+        }
+        
+        // Логіка для степеня (^) та індексу (_)
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const span = insertMathField(e.key === '^' ? 'sup' : 'sub');
@@ -1224,9 +1384,10 @@ function startTextDrag(obj, e, wrapper) {
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
     
+    // Зменшено padding з 60 до 10
     const clickedObj = [...objects].reverse().find(obj => {
         if (obj.type === 'text') {
-            return hitTest(obj, coords.x, coords.y, 60);
+            return hitTest(obj, coords.x, coords.y, 10);
         }
         return false;
     });
@@ -1249,7 +1410,7 @@ canvas.addEventListener('mousedown', (e) => {
     if (textEditor && editingObject) {
         const clickedText = [...objects].reverse().find(obj => {
             if (obj.type === 'text' && obj !== editingObject) {
-                return hitTest(obj, coords.x, coords.y, 60);
+                return hitTest(obj, coords.x, coords.y, 10);
             }
             return false;
         });
@@ -1284,7 +1445,7 @@ canvas.addEventListener('mousedown', (e) => {
         else if (currentTool === 'text') {
             const existingText = [...objects].reverse().find(obj => {
                 if (obj.type === 'text') {
-                    return hitTest(obj, coords.x, coords.y, 60);
+                    return hitTest(obj, coords.x, coords.y, 10);
                 }
                 return false;
             });
@@ -1821,3 +1982,4 @@ socket.on('board-deleted', () => {
 </script>
 </body>
 </html>
+```
