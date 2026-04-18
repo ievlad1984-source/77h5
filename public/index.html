@@ -48,13 +48,18 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            /* ВИПРАВЛЕНО: pre забороняє автоматичне перенесення, але зберігає Enter */
-            white-space: pre; 
+            /* ВИПРАВЛЕНО: Повна заборона автоматичного перенесення */
+            white-space: pre !important;
+            overflow-wrap: normal !important;
+            word-wrap: normal !important;
+            word-break: keep-all !important;
             overflow: visible;
             display: inline-block;
             box-sizing: border-box;
             line-height: 1.4;
             min-width: 50px;
+            max-width: none !important;
+            width: auto !important;
             cursor: text;
             vertical-align: baseline;
         }
@@ -191,10 +196,12 @@
     <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
     <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
     <div class="separator"></div>
-    <button class="tool-btn" data-tool="pen">Олівець</button>
+    <!-- ЗАМІНЕНО: Текст на іконку -->
+    <button class="tool-btn" data-tool="pen" title="Олівець">✏️</button>
     <button class="tool-btn" data-tool="line">Лінія</button>
     <button class="tool-btn" data-tool="arrow">Стрілка</button>
-    <button class="tool-btn" data-tool="rect">Прямокутник</button>
+    <!-- ЗАМІНЕНО: Текст на іконку -->
+    <button class="tool-btn" data-tool="rect" title="Прямокутник">⬜</button>
     <button class="tool-btn" data-tool="grid">📊 Сітка</button>
     <button class="tool-btn" data-tool="text">Текст</button>
     <button class="tool-btn" data-tool="eraser">Ластик</button>
