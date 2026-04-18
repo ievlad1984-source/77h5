@@ -74,6 +74,35 @@
         .math-sup { vertical-align: super; }
         .math-sub { vertical-align: sub; }
 
+        /* Стилі для дробів */
+        .math-frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 2px;
+            border: 1px dashed #9C27B0;
+            background: rgba(156, 39, 176, 0.1);
+            border-radius: 3px;
+            padding: 1px 2px;
+            line-height: 1;
+        }
+        .math-num {
+            border-bottom: 1px solid currentColor;
+            padding-bottom: 1px;
+            margin-bottom: 1px;
+            display: block;
+            text-align: center;
+            width: 100%;
+            white-space: nowrap;
+        }
+        .math-den {
+            display: block;
+            text-align: center;
+            width: 100%;
+            white-space: nowrap;
+        }
+
         .handle {
             position: absolute;
             width: 8px;
@@ -324,6 +353,18 @@ function htmlToSegments(html) {
                 segments.push({ type: 'sup', text: node.textContent || '' });
             } else if (node.classList.contains('math-sub')) {
                 segments.push({ type: 'sub', text: node.textContent || '' });
+            } else if (node.classList.contains('math-frac')) {
+                const numNode = node.querySelector('.math-num');
+                const denNode = node.querySelector('.math-den');
+                
+                const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
+                const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
+                
+                segments.push({ 
+                    type: 'frac', 
+                    numerator: numSegs, 
+                    denominator: denSegs 
+                });
             } else if (node.tagName === 'DIV' || node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
                  node.childNodes.forEach(processNode);
@@ -341,6 +382,11 @@ function segmentsToHtml(segments) {
     return segments.map(s => {
         if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
         if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
+        if (s.type === 'frac') {
+            const numHtml = segmentsToHtml(s.numerator);
+            const denHtml = segmentsToHtml(s.denominator);
+            return `<div class="math-frac"><span class="math-num">${numHtml}</span><span class="math-den">${denHtml}</span></div>`;
+        }
         if (s.text === '\n') return '<br>';
         return s.text;
     }).join('');
@@ -359,8 +405,6 @@ function getBBox(obj) {
         let lines = 1;
         
         if (obj.segments) {
-            let currentSegments = [];
-            
             for (let s of obj.segments) {
                 if (s.text === '\n') {
                     if (currentLineW > maxW) maxW = currentLineW;
@@ -372,6 +416,11 @@ function getBBox(obj) {
                 let w = 0;
                 if (s.type === 'sup' || s.type === 'sub') {
                     ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+                } else if (s.type === 'frac') {
+                    const numW = s.numerator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+                    const denW = s.denominator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+                    w = Math.max(numW, denW) + 10;
+                    ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
                 } else {
                     ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
                 }
@@ -639,9 +688,6 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
     const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
     
-    const baseY = y; 
-    const supY = y - baseSize * 0.5;
-    const subY = y + baseSize * 0.3;
     const lineH = baseSize * 1.2;
     
     segments.forEach(s => {
@@ -663,11 +709,37 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             ctx.font = smallFont;
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
             currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'frac') {
+            const numW = s.numerator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+            const denW = s.denominator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+            const fracW = Math.max(numW, denW);
+            
+            const startX = currentX + (fracW - numW) / 2;
+            const denStartX = currentX + (fracW - denW) / 2;
+            
+            ctx.font = normalFont;
+            let cx = startX;
+            s.numerator.forEach(seg => {
+                ctx.fillText(seg.text, cx, currentY - baseSize * 0.5);
+                cx += ctx.measureText(seg.text).width;
+            });
+            
+            ctx.beginPath();
+            ctx.moveTo(currentX, currentY - baseSize * 0.1);
+            ctx.lineTo(currentX + fracW, currentY - baseSize * 0.1);
+            ctx.stroke();
+            
+            let dx = denStartX;
+            s.denominator.forEach(seg => {
+                ctx.fillText(seg.text, dx, currentY + baseSize * 0.5);
+                dx += ctx.measureText(seg.text).width;
+            });
+            
+            currentX += fracW;
         }
     });
 }
 
-// === НОВИЙ МЕТОД: Малювання координатної сітки ===
 function drawCoordinateGrid(obj) {
     const sx = obj.x * scale + offsetX;
     const sy = obj.y * scale + offsetY;
@@ -680,20 +752,16 @@ function drawCoordinateGrid(obj) {
     
     ctx.save();
     
-    // === ВИПРАВЛЕНО 1: Малюємо непрозорий білий фон ===
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(sx, sy, sw, sh);
     
-    // Рамка навколо сітки
     ctx.strokeStyle = '#dddddd';
     ctx.lineWidth = 1;
     ctx.strokeRect(sx, sy, sw, sh);
     
-    // Малюємо сітку
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     
-    // Вертикальні лінії
     for (let x = 0; x <= sw; x += gridSpacing) {
         ctx.beginPath();
         ctx.moveTo(sx + x, sy);
@@ -701,7 +769,6 @@ function drawCoordinateGrid(obj) {
         ctx.stroke();
     }
     
-    // Горизонтальні лінії
     for (let y = 0; y <= sh; y += gridSpacing) {
         ctx.beginPath();
         ctx.moveTo(sx, sy + y);
@@ -709,29 +776,24 @@ function drawCoordinateGrid(obj) {
         ctx.stroke();
     }
     
-    // Малюємо осі
     ctx.strokeStyle = axisColor;
     ctx.lineWidth = 2;
     
     const centerX = sx + sw / 2;
     const centerY = sy + sh / 2;
     
-    // Вісь X (горизонтальна, посередині)
     ctx.beginPath();
     ctx.moveTo(sx, centerY);
     ctx.lineTo(sx + sw, centerY);
     ctx.stroke();
     
-    // Вісь Y (вертикальна, посередині)
     ctx.beginPath();
     ctx.moveTo(centerX, sy);
     ctx.lineTo(centerX, sy + sh);
     ctx.stroke();
     
-    // Стрілки на осях
     const arrowSize = 10;
     
-    // Стрілка X вправо
     ctx.beginPath();
     ctx.moveTo(sx + sw, centerY);
     ctx.lineTo(sx + sw - arrowSize, centerY - arrowSize);
@@ -739,7 +801,6 @@ function drawCoordinateGrid(obj) {
     ctx.lineTo(sx + sw - arrowSize, centerY + arrowSize);
     ctx.stroke();
     
-    // Стрілка Y вгору
     ctx.beginPath();
     ctx.moveTo(centerX, sy);
     ctx.lineTo(centerX - arrowSize, sy + arrowSize);
@@ -747,17 +808,14 @@ function drawCoordinateGrid(obj) {
     ctx.lineTo(centerX + arrowSize, sy + arrowSize);
     ctx.stroke();
     
-    // === ВИПРАВЛЕНО 2: Тільки цілі числа на осях ===
     ctx.fillStyle = axisColor;
     ctx.font = '12px Segoe UI';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     
-    // Обчислюємо кількість клітинок до центру
     const cellsToCenterX = Math.floor(sw / gridSpacing / 2);
     const cellsToCenterY = Math.floor(sh / gridSpacing / 2);
     
-    // Позначки на осі X (тільки цілі числа)
     for (let i = -cellsToCenterX; i <= cellsToCenterX; i++) {
         if (i !== 0) {
             const x = centerX + i * gridSpacing;
@@ -767,7 +825,6 @@ function drawCoordinateGrid(obj) {
         }
     }
     
-    // Позначки на осі Y (тільки цілі числа)
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let i = -cellsToCenterY; i <= cellsToCenterY; i++) {
@@ -779,12 +836,10 @@ function drawCoordinateGrid(obj) {
         }
     }
     
-    // Позначення осей
     ctx.font = 'bold 14px Segoe UI';
     ctx.fillText('X', sx + sw - 15, centerY - 20);
     ctx.fillText('Y', centerX + 10, sy + 15);
     
-    // Центр (0, 0)
     ctx.font = '10px Segoe UI';
     ctx.fillText('0', centerX - 8, centerY + 15);
     
@@ -894,6 +949,57 @@ function insertMathField(type) {
     return span;
 }
 
+function insertFraction(editorDiv) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+    
+    let numeratorText = "";
+    if (range.startContainer.nodeType === Node.TEXT_NODE) {
+        const textNode = range.startContainer;
+        const offset = range.startOffset;
+        if (offset > 0) {
+            numeratorText = textNode.textContent.substring(0, offset);
+            textNode.textContent = textNode.textContent.substring(offset);
+        }
+    }
+
+    const fracDiv = document.createElement('div');
+    fracDiv.className = 'math-frac';
+    fracDiv.style.display = 'inline-flex';
+    fracDiv.style.flexDirection = 'column';
+    fracDiv.style.verticalAlign = 'middle';
+    
+    const numSpan = document.createElement('span');
+    numSpan.className = 'math-num';
+    numSpan.textContent = numeratorText || '\u200B';
+    
+    const denSpan = document.createElement('span');
+    denSpan.className = 'math-den';
+    denSpan.textContent = '\u200B';
+    
+    fracDiv.appendChild(numSpan);
+    fracDiv.appendChild(denSpan);
+    
+    range.deleteContents();
+    range.insertNode(fracDiv);
+    
+    const newRange = document.createRange();
+    newRange.selectNodeContents(denSpan);
+    newRange.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    
+    if (editorDiv) {
+        const wrapper = editorDiv.parentElement;
+        const rect = editorDiv.getBoundingClientRect();
+        wrapper.style.width = (rect.width + 20) + 'px';
+        wrapper.style.height = (rect.height + 10) + 'px';
+        editorDiv.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
     
@@ -990,8 +1096,26 @@ function startTextEdit(obj) {
                 const offset = range.endOffset;
                 
                 let parent = node.nodeType === 3 ? node.parentElement : node;
-                const isInsideMath = parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'));
                 
+                const isDenominator = parent && parent.classList.contains('math-den');
+                
+                if (isDenominator) {
+                    const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
+                                    (node.nodeType === 1 && offset >= node.childNodes.length);
+                    
+                    if (isAtEnd) {
+                        e.preventDefault();
+                        const fracDiv = parent.parentElement;
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(fracDiv);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        return;
+                    }
+                }
+                
+                const isInsideMath = parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'));
                 if (isInsideMath) {
                     const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
                                     (node.nodeType === 1 && offset >= node.childNodes.length);
@@ -1064,6 +1188,12 @@ function startTextEdit(obj) {
                     }
                 }
             }
+        }
+        
+        if (e.key === '/') {
+            e.preventDefault();
+            insertFraction(editorDiv);
+            return;
         }
         
         if (e.key === '^' || e.key === '_') {
@@ -1227,7 +1357,7 @@ canvas.addEventListener('dblclick', (e) => {
     
     const clickedObj = [...objects].reverse().find(obj => {
         if (obj.type === 'text') {
-            return hitTest(obj, coords.x, coords.y, 60);
+            return hitTest(obj, coords.x, coords.y, 5);
         }
         return false;
     });
@@ -1250,7 +1380,7 @@ canvas.addEventListener('mousedown', (e) => {
     if (textEditor && editingObject) {
         const clickedText = [...objects].reverse().find(obj => {
             if (obj.type === 'text' && obj !== editingObject) {
-                return hitTest(obj, coords.x, coords.y, 60);
+                return hitTest(obj, coords.x, coords.y, 5);
             }
             return false;
         });
@@ -1285,7 +1415,7 @@ canvas.addEventListener('mousedown', (e) => {
         else if (currentTool === 'text') {
             const existingText = [...objects].reverse().find(obj => {
                 if (obj.type === 'text') {
-                    return hitTest(obj, coords.x, coords.y, 60);
+                    return hitTest(obj, coords.x, coords.y, 5);
                 }
                 return false;
             });
@@ -1727,22 +1857,33 @@ function createNewBoard() {
     window.location.href = '/' + newId; 
 }
 
-window.addEventListener('wheel', (e) => {
+// === ВИПРАВЛЕНО: Зум тепер працює через canvas ===
+canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
+    
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const oldScale = scale;
     scale *= delta;
     scale = Math.min(Math.max(scale, 0.2), 5.0);
-    const mx = (e.clientX - offsetX) / oldScale;
-    const my = (e.clientY - offsetY) / oldScale;
-    offsetX = e.clientX - mx * scale;
-    offsetY = e.clientY - my * scale;
+    
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const mx = (mouseX - offsetX) / oldScale;
+    const my = (mouseY - offsetY) / oldScale;
+    
+    offsetX = mouseX - mx * scale;
+    offsetY = mouseY - my * scale;
+    
     updateZoomDisplay();
+    
     if (textEditor && editingObject) {
         const bbox = getBBox(editingObject);
         textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
         textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
     }
+    
     requestDraw();
 }, { passive: false });
 
