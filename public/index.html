@@ -120,9 +120,8 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            white-space: pre-wrap !important;
-            overflow-wrap: break-word !important;
-            word-wrap: break-word !important;
+            white-space: pre !important; /* ЗМІНЕНО: тепер перенос тільки по Enter */
+            /* Видалено overflow-wrap та word-wrap, щоб уникнути авто-переносу */
             overflow: visible;
             display: inline-block;
             box-sizing: border-box;
@@ -921,7 +920,7 @@ function drawSelection() {
     ctx.arc(sx + sw/2, sy - 15, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'white';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1;
     ctx.stroke();
     
     ctx.beginPath();
