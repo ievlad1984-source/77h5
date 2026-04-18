@@ -74,7 +74,6 @@
         .math-sup { vertical-align: super; }
         .math-sub { vertical-align: sub; }
 
-        /* ВИПРАВЛЕНО: Збільшено відстань між чисельником і знаменником */
         .math-frac {
             display: inline-flex;
             flex-direction: column;
@@ -953,6 +952,7 @@ function insertMathField(type) {
     return span;
 }
 
+// ВИПРАВЛЕНО: Тепер тільки ОДИН символ перед / йде в чисельник
 function insertFraction(editorDiv) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
@@ -960,12 +960,18 @@ function insertFraction(editorDiv) {
     const range = sel.getRangeAt(0);
     
     let numeratorText = "";
+    // Беремо тільки ОДИН останній символ перед курсором
     if (range.startContainer.nodeType === Node.TEXT_NODE) {
         const textNode = range.startContainer;
         const offset = range.startOffset;
         if (offset > 0) {
-            numeratorText = textNode.textContent.substring(0, offset);
-            textNode.textContent = textNode.textContent.substring(offset);
+            // Тільки останній символ
+            numeratorText = textNode.textContent.substring(offset - 1, offset);
+            // Видаляємо цей символ з текстового вузла
+            textNode.textContent = textNode.textContent.substring(0, offset - 1) + textNode.textContent.substring(offset);
+            // Коригуємо offset для курсора
+            range.setStart(textNode, offset - 1);
+            range.setEnd(textNode, offset - 1);
         }
     }
 
@@ -1092,7 +1098,7 @@ function startTextEdit(obj) {
     }, 50);
     
     editorDiv.addEventListener('keydown', (e) => {
-        // ВИПРАВЛЕНО: Enter тепер створює розрив рядка
+        // Enter створює розрив рядка
         if (e.key === 'Enter') {
             e.preventDefault();
             document.execCommand('insertLineBreak');
@@ -1100,7 +1106,7 @@ function startTextEdit(obj) {
             return;
         }
         
-        // ВИПРАВЛЕНО: Вихід зі знаменника стрілкою вправо
+        // Вихід зі знаменника стрілкою вправо
         if (e.key === 'ArrowRight') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -1110,18 +1116,15 @@ function startTextEdit(obj) {
                 
                 let parent = node.nodeType === 3 ? node.parentElement : node;
                 
-                // Перевірка: чи ми всередині знаменника дробу
                 const isDenominator = parent && parent.classList.contains('math-den');
                 
                 if (isDenominator) {
-                    // Якщо курсор в кінці знаменника
                     const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
                                     (node.nodeType === 1 && offset >= node.childNodes.length);
                     
                     if (isAtEnd) {
                         e.preventDefault();
-                        // Виходимо за межі дробу
-                        const fracDiv = parent.parentElement; // .math-frac
+                        const fracDiv = parent.parentElement;
                         const nextSibling = fracDiv.nextSibling;
                         
                         if (nextSibling) {
@@ -1145,7 +1148,6 @@ function startTextEdit(obj) {
                     }
                 }
                 
-                // Стара логіка для sup/sub
                 const isInsideMath = parent && (parent.classList.contains('math-sup') || parent.classList.contains('math-sub'));
                 if (isInsideMath) {
                     const isAtEnd = (node.nodeType === 3 && offset >= node.length) || 
