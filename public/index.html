@@ -61,14 +61,13 @@
         .tool-btn.active .dropdown-trigger { border-left-color: rgba(255,255,255,0.3); }
         .tool-btn.active .dropdown-trigger:hover { background: rgba(255,255,255,0.2); }
         
-        /* Стиль для кнопки вибору кольору */
         .color-picker-btn {
             width: 32px;
             height: 32px;
             border: 2px solid #e0e0e0;
             border-radius: 4px;
             cursor: pointer;
-            background-color: #000000; /* Default */
+            background-color: #000000;
             transition: all 0.2s;
             position: relative;
             overflow: hidden;
@@ -371,7 +370,6 @@
 
     <div class="separator"></div>
     
-    <!-- НОВА КНОПКА ВИБОРУ КОЛЬОРУ -->
     <div class="color-picker-btn" id="colorPickerBtn" title="Вибір кольору"></div>
     <input type="color" id="colorPickerInput" value="#000000">
     
@@ -713,7 +711,9 @@ function getBBox(obj) {
         let currentLineW = 0;
         let lines = 1;
         
-        const text = obj.text || '';
+        // If segments exist, we approximate width based on text content for bounding box
+        // A more precise calculation would iterate segments, but for bbox text is usually sufficient
+        const text = obj.text || ''; 
         const textLines = text.split('\n');
         lines = textLines.length;
         
@@ -1318,6 +1318,7 @@ function drawObject(obj, isTemp = false) {
         
         const baseSize = obj.size * scale;
         
+        // ВИПРАВЛЕННЯ: Пріоритет віддається segments, якщо вони є
         if (obj.segments && obj.segments.length > 0) {
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
         } else {
@@ -1469,7 +1470,10 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    if (obj.text && obj.text.trim() !== '') {
+    // ВИПРАВЛЕННЯ: Завантаження HTML з segments
+    if (obj.segments && obj.segments.length > 0) {
+        editorDiv.innerHTML = segmentsToHtml(obj.segments);
+    } else if (obj.text && obj.text.trim() !== '') {
         const lines = obj.text.split('\n');
         editorDiv.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
     } else {
@@ -1515,17 +1519,13 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
-        // Логіка для створення дробу через /
         if (e.key === '/') {
             e.preventDefault();
             
-            // Знаходимо поточний текстовий вузол і позицію
             let textNode = node;
             let offset = range.startOffset;
             
-            // Якщо ми всередині елемента (наприклад, span), шукаємо текстовий вузол
             if (textNode.nodeType !== Node.TEXT_NODE) {
-                // Якщо всередині дробу, не створюємо новий дріб на основі старого
                 if (textNode.closest('.math-frac')) return;
                 
                 if (textNode.childNodes.length > 0 && offset < textNode.childNodes.length) {
@@ -1541,7 +1541,6 @@ function startTextEdit(obj) {
             
             if (textNode.nodeType !== Node.TEXT_NODE) return;
 
-            // Шукаємо початок слова перед /
             let text = textNode.textContent;
             let wordStart = offset;
             while (wordStart > 0 && !/\s/.test(text[wordStart - 1])) {
@@ -1550,13 +1549,11 @@ function startTextEdit(obj) {
             
             const word = text.substring(wordStart, offset);
             
-            // Видаляємо слово і слеш
             const beforeText = text.substring(0, wordStart);
-            const afterText = text.substring(offset); // Текст після слеша (якщо є)
+            const afterText = text.substring(offset);
             
             textNode.textContent = beforeText + afterText;
             
-            // Створюємо дріб
             const fracDiv = document.createElement('div');
             fracDiv.className = 'math-frac';
             fracDiv.style.display = 'inline-flex';
@@ -1574,13 +1571,11 @@ function startTextEdit(obj) {
             fracDiv.appendChild(numSpan);
             fracDiv.appendChild(denSpan);
             
-            // Вставляємо дріб
             const newRange = document.createRange();
             newRange.setStart(textNode, wordStart);
             newRange.collapse(true);
             newRange.insertNode(fracDiv);
             
-            // Фокус на знаменник
             const focusRange = document.createRange();
             focusRange.selectNodeContents(denSpan);
             focusRange.collapse(false);
@@ -1591,7 +1586,6 @@ function startTextEdit(obj) {
             return;
         }
 
-        // Логіка для ^ і _
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const type = e.key === '^' ? 'sup' : 'sub';
@@ -1600,21 +1594,17 @@ function startTextEdit(obj) {
             return;
         }
         
-        // Логіка навігації стрілками
         if (e.key === 'ArrowRight') {
-            // Перевіряємо, чи ми в кінці math-sup, math-sub або math-den
             let parent = node.parentElement;
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
-            // Якщо ми в кінці текстового вузла, перевіряємо батьківський елемент
             if (isAtEnd && parent) {
                 if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub') || parent.classList.contains('math-den')) {
                     e.preventDefault();
                     
-                    // Якщо це знаменник, переходимо після дробу
                     if (parent.classList.contains('math-den')) {
-                        const frac = parent.parentElement; // .math-frac
+                        const frac = parent.parentElement;
                         const nextSibling = frac.nextSibling;
                         if (nextSibling) {
                             const newRange = document.createRange();
@@ -1627,7 +1617,6 @@ function startTextEdit(obj) {
                             sel.removeAllRanges();
                             sel.addRange(newRange);
                         } else {
-                            // Якщо після дробу нічого немає, створюємо текстовий вузол
                             const textNode = document.createTextNode('\u200B');
                             frac.parentNode.insertBefore(textNode, frac.nextSibling);
                             const newRange = document.createRange();
@@ -1636,7 +1625,6 @@ function startTextEdit(obj) {
                             sel.addRange(newRange);
                         }
                     } 
-                    // Якщо це степінь або індекс, переходимо після них
                     else {
                         const nextSibling = parent.nextSibling;
                         if (nextSibling) {
@@ -1669,20 +1657,18 @@ function startTextEdit(obj) {
                             (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
             
             if (isAtStart && parent) {
-                // Якщо ми на початку знаменника -> переходимо в чисельник
                 if (parent.classList.contains('math-den')) {
                     e.preventDefault();
                     const numSpan = parent.parentElement.querySelector('.math-num');
                     if (numSpan) {
                         const newRange = document.createRange();
                         newRange.selectNodeContents(numSpan);
-                        newRange.collapse(false); // В кінець чисельника
+                        newRange.collapse(false);
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     }
                     return;
                 }
-                // Якщо ми на початку чисельника -> переходимо перед дробом
                 if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const frac = parent.parentElement;
@@ -1707,7 +1693,6 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
-                // Якщо ми на початку степені/індексу -> переходимо перед ними
                 if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
                     e.preventDefault();
                     const prevSibling = parent.previousSibling;
@@ -1749,7 +1734,8 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
-            editingObject.text = editorDiv.innerText;
+            // Оновлюємо текст для сумісності, але головне - це segments при збереженні
+            editingObject.text = editorDiv.innerText; 
             if (socket && socket.connected) socket.emit('update-all', objects);
         }
     });
@@ -1783,7 +1769,12 @@ function stopTextEdit(cancel = false) {
     const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
-        editingObject.text = editorDiv.innerText;
+        
+        // ВИПРАВЛЕННЯ: Зберігаємо HTML структуру в segments
+        const html = editorDiv.innerHTML;
+        editingObject.segments = htmlToSegments(html);
+        editingObject.text = editorDiv.innerText; // Зберігаємо plain text як фолбек
+        
         if (socket && socket.connected) socket.emit('update-all', objects);
     }
     if (textEditor.parentNode) {
@@ -1903,7 +1894,10 @@ canvas.addEventListener('mousedown', (e) => {
         
         if (clickedText) {
             saveHistory();
-            editingObject.text = textEditor.querySelector('.text-edit-content').innerText;
+            // Зберігаємо поточний стан перед перемиканням
+            const editorDiv = textEditor.querySelector('.text-edit-content');
+            editingObject.segments = htmlToSegments(editorDiv.innerHTML);
+            editingObject.text = editorDiv.innerText;
             
             if (textEditor.parentNode) {
                 document.body.removeChild(textEditor);
@@ -2405,7 +2399,6 @@ function createNewBoard() {
     window.location.href = '/' + newId; 
 }
 
-// Логіка для нового вибору кольору
 const colorPickerBtn = document.getElementById('colorPickerBtn');
 const colorPickerInput = document.getElementById('colorPickerInput');
 
