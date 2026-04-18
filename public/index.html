@@ -48,6 +48,7 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
+            /* ВИПРАВЛЕНО: Повна заборона автоматичного перенесення */
             white-space: pre !important;
             overflow-wrap: normal !important;
             word-wrap: normal !important;
@@ -865,51 +866,6 @@ function drawCoordinateGrid(obj) {
     ctx.restore();
 }
 
-// ДОДАНО: Функція для згладженого малювання олівцем
-function drawPenSmooth(ctx, points, offsetX, offsetY, scale, color, lineWidth) {
-    if (!points || points.length < 2) return;
-    
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth * scale;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    const startX = points[0].x * scale + offsetX;
-    const startY = points[0].y * scale + offsetY;
-    ctx.moveTo(startX, startY);
-    
-    if (points.length === 2) {
-        // Для двох точок просто лінія
-        const endX = points[1].x * scale + offsetX;
-        const endY = points[1].y * scale + offsetY;
-        ctx.lineTo(endX, endY);
-    } else {
-        // Для 3+ точок використовуємо квадратичні криві Безьє
-        for (let i = 1; i < points.length - 1; i++) {
-            const p0 = points[i - 1];
-            const p1 = points[i];
-            const p2 = points[i + 1];
-            
-            // Контрольна точка - середина між поточною та наступною
-            const cpX = (p1.x * scale + offsetX + p2.x * scale + offsetX) / 2;
-            const cpY = (p1.y * scale + offsetY + p2.y * scale + offsetY) / 2;
-            
-            const endX = p1.x * scale + offsetX;
-            const endY = p1.y * scale + offsetY;
-            
-            ctx.quadraticCurveTo(cpX, cpY, endX, endY);
-        }
-        
-        // Останній сегмент
-        const lastPoint = points[points.length - 1];
-        const secondLastPoint = points[points.length - 2];
-        ctx.lineTo(lastPoint.x * scale + offsetX, lastPoint.y * scale + offsetY);
-    }
-    
-    ctx.stroke();
-}
-
 function drawObject(obj, isTemp = false) {
     ctx.save();
     const sx = obj.x * scale + offsetX;
@@ -929,8 +885,10 @@ function drawObject(obj, isTemp = false) {
     
     if (obj.type === 'pen') {
         if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
-        // ВИПРАВЛЕНО: Використовуємо згладжене малювання
-        drawPenSmooth(ctx, obj.points, offsetX, offsetY, scale, obj.color, obj.width);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
+        ctx.stroke();
     } else if (obj.type === 'line' || obj.type === 'arrow') {
         const ex = obj.ex * scale + offsetX;
         const ey = obj.ey * scale + offsetY;
@@ -1152,13 +1110,30 @@ function startTextEdit(obj) {
     }, 50);
     
     editorDiv.addEventListener('keydown', (e) => {
+        // ВИПРАВЛЕНО: Ручна вставка розриву рядка
         if (e.key === 'Enter') {
             e.preventDefault();
-            document.execCommand('insertLineBreak');
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            
+            const newLine = document.createElement('div');
+            newLine.innerHTML = '<br>';
+            
+            range.insertNode(newLine);
+            
+            range.setStartAfter(newLine);
+            range.setEndAfter(newLine);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
             updateSize();
             return;
         }
 
+        // ДОДАНО: Обробка комбінації +- для знаку ±
         if (e.key === '-') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -1166,11 +1141,14 @@ function startTextEdit(obj) {
                 const node = range.startContainer;
                 const offset = range.startOffset;
 
+                // Перевіряємо, чи попередній символ '+'
                 if (node.nodeType === Node.TEXT_NODE && offset > 0 && node.textContent[offset - 1] === '+') {
                     e.preventDefault();
+                    // Замінюємо '+' на '±'
                     const text = node.textContent;
                     node.textContent = text.substring(0, offset - 1) + '±' + text.substring(offset);
                     
+                    // Повертаємо курсор після знаку ±
                     range.setStart(node, offset);
                     range.setEnd(node, offset);
                     sel.removeAllRanges();
