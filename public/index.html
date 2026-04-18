@@ -1661,7 +1661,7 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
-                // З знаменника (нижнє поле) → в текст після дробу
+                // З знаменника (нижнє поле) → в текст ПІСЛЯ дробу
                 if (parent.classList.contains('math-den')) {
                     e.preventDefault();
                     const frac = parent.parentElement;
@@ -1677,6 +1677,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
+                        // Створюємо текстовий вузол після дробу
                         const textNode = document.createTextNode('\u200B');
                         frac.parentNode.insertBefore(textNode, frac.nextSibling);
                         const newRange = document.createRange();
@@ -1733,7 +1734,7 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
-                // З чисельника (верхнє поле) → в текст перед дробом
+                // З чисельника (верхнє поле) → в текст ПЕРЕД дробом
                 if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const frac = parent.parentElement;
@@ -1749,6 +1750,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
+                        // Створюємо текстовий вузол перед дробом
                         const textNode = document.createTextNode('\u200B');
                         frac.parentNode.insertBefore(textNode, frac);
                         const newRange = document.createRange();
@@ -1781,22 +1783,6 @@ function startTextEdit(obj) {
                         sel.addRange(newRange);
                     }
                     return;
-                }
-                // З тексту після дробу → в знаменник
-                if (!parent.classList.contains('math-frac')) {
-                    const prevSibling = node.previousSibling;
-                    if (prevSibling && prevSibling.classList && prevSibling.classList.contains('math-frac')) {
-                        e.preventDefault();
-                        const denSpan = prevSibling.querySelector('.math-den');
-                        if (denSpan) {
-                            const newRange = document.createRange();
-                            newRange.selectNodeContents(denSpan);
-                            newRange.collapse(false);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        }
-                        return;
-                    }
                 }
             }
         }
