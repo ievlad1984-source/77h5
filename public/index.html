@@ -61,30 +61,33 @@
         .tool-btn.active .dropdown-trigger { border-left-color: rgba(255,255,255,0.3); }
         .tool-btn.active .dropdown-trigger:hover { background: rgba(255,255,255,0.2); }
         
-        /* Кнопки вибору кольору (квадрати) */
-        .color-btn {
-            width: 28px;
-            height: 28px;
-            cursor: pointer;
+        .color-picker-btn {
+            width: 32px;
+            height: 32px;
             border: 2px solid #e0e0e0;
             border-radius: 4px;
+            cursor: pointer;
+            background-color: #000000;
             transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
         }
-        
-        .color-btn:hover {
+        .color-picker-btn:hover {
             transform: scale(1.1);
             border-color: #007bff;
         }
-        
-        .color-btn.active {
-            border-color: #007bff;
-            box-shadow: 0 0 0 2px rgba(0,123,255,0.3);
+        .color-picker-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 0; 
+            height: 0; 
+            border-style: solid;
+            border-width: 0 0 10px 10px;
+            border-color: transparent transparent rgba(0,0,0,0.3) transparent;
         }
-        
-        .color-black { background: #000000; }
-        .color-blue { background: #0055FF; }
-        .color-red { background: #FF3333; }
-        
+
         .tool-icon {
             width: 20px;
             height: 20px;
@@ -226,7 +229,7 @@
             pointer-events: none;
         }
 
-        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; padding: 0; }
+        input[type="color"] { border: none; width: 0; height: 0; overflow: hidden; padding: 0; position: absolute; }
         input[type="range"] { cursor: pointer; }
         .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
         
@@ -256,7 +259,6 @@
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
         }
 
-        /* Стилі для палітр */
         #shapes-palette, #line-palette {
             position: absolute;
             top: 70px;
@@ -368,21 +370,17 @@
 
     <div class="separator"></div>
     
-    <!-- ВИБІР КОЛЬОРУ (після ластика) -->
-    <div class="color-btn color-black active" id="colorBlack" onclick="selectPenColor('#000000')" title="Чорний"></div>
-    <div class="color-btn color-blue" id="colorBlue" onclick="selectPenColor('#0055FF')" title="Синій"></div>
-    <div class="color-btn color-red" id="colorRed" onclick="selectPenColor('#FF3333')" title="Червоний"></div>
+    <div class="color-picker-btn" id="colorPickerBtn" title="Вибір кольору"></div>
+    <input type="color" id="colorPickerInput" value="#000000">
     
     <div class="separator"></div>
     <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
-    <input type="color" id="colorPicker" value="#212529" title="Колір" style="display:none;">
     <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
     <div class="separator"></div>
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
     <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
 </div>
 
-<!-- ПАЛІТРА ЛІНІЙ -->
 <div id="line-palette">
     <div class="shape-category">Інструменти</div>
     <div class="shape-grid">
@@ -401,7 +399,6 @@
     </div>
 </div>
 
-<!-- ПАЛІТРА ФІГУР -->
 <div id="shapes-palette">
     <div class="shape-category">Основні</div>
     <div class="shape-grid">
@@ -568,12 +565,8 @@ window.addEventListener('keyup', (e) => {
 
 function selectPenColor(color) {
     currentPenColor = color;
-    document.getElementById('colorPicker').value = color;
-    
-    document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
-    if (color === '#000000') document.getElementById('colorBlack').classList.add('active');
-    else if (color === '#0055FF') document.getElementById('colorBlue').classList.add('active');
-    else if (color === '#FF3333') document.getElementById('colorRed').classList.add('active');
+    document.getElementById('colorPickerInput').value = color;
+    document.getElementById('colorPickerBtn').style.backgroundColor = color;
 }
 
 function selectShape(type) {
@@ -654,6 +647,8 @@ document.addEventListener('mousedown', (e) => {
 });
 
 function htmlToSegments(html) {
+    if (!html || html.trim() === '') return [];
+    
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const segments = [];
@@ -680,19 +675,25 @@ function htmlToSegments(html) {
                     numerator: numSegs, 
                     denominator: denSegs 
                 });
-            } else if (node.tagName === 'BR' || node.tagName === 'DIV') {
+            } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
+            } else if (node.tagName === 'DIV') {
+                // Обробляємо дочірні елементи DIV
+                node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
             }
         }
     }
     
-    doc.body.childNodes.forEach(processNode);
+    // Обробляємо body або кореневі елементи
+    Array.from(doc.body.childNodes).forEach(processNode);
+    
     return segments;
 }
 
 function segmentsToHtml(segments) {
+    if (!segments || segments.length === 0) return '';
     return segments.map(s => {
         if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
         if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
@@ -701,8 +702,8 @@ function segmentsToHtml(segments) {
             const denHtml = segmentsToHtml(s.denominator);
             return `<div class="math-frac"><span class="math-num">${numHtml}</span><span class="math-den">${denHtml}</span></div>`;
         }
-        if (s.text === '\n') return '<div><br></div>';
-        return s.text;
+        if (s.text === '\n') return '<br>';
+        return s.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }).join('');
 }
 
@@ -715,10 +716,9 @@ function getBBox(obj) {
         const lineH = baseSize * 1.4;
         
         let maxW = 0;
-        let currentLineW = 0;
         let lines = 1;
         
-        const text = obj.text || '';
+        const text = obj.text || ''; 
         const textLines = text.split('\n');
         lines = textLines.length;
         
@@ -1323,11 +1323,13 @@ function drawObject(obj, isTemp = false) {
         
         const baseSize = obj.size * scale;
         
+        // ВИПРАВЛЕННЯ: Перевіряємо segments, але якщо пусто - використовуємо text
         if (obj.segments && obj.segments.length > 0) {
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
-        } else {
+        } else if (obj.text && obj.text.trim() !== '') {
+            // Фолбек на звичайний текст
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-            const textLines = (obj.text || '').split('\n');
+            const textLines = obj.text.split('\n');
             const lineH = baseSize * 1.4;
             textLines.forEach((line, i) => {
                 ctx.fillText(line, sx, sy + (baseSize * 0.8) + (i * lineH));
@@ -1474,7 +1476,10 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    if (obj.text && obj.text.trim() !== '') {
+    // ВИПРАВЛЕННЯ: Завантаження HTML з segments або text
+    if (obj.segments && obj.segments.length > 0) {
+        editorDiv.innerHTML = segmentsToHtml(obj.segments);
+    } else if (obj.text && obj.text.trim() !== '') {
         const lines = obj.text.split('\n');
         editorDiv.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
     } else {
@@ -1515,6 +1520,211 @@ function startTextEdit(obj) {
     }, 50);
     
     editorDiv.addEventListener('keydown', (e) => {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        const node = range.startContainer;
+
+        if (e.key === '/') {
+            e.preventDefault();
+            
+            let textNode = node;
+            let offset = range.startOffset;
+            
+            if (textNode.nodeType !== Node.TEXT_NODE) {
+                if (textNode.closest('.math-frac')) return;
+                
+                if (textNode.childNodes.length > 0 && offset < textNode.childNodes.length) {
+                    textNode = textNode.childNodes[offset];
+                    offset = 0;
+                } else if (textNode.childNodes.length > 0 && offset === textNode.childNodes.length) {
+                     textNode = textNode.childNodes[offset - 1];
+                     offset = textNode.textContent.length;
+                } else {
+                    return;
+                }
+            }
+            
+            if (textNode.nodeType !== Node.TEXT_NODE) return;
+
+            let text = textNode.textContent;
+            let wordStart = offset;
+            while (wordStart > 0 && !/\s/.test(text[wordStart - 1])) {
+                wordStart--;
+            }
+            
+            const word = text.substring(wordStart, offset);
+            
+            const beforeText = text.substring(0, wordStart);
+            const afterText = text.substring(offset);
+            
+            textNode.textContent = beforeText + afterText;
+            
+            const fracDiv = document.createElement('div');
+            fracDiv.className = 'math-frac';
+            fracDiv.style.display = 'inline-flex';
+            fracDiv.style.flexDirection = 'column';
+            fracDiv.style.verticalAlign = 'middle';
+            
+            const numSpan = document.createElement('span');
+            numSpan.className = 'math-num';
+            numSpan.textContent = word || '\u200B';
+            
+            const denSpan = document.createElement('span');
+            denSpan.className = 'math-den';
+            denSpan.textContent = '\u200B';
+            
+            fracDiv.appendChild(numSpan);
+            fracDiv.appendChild(denSpan);
+            
+            const newRange = document.createRange();
+            newRange.setStart(textNode, wordStart);
+            newRange.collapse(true);
+            newRange.insertNode(fracDiv);
+            
+            const focusRange = document.createRange();
+            focusRange.selectNodeContents(denSpan);
+            focusRange.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(focusRange);
+            
+            updateSize();
+            return;
+        }
+
+        if (e.key === '^' || e.key === '_') {
+            e.preventDefault();
+            const type = e.key === '^' ? 'sup' : 'sub';
+            insertMathField(type);
+            updateSize();
+            return;
+        }
+        
+        if (e.key === 'ArrowRight') {
+            let parent = node.parentElement;
+            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+            
+            if (isAtEnd && parent) {
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub') || parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    
+                    if (parent.classList.contains('math-den')) {
+                        const frac = parent.parentElement;
+                        const nextSibling = frac.nextSibling;
+                        if (nextSibling) {
+                            const newRange = document.createRange();
+                            if (nextSibling.nodeType === Node.TEXT_NODE) {
+                                newRange.setStart(nextSibling, 0);
+                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                                newRange.selectNodeContents(nextSibling);
+                                newRange.collapse(true);
+                            }
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                        } else {
+                            const textNode = document.createTextNode('\u200B');
+                            frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                            const newRange = document.createRange();
+                            newRange.setStart(textNode, 0);
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                        }
+                    } 
+                    else {
+                        const nextSibling = parent.nextSibling;
+                        if (nextSibling) {
+                            const newRange = document.createRange();
+                            if (nextSibling.nodeType === Node.TEXT_NODE) {
+                                newRange.setStart(nextSibling, 0);
+                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                                newRange.selectNodeContents(nextSibling);
+                                newRange.collapse(true);
+                            }
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                        } else {
+                             const textNode = document.createTextNode('\u200B');
+                             parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                             const newRange = document.createRange();
+                             newRange.setStart(textNode, 0);
+                             sel.removeAllRanges();
+                             sel.addRange(newRange);
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+        
+        if (e.key === 'ArrowLeft') {
+            let parent = node.parentElement;
+            let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
+                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
+            
+            if (isAtStart && parent) {
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const numSpan = parent.parentElement.querySelector('.math-num');
+                    if (numSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(numSpan);
+                        newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const prevSibling = frac.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                             newRange.selectNodeContents(prevSibling);
+                             newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        frac.parentNode.insertBefore(textNode, frac);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const prevSibling = parent.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                             newRange.selectNodeContents(prevSibling);
+                             newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+            }
+        }
+
         if (e.key === 'Enter') {
             e.preventDefault();
             document.execCommand('insertLineBreak');
@@ -1564,7 +1774,21 @@ function stopTextEdit(cancel = false) {
     const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
+        
+        // ВИПРАВЛЕННЯ: Зберігаємо HTML структуру в segments
+        const html = editorDiv.innerHTML;
+        const segments = htmlToSegments(html);
+        
+        // Якщо segments порожній, але є текст - зберігаємо тільки text
+        if (segments && segments.length > 0) {
+            editingObject.segments = segments;
+        } else {
+            // Видаляємо segments якщо порожній, щоб fallback працював
+            delete editingObject.segments;
+        }
+        
         editingObject.text = editorDiv.innerText;
+        
         if (socket && socket.connected) socket.emit('update-all', objects);
     }
     if (textEditor.parentNode) {
@@ -1684,7 +1908,15 @@ canvas.addEventListener('mousedown', (e) => {
         
         if (clickedText) {
             saveHistory();
-            editingObject.text = textEditor.querySelector('.text-edit-content').innerText;
+            const editorDiv = textEditor.querySelector('.text-edit-content');
+            const html = editorDiv.innerHTML;
+            const segments = htmlToSegments(html);
+            if (segments && segments.length > 0) {
+                editingObject.segments = segments;
+            } else {
+                delete editingObject.segments;
+            }
+            editingObject.text = editorDiv.innerText;
             
             if (textEditor.parentNode) {
                 document.body.removeChild(textEditor);
@@ -2185,6 +2417,17 @@ function createNewBoard() {
     const newId = Math.random().toString(36).substr(2, 9);
     window.location.href = '/' + newId; 
 }
+
+const colorPickerBtn = document.getElementById('colorPickerBtn');
+const colorPickerInput = document.getElementById('colorPickerInput');
+
+colorPickerBtn.addEventListener('click', () => {
+    colorPickerInput.click();
+});
+
+colorPickerInput.addEventListener('input', (e) => {
+    selectPenColor(e.target.value);
+});
 
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
