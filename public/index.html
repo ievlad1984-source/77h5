@@ -48,7 +48,6 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            /* ВИПРАВЛЕНО: Повна заборона автоматичного перенесення */
             white-space: pre !important;
             overflow-wrap: normal !important;
             word-wrap: normal !important;
@@ -253,6 +252,9 @@ let needsRedraw = false;
 let animationFrameId = null;
 
 const MAX_HISTORY = 50;
+
+// ЗГЛАДЖУВАННЯ: Коефіцієнт згладжування для олівця (0.5 = середнє, 0.7 = більш плавне)
+const SMOOTHING_FACTOR = 0.5;
 
 function requestDraw() {
     if (!needsRedraw) {
@@ -866,6 +868,60 @@ function drawCoordinateGrid(obj) {
     ctx.restore();
 }
 
+// ЗГЛАДЖУВАННЯ: Функція для малювання плавних кривих через точки
+function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
+    if (points.length === 0) return;
+    
+    if (points.length === 1) {
+        const p = points[0];
+        ctx.beginPath();
+        ctx.arc(p.x * scaleX + offsetX, p.y * scaleX + offsetY, 1, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+    }
+    
+    if (points.length === 2) {
+        const p0 = points[0];
+        const p1 = points[1];
+        ctx.beginPath();
+        ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+        ctx.lineTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY);
+        ctx.stroke();
+        return;
+    }
+    
+    // Використовуємо квадратичні криві Безьє для згладжування
+    ctx.beginPath();
+    
+    // Починаємо з першої точки
+    const p0 = points[0];
+    ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+    
+    // Для кожної пари точок малюємо криву через середню точку
+    for (let i = 1; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        
+        // Середня точка між поточною і наступною
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        
+        // Квадратична крива Безьє: контрольна точка = p1, кінцева = mid
+        ctx.quadraticCurveTo(
+            p1.x * scaleX + offsetX, 
+            p1.y * scaleX + offsetY, 
+            midX * scaleX + offsetX, 
+            midY * scaleX + offsetY
+        );
+    }
+    
+    // З'єднуємо з останньою точкою
+    const lastPoint = points[points.length - 1];
+    ctx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
+    
+    ctx.stroke();
+}
+
 function drawObject(obj, isTemp = false) {
     ctx.save();
     const sx = obj.x * scale + offsetX;
@@ -885,10 +941,10 @@ function drawObject(obj, isTemp = false) {
     
     if (obj.type === 'pen') {
         if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        obj.points.forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
-        ctx.stroke();
+        
+        // ЗГЛАДЖУВАННЯ: Використовуємо плавні криві замість прямих ліній
+        const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
+        drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
     } else if (obj.type === 'line' || obj.type === 'arrow') {
         const ex = obj.ex * scale + offsetX;
         const ey = obj.ey * scale + offsetY;
@@ -1120,14 +1176,15 @@ function startTextEdit(obj) {
             range.deleteContents();
             
             const newLine = document.createElement('div');
-            newLine.innerHTML = '<br>';
+            newLine.textContent = '\u200B';
             
             range.insertNode(newLine);
             
-            range.setStartAfter(newLine);
-            range.setEndAfter(newLine);
+            const newRange = document.createRange();
+            newRange.selectNodeContents(newLine);
+            newRange.collapse(false);
             selection.removeAllRanges();
-            selection.addRange(range);
+            selection.addRange(newRange);
             
             updateSize();
             return;
@@ -1141,14 +1198,11 @@ function startTextEdit(obj) {
                 const node = range.startContainer;
                 const offset = range.startOffset;
 
-                // Перевіряємо, чи попередній символ '+'
                 if (node.nodeType === Node.TEXT_NODE && offset > 0 && node.textContent[offset - 1] === '+') {
                     e.preventDefault();
-                    // Замінюємо '+' на '±'
                     const text = node.textContent;
                     node.textContent = text.substring(0, offset - 1) + '±' + text.substring(offset);
                     
-                    // Повертаємо курсор після знаку ±
                     range.setStart(node, offset);
                     range.setEnd(node, offset);
                     sel.removeAllRanges();
@@ -1632,7 +1686,21 @@ canvas.addEventListener('mousemove', (e) => {
         requestDraw();
     } 
     else if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen') currentPath.points.push({x: coords.x, y: coords.y});
+        if (currentPath.type === 'pen') {
+            // ЗГЛАДЖУВАННЯ: Додаємо точки з фільтрацією для плавності
+            const lastPoint = currentPath.points.length > 0 
+                ? currentPath.points[currentPath.points.length - 1] 
+                : { x: currentPath.x, y: currentPath.y };
+            
+            // Додаємо точку тільки якщо відстань достатня (фільтрація шуму)
+            const dist = Math.hypot(coords.x - lastPoint.x, coords.y - lastPoint.y);
+            if (dist > 2 / scale) {
+                // ЗГЛАДЖУВАННЯ: Середнє з попередньою точкою для плавності
+                const smoothedX = lastPoint.x + (coords.x - lastPoint.x) * SMOOTHING_FACTOR;
+                const smoothedY = lastPoint.y + (coords.y - lastPoint.y) * SMOOTHING_FACTOR;
+                currentPath.points.push({ x: smoothedX, y: smoothedY });
+            }
+        }
         else if (currentPath.type === 'grid') {
             currentPath.w = coords.x - currentPath.x;
             currentPath.h = coords.y - currentPath.y;
@@ -2047,4 +2115,3 @@ socket.on('board-deleted', () => {
 </script>
 </body>
 </html>
-```
