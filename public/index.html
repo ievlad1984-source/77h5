@@ -61,7 +61,6 @@
         .tool-btn.active .dropdown-trigger { border-left-color: rgba(255,255,255,0.3); }
         .tool-btn.active .dropdown-trigger:hover { background: rgba(255,255,255,0.2); }
         
-        /* Кнопки вибору кольору (квадрати) */
         .color-btn {
             width: 28px;
             height: 28px;
@@ -256,7 +255,6 @@
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
         }
 
-        /* Стилі для палітр */
         #shapes-palette, #line-palette {
             position: absolute;
             top: 70px;
@@ -368,7 +366,6 @@
 
     <div class="separator"></div>
     
-    <!-- ВИБІР КОЛЬОРУ (після ластика) -->
     <div class="color-btn color-black active" id="colorBlack" onclick="selectPenColor('#000000')" title="Чорний"></div>
     <div class="color-btn color-blue" id="colorBlue" onclick="selectPenColor('#0055FF')" title="Синій"></div>
     <div class="color-btn color-red" id="colorRed" onclick="selectPenColor('#FF3333')" title="Червоний"></div>
@@ -382,7 +379,6 @@
     <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
 </div>
 
-<!-- ПАЛІТРА ЛІНІЙ -->
 <div id="line-palette">
     <div class="shape-category">Інструменти</div>
     <div class="shape-grid">
@@ -401,7 +397,6 @@
     </div>
 </div>
 
-<!-- ПАЛІТРА ФІГУР -->
 <div id="shapes-palette">
     <div class="shape-category">Основні</div>
     <div class="shape-grid">
@@ -1515,6 +1510,15 @@ function startTextEdit(obj) {
     }, 50);
     
     editorDiv.addEventListener('keydown', (e) => {
+        // Обробка клавіш ^ (степінь) та _ (індекс)
+        if (e.key === '^' || e.key === '_') {
+            e.preventDefault();
+            const type = e.key === '^' ? 'sup' : 'sub';
+            insertMathField(type);
+            updateSize();
+            return;
+        }
+
         if (e.key === 'Enter') {
             e.preventDefault();
             document.execCommand('insertLineBreak');
