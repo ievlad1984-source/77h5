@@ -124,7 +124,7 @@
             overflow-wrap: break-word !important;
             word-wrap: break-word !important;
             overflow: visible;
-            display: block !important;
+            display: inline-block;
             box-sizing: border-box;
             line-height: 1.4;
             min-width: 50px;
@@ -333,24 +333,9 @@
             width: 20px;
             height: 20px;
         }
-
-        #room-info {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: #eee;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            z-index: 1000;
-        }
     </style>
 </head>
 <body>
-
-<div id="room-info">
-    Кімната: <b id="room-id-display">...</b>
-</div>
 
 <div id="toolbar">
     <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
@@ -444,30 +429,12 @@
 <canvas id="board"></canvas>
 
 <script>
-// Перевірка на запуск через file://
-if (window.location.protocol === 'file:') {
-    alert('УВАГА: Ви відкрили файл напряму. Синхронізація не працюватиме.\nБудь ласка, запустіть сервер (node server.js) і відкрийте http://localhost:3000');
-}
-
 const boardId = window.location.pathname.replace('/', '') || 'main';
-document.getElementById('room-id-display').innerText = boardId;
-
 let socket;
 try {
     socket = io({ query: { boardId } });
-    
-    socket.on('connect', () => {
-        console.log('З\'єднання з сервером встановлено!', socket.id);
-        document.getElementById('room-info').style.background = '#d4edda';
-    });
-    
-    socket.on('disconnect', () => {
-        console.warn('З\'єднання розірвано');
-        document.getElementById('room-info').style.background = '#f8d7da';
-    });
-    
 } catch (e) {
-    console.warn("Socket.io not loaded or connection failed.", e);
+    console.warn("Socket.io not loaded or connection failed. Running in local mode.");
     socket = { emit: () => {}, on: () => {} };
 }
 
@@ -503,14 +470,6 @@ const SMOOTHING_FACTOR = 0.5;
 let selectedShapeType = null;
 let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
-
-// Функція для очищення об'єктів від технічних даних перед відправкою
-function getCleanObjects(objs) {
-    return objs.map(o => {
-        const { _img, ...cleanObj } = o; 
-        return cleanObj;
-    });
-}
 
 function requestDraw() {
     if (!needsRedraw) {
@@ -555,7 +514,7 @@ function undo() {
 
     selectedObjects = [];
     if (textEditor) stopTextEdit(true);
-    if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects));
+    if (socket && socket.connected) socket.emit('update-all', objects);
     requestDraw();
     isUndoing = false;
 }
@@ -589,7 +548,7 @@ window.addEventListener('keydown', (e) => {
             saveHistory();
             objects = objects.filter(o => !selectedObjects.includes(o));
             selectedObjects = [];
-            if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects));
+            if (socket && socket.connected) socket.emit('update-all', objects);
             requestDraw();
             return;
         }
@@ -719,6 +678,7 @@ function htmlToSegments(html) {
             } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
             } else if (node.tagName === 'DIV') {
+                // Обробляємо дочірні елементи DIV
                 node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
@@ -726,6 +686,7 @@ function htmlToSegments(html) {
         }
     }
     
+    // Обробляємо body або кореневі елементи
     Array.from(doc.body.childNodes).forEach(processNode);
     
     return segments;
@@ -1362,9 +1323,11 @@ function drawObject(obj, isTemp = false) {
         
         const baseSize = obj.size * scale;
         
+        // ВИПРАВЛЕННЯ: Перевіряємо segments, але якщо пусто - використовуємо text
         if (obj.segments && obj.segments.length > 0) {
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
         } else if (obj.text && obj.text.trim() !== '') {
+            // Фолбек на звичайний текст
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const textLines = obj.text.split('\n');
             const lineH = baseSize * 1.4;
@@ -1513,14 +1476,14 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // ВИПРАВЛЕННЯ: Правильне завантаження тексту
+    // ВИПРАВЛЕННЯ: Завантаження HTML з segments або text
     if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else if (obj.text && obj.text.trim() !== '') {
         const lines = obj.text.split('\n');
-        editorDiv.innerHTML = lines.join('<br>');
+        editorDiv.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
     } else {
-        editorDiv.innerHTML = '<br>';
+        editorDiv.innerHTML = '<div><br></div>';
     }
     
     wrapper.appendChild(editorDiv);
@@ -1543,8 +1506,14 @@ function startTextEdit(obj) {
         const range = document.createRange();
         const sel = window.getSelection();
         
-        range.selectNodeContents(editorDiv);
-        range.collapse(false);
+        const lastDiv = editorDiv.lastElementChild;
+        if (lastDiv) {
+            range.selectNodeContents(lastDiv);
+            range.collapse(false);
+        } else {
+            range.selectNodeContents(editorDiv);
+            range.collapse(false);
+        }
         
         sel.removeAllRanges();
         sel.addRange(range);
@@ -1758,7 +1727,7 @@ function startTextEdit(obj) {
 
         if (e.key === 'Enter') {
             e.preventDefault();
-            document.execCommand('insertHTML', false, '<br>');
+            document.execCommand('insertLineBreak');
             updateSize();
             return;
         }
@@ -1772,7 +1741,7 @@ function startTextEdit(obj) {
         updateSize();
         if (editingObject) {
             editingObject.text = editorDiv.innerText;
-            if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects));
+            if (socket && socket.connected) socket.emit('update-all', objects);
         }
     });
     
@@ -1806,18 +1775,21 @@ function stopTextEdit(cancel = false) {
     if (!cancel && editingObject) {
         saveHistory();
         
+        // ВИПРАВЛЕННЯ: Зберігаємо HTML структуру в segments
         const html = editorDiv.innerHTML;
         const segments = htmlToSegments(html);
         
+        // Якщо segments порожній, але є текст - зберігаємо тільки text
         if (segments && segments.length > 0) {
             editingObject.segments = segments;
         } else {
+            // Видаляємо segments якщо порожній, щоб fallback працював
             delete editingObject.segments;
         }
         
         editingObject.text = editorDiv.innerText;
         
-        if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects));
+        if (socket && socket.connected) socket.emit('update-all', objects);
     }
     if (textEditor.parentNode) {
         document.body.removeChild(textEditor);
@@ -1864,7 +1836,7 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects));
+        if (socket && socket.connected) socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -1895,7 +1867,7 @@ function startTextDrag(obj, e, wrapper) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects));
+        if (socket && socket.connected) socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2176,26 +2148,26 @@ canvas.addEventListener('mouseup', () => {
         if (currentPath.type === 'pen' && currentPath.points.length > 1) {
             saveHistory();
             objects.push(currentPath);
-            if (socket && socket.connected) socket.emit('new-object', getCleanObjects([currentPath])[0]);
+            if (socket && socket.connected) socket.emit('new-object', currentPath);
         } else if (currentPath.type === 'shape') {
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
                 currentPath.type = 'shape';
                 currentPath.shapeType = selectedShapeType;
                 objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', getCleanObjects([currentPath])[0]);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
         } else if (currentPath.type === 'rect') {
             if (Math.abs(currentPath.w) > 2 && Math.abs(currentPath.h) > 2) {
                 saveHistory();
                 objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', getCleanObjects([currentPath])[0]);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
         } else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
             if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
                 saveHistory();
                 objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', getCleanObjects([currentPath])[0]);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
         } else if (currentPath.type === 'grid') {
             if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
@@ -2205,7 +2177,7 @@ canvas.addEventListener('mouseup', () => {
                 currentPath.axisColor = '#000000';
                 currentPath.gridColor = '#cccccc';
                 objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', getCleanObjects([currentPath])[0]);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
         }
         isDrawing = false;
@@ -2218,7 +2190,7 @@ canvas.addEventListener('mouseup', () => {
             saveHistory();
         }
         isDragging = false; isResizing = false; isRotating = false;
-        if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects));
+        if (socket && socket.connected) socket.emit('update-all', objects);
     }
 });
 
@@ -2260,7 +2232,7 @@ function eraseAt(mx, my) {
         }
     }
     if (changed) { 
-        if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects)); 
+        if (socket && socket.connected) socket.emit('update-all', objects); 
         requestDraw(); 
     }
 }
@@ -2390,7 +2362,7 @@ function startResizeGroup(handle, e) {
         document.removeEventListener('mousemove', onMove); 
         document.removeEventListener('mouseup', onUp); 
         saveHistory(); 
-        if (socket && socket.connected) socket.emit('update-all', getCleanObjects(objects)); 
+        if (socket && socket.connected) socket.emit('update-all', objects); 
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2408,7 +2380,7 @@ function createNewText(coords) {
     };
     saveHistory();
     objects.push(obj); selectedObjects = [obj];
-    if (socket && socket.connected) socket.emit('new-object', getCleanObjects([obj])[0]);
+    if (socket && socket.connected) socket.emit('new-object', obj);
     requestDraw();
     startTextEdit(obj);
 }
@@ -2502,7 +2474,7 @@ window.addEventListener('paste', (e) => {
                     const obj = { type: 'image', src: event.target.result, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2, rotation: 0 };
                     saveHistory();
                     objects.push(obj); selectedObjects = [obj];
-                    if (socket && socket.connected) socket.emit('new-object', getCleanObjects([obj])[0]); requestDraw();
+                    if (socket && socket.connected) socket.emit('new-object', obj); requestDraw();
                 };
             };
             reader.readAsDataURL(blob);
