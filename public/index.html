@@ -84,7 +84,7 @@
             border: 1px dashed #9C27B0;
             background: rgba(156, 39, 176, 0.1);
             border-radius: 3px;
-            padding: 2px;
+            padding: 1px 2px;
             line-height: 1;
         }
         .math-num {
@@ -94,11 +94,13 @@
             display: block;
             text-align: center;
             width: 100%;
+            white-space: nowrap;
         }
         .math-den {
             display: block;
             text-align: center;
             width: 100%;
+            white-space: nowrap;
         }
 
         .handle {
@@ -976,23 +978,34 @@ function insertMathField(type) {
     return span;
 }
 
-function insertFraction(editorDiv, wrapper) {
+function insertFraction(editorDiv) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
     
     const range = sel.getRangeAt(0);
     
-    // Отримуємо текст перед курсором (якщо він виділений або просто перед курсором)
-    // Для простоти: беремо весь текст перед курсором у поточному вузлі, якщо це текстовий вузол
-    // Але краще просто створити структуру і перемістити курсор
-    
-    // Створення HTML дробу
+    // 1. Отримуємо текст перед курсором (чисельник)
+    let numeratorText = "";
+    if (range.startContainer.nodeType === Node.TEXT_NODE) {
+        const textNode = range.startContainer;
+        const offset = range.startOffset;
+        if (offset > 0) {
+            numeratorText = textNode.textContent.substring(0, offset);
+            // Видаляємо цей текст з вузла, залишаючи тільки те, що після
+            textNode.textContent = textNode.textContent.substring(offset);
+        }
+    }
+
+    // 2. Створення HTML дробу
     const fracDiv = document.createElement('div');
     fracDiv.className = 'math-frac';
+    fracDiv.style.display = 'inline-flex';
+    fracDiv.style.flexDirection = 'column';
+    fracDiv.style.verticalAlign = 'middle';
     
     const numSpan = document.createElement('span');
     numSpan.className = 'math-num';
-    numSpan.textContent = '\u200B'; // Порожній чисельник
+    numSpan.textContent = numeratorText || '\u200B'; // Порожній чисельник якщо нічого не було
     
     const denSpan = document.createElement('span');
     denSpan.className = 'math-den';
@@ -1001,23 +1014,24 @@ function insertFraction(editorDiv, wrapper) {
     fracDiv.appendChild(numSpan);
     fracDiv.appendChild(denSpan);
     
-    range.deleteContents();
+    // 3. Вставка в DOM (замість слеша, який ми натиснули)
+    range.deleteContents(); // Видаляє '/'
     range.insertNode(fracDiv);
     
-    // Переміщення курсору в знаменник
+    // 4. Переміщення курсору в знаменник
     const newRange = document.createRange();
     newRange.selectNodeContents(denSpan);
-    newRange.collapse(false); // В кінець знаменника (або true, щоб в початок)
+    newRange.collapse(false); // В кінець знаменника
     sel.removeAllRanges();
     sel.addRange(newRange);
     
-    if (wrapper) {
-        const editorDiv = wrapper.querySelector('.text-edit-content');
-        editorDiv.focus();
-        // Оновити розмір обгортки
+    // Оновити розмір обгортки та зберегти стан
+    if (editorDiv) {
+        const wrapper = editorDiv.parentElement;
         const rect = editorDiv.getBoundingClientRect();
         wrapper.style.width = (rect.width + 20) + 'px';
         wrapper.style.height = (rect.height + 10) + 'px';
+        editorDiv.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 
@@ -1220,7 +1234,7 @@ function startTextEdit(obj) {
         // Логіка для дробу (/)
         if (e.key === '/') {
             e.preventDefault();
-            insertFraction(editorDiv, wrapper);
+            insertFraction(editorDiv);
             return;
         }
         
@@ -1384,10 +1398,10 @@ function startTextDrag(obj, e, wrapper) {
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
     
-    // Зменшено padding з 60 до 10
+    // Зменшено padding з 60 до 5 для точного вибору
     const clickedObj = [...objects].reverse().find(obj => {
         if (obj.type === 'text') {
-            return hitTest(obj, coords.x, coords.y, 10);
+            return hitTest(obj, coords.x, coords.y, 5);
         }
         return false;
     });
@@ -1408,9 +1422,10 @@ canvas.addEventListener('mousedown', (e) => {
     const coords = getCoords(e);
     
     if (textEditor && editingObject) {
+        // Зменшено padding з 60 до 5
         const clickedText = [...objects].reverse().find(obj => {
             if (obj.type === 'text' && obj !== editingObject) {
-                return hitTest(obj, coords.x, coords.y, 10);
+                return hitTest(obj, coords.x, coords.y, 5);
             }
             return false;
         });
@@ -1443,9 +1458,10 @@ canvas.addEventListener('mousedown', (e) => {
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
         else if (currentTool === 'text') {
+            // Зменшено padding з 60 до 5
             const existingText = [...objects].reverse().find(obj => {
                 if (obj.type === 'text') {
-                    return hitTest(obj, coords.x, coords.y, 10);
+                    return hitTest(obj, coords.x, coords.y, 5);
                 }
                 return false;
             });
