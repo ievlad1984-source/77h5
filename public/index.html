@@ -263,7 +263,7 @@
             position: absolute;
             top: 70px;
             left: 15px;
-            width: 240px;
+            width: 260px; /* Трохи ширше для 3D */
             background: white;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -272,7 +272,7 @@
             display: none;
             flex-direction: column;
             padding: 10px;
-            max-height: 60vh;
+            max-height: 70vh;
             overflow-y: auto;
         }
 
@@ -294,8 +294,8 @@
         }
 
         .shape-item {
-            width: 45px;
-            height: 45px;
+            width: 50px;
+            height: 50px;
             border: 1px solid #eee;
             border-radius: 4px;
             display: flex;
@@ -311,10 +311,10 @@
         }
 
         .shape-item svg {
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             stroke: #333;
-            stroke-width: 2;
+            stroke-width: 1.5;
             fill: none;
         }
         
@@ -408,20 +408,56 @@
         <div class="shape-item" onclick="selectShape('diamond')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 12 L12 22 L2 12 Z" /></svg></div>
     </div>
 
-    <div class="shape-category">Багатокутники</div>
+    <div class="shape-category">3D Тіла</div>
     <div class="shape-grid">
-        <div class="shape-item" onclick="selectShape('pentagon')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 9 L18 21 L6 21 L2 9 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('hexagon')"><svg viewBox="0 0 24 24"><path d="M7 2 L17 2 L22 12 L17 22 L7 22 L2 12 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('star')"><svg viewBox="0 0 24 24"><path d="M12 2 L15 9 L22 9 L16 14 L18 21 L12 17 L6 21 L8 14 L2 9 L9 9 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('parallelogram')"><svg viewBox="0 0 24 24"><path d="M6 4 L20 4 L18 20 L4 20 Z" /></svg></div>
-    </div>
-
-    <div class="shape-category">Округлені</div>
-    <div class="shape-grid">
-        <div class="shape-item" onclick="selectShape('rounded-rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" /></svg></div>
-        <div class="shape-item" onclick="selectShape('semi-circle')"><svg viewBox="0 0 24 24"><path d="M2 12 A10 10 0 0 1 22 12 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('quarter-circle')"><svg viewBox="0 0 24 24"><path d="M2 22 A20 20 0 0 1 22 2 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('heart')"><svg viewBox="0 0 24 24"><path d="M12 21 C12 21 2 14 2 8 C2 5 5 2 8 2 C10 2 12 4 12 4 C12 4 14 2 16 2 C19 2 22 5 22 8 C22 14 12 21 12 21 Z" /></svg></div>
+        <!-- Куб (Wireframe) -->
+        <div class="shape-item" onclick="selectShape('3d-cube')" title="Куб">
+            <svg viewBox="0 0 24 24"><path d="M4 8 L12 4 L20 8 L20 16 L12 20 L4 16 Z M12 4 L12 12 M20 8 L12 12 M4 8 L12 12" /></svg>
+        </div>
+        <!-- Куб (Перспектива) -->
+        <div class="shape-item" onclick="selectShape('3d-cube-persp')" title="Куб (перспектива)">
+            <svg viewBox="0 0 24 24"><path d="M6 6 L18 6 L18 18 L6 18 Z M6 6 L10 10 M18 6 L14 10 M18 18 L14 14 M6 18 L10 14 M10 10 L14 10 L14 14 L10 14 Z" stroke-dasharray="2,2"/></svg>
+        </div>
+        <!-- Циліндр -->
+        <div class="shape-item" onclick="selectShape('3d-cylinder')" title="Циліндр">
+            <svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6 L4 18 M20 6 L20 18" /><path d="M4 18 A8 3 0 0 0 20 18" /><path d="M4 18 A8 3 0 0 1 20 18" stroke-dasharray="2,2"/></svg>
+        </div>
+        <!-- Паралелепіпед -->
+        <div class="shape-item" onclick="selectShape('3d-parallelepiped')" title="Паралелепіпед">
+            <svg viewBox="0 0 24 24"><path d="M6 6 L18 4 L20 14 L8 16 Z M6 6 L6 16 M18 4 L18 14 M6 16 L18 14" /></svg>
+        </div>
+        <!-- Піраміда -->
+        <div class="shape-item" onclick="selectShape('3d-pyramid')" title="Піраміда">
+            <svg viewBox="0 0 24 24"><path d="M12 4 L4 18 L20 18 Z M12 4 L12 18 M4 18 L12 14 L20 18" stroke-dasharray="2,2"/></svg>
+        </div>
+        <!-- Конус -->
+        <div class="shape-item" onclick="selectShape('3d-cone')" title="Конус">
+            <svg viewBox="0 0 24 24"><path d="M12 4 L4 18 L20 18 Z" /><ellipse cx="12" cy="18" rx="8" ry="3" /><path d="M4 18 A8 3 0 0 1 20 18" stroke-dasharray="2,2"/></svg>
+        </div>
+        <!-- Сфера -->
+        <div class="shape-item" onclick="selectShape('3d-sphere')" title="Сфера">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><ellipse cx="12" cy="12" rx="9" ry="3" /><path d="M12 3 A9 9 0 0 1 12 21" stroke-dasharray="2,2"/></svg>
+        </div>
+        <!-- Тетраедр -->
+        <div class="shape-item" onclick="selectShape('3d-tetrahedron')" title="Тетраедр">
+            <svg viewBox="0 0 24 24"><path d="M12 4 L4 18 L20 18 Z M12 4 L12 18" /><path d="M4 18 L12 10 L20 18" stroke-dasharray="2,2"/></svg>
+        </div>
+        <!-- Трикутна призма -->
+        <div class="shape-item" onclick="selectShape('3d-prism')" title="Призма">
+            <svg viewBox="0 0 24 24"><path d="M6 6 L18 6 L12 14 Z M6 6 L6 18 M18 6 L18 18 M12 14 L12 22 M6 18 L18 18 L12 22 Z" /></svg>
+        </div>
+        <!-- Октаедр -->
+        <div class="shape-item" onclick="selectShape('3d-octahedron')" title="Октаедр">
+            <svg viewBox="0 0 24 24"><path d="M12 2 L20 12 L12 22 L4 12 Z M12 2 L12 12 M20 12 L12 12 M4 12 L12 12 M12 12 L12 22" /></svg>
+        </div>
+        <!-- Зрізана піраміда -->
+        <div class="shape-item" onclick="selectShape('3d-frustum')" title="Зрізана піраміда">
+            <svg viewBox="0 0 24 24"><path d="M8 6 L16 6 L18 18 L6 18 Z M8 6 L8 10 L16 6 L16 10 M6 18 L18 18" stroke-dasharray="2,2"/></svg>
+        </div>
+        <!-- Зрізаний конус -->
+        <div class="shape-item" onclick="selectShape('3d-cone-frustum')" title="Зрізаний конус">
+            <svg viewBox="0 0 24 24"><path d="M8 6 L6 18 L18 18 L16 6 Z" /><ellipse cx="12" cy="6" rx="4" ry="1.5" /><path d="M6 18 A8 3 0 0 0 18 18" /><path d="M6 18 A8 3 0 0 1 18 18" stroke-dasharray="2,2"/></svg>
+        </div>
     </div>
 </div>
 
@@ -678,7 +714,6 @@ function htmlToSegments(html) {
             } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
             } else if (node.tagName === 'DIV') {
-                // Обробляємо дочірні елементи DIV
                 node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
@@ -686,7 +721,6 @@ function htmlToSegments(html) {
         }
     }
     
-    // Обробляємо body або кореневі елементи
     Array.from(doc.body.childNodes).forEach(processNode);
     
     return segments;
@@ -1243,6 +1277,7 @@ function drawObject(obj, isTemp = false) {
         
         ctx.beginPath();
         
+        // 2D Shapes
         if (obj.shapeType === 'circle') {
             ctx.ellipse(cx, cy, minDim/2, minDim/2, 0, 0, Math.PI * 2);
         } else if (obj.shapeType === 'triangle') {
@@ -1316,18 +1351,272 @@ function drawObject(obj, isTemp = false) {
             ctx.closePath();
         }
         
-        ctx.stroke();
+        // 3D Shapes Logic
+        else if (obj.shapeType.startsWith('3d-')) {
+            ctx.strokeStyle = obj.color || '#333';
+            ctx.lineWidth = 2 * scale;
+            ctx.setLineDash([]); // Reset dash for solid lines
+            
+            const x = sx, y = sy, width = w, height = h;
+            const cx = x + width/2, cy = y + height/2;
+            
+            // Helper for dotted lines
+            const drawDotted = () => {
+                ctx.save();
+                ctx.setLineDash([4 * scale, 4 * scale]);
+                ctx.strokeStyle = '#888'; // Lighter color for hidden lines
+                ctx.lineWidth = 1.5 * scale;
+            };
+            const endDotted = () => ctx.restore();
+
+            switch(obj.shapeType) {
+                case '3d-cube':
+                    // Front face
+                    ctx.strokeRect(x + width*0.2, y + height*0.2, width*0.6, height*0.6);
+                    // Back face offset
+                    const offX = width * 0.2, offY = height * 0.2;
+                    ctx.strokeRect(x + width*0.4, y + height*0.4, width*0.6, height*0.6);
+                    // Connectors
+                    ctx.beginPath();
+                    ctx.moveTo(x + width*0.2, y + height*0.2); ctx.lineTo(x + width*0.4, y + height*0.4);
+                    ctx.moveTo(x + width*0.8, y + height*0.2); ctx.lineTo(x + width, y + height*0.4);
+                    ctx.moveTo(x + width*0.8, y + height*0.8); ctx.lineTo(x + width, y + height);
+                    ctx.moveTo(x + width*0.2, y + height*0.8); ctx.lineTo(x + width*0.4, y + height);
+                    ctx.stroke();
+                    break;
+                    
+                case '3d-cube-persp':
+                    // Simple wireframe cube
+                    const s = Math.min(width, height) * 0.4;
+                    ctx.strokeRect(cx - s, cy - s, s*2, s*2); // Front
+                    ctx.strokeRect(cx - s*0.7, cy - s*0.7, s*1.4, s*1.4); // Back
+                    ctx.beginPath();
+                    // Connect corners
+                    ctx.moveTo(cx-s, cy-s); ctx.lineTo(cx-s*0.7, cy-s*0.7);
+                    ctx.moveTo(cx+s, cy-s); ctx.lineTo(cx+s*0.7, cy-s*0.7);
+                    ctx.moveTo(cx+s, cy+s); ctx.lineTo(cx+s*0.7, cy+s*0.7);
+                    ctx.moveTo(cx-s, cy+s); ctx.lineTo(cx-s*0.7, cy+s*0.7);
+                    ctx.stroke();
+                    break;
+
+                case '3d-cylinder':
+                    const rX = width * 0.4, rY = height * 0.15;
+                    // Top
+                    ctx.beginPath(); ctx.ellipse(cx, y + height*0.2, rX, rY, 0, 0, Math.PI*2); ctx.stroke();
+                    // Sides
+                    ctx.beginPath(); ctx.moveTo(cx - rX, y + height*0.2); ctx.lineTo(cx - rX, y + height*0.8); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(cx + rX, y + height*0.2); ctx.lineTo(cx + rX, y + height*0.8); ctx.stroke();
+                    // Bottom
+                    ctx.beginPath();
+                    ctx.ellipse(cx, y + height*0.8, rX, rY, 0, 0, Math.PI); // Front solid
+                    ctx.stroke();
+                    drawDotted();
+                    ctx.beginPath();
+                    ctx.ellipse(cx, y + height*0.8, rX, rY, 0, Math.PI, Math.PI*2); // Back dotted
+                    ctx.stroke();
+                    endDotted();
+                    break;
+
+                case '3d-parallelepiped':
+                    ctx.beginPath();
+                    // Front
+                    ctx.moveTo(x + width*0.2, y + height*0.2);
+                    ctx.lineTo(x + width*0.8, y + height*0.1);
+                    ctx.lineTo(x + width*0.9, y + height*0.7);
+                    ctx.lineTo(x + width*0.3, y + height*0.8);
+                    ctx.closePath();
+                    // Back
+                    ctx.moveTo(x + width*0.4, y + height*0.4);
+                    ctx.lineTo(x + width, y + height*0.3);
+                    ctx.lineTo(x + width*0.9, y + height*0.9);
+                    ctx.lineTo(x + width*0.3, y + height*0.8); // Shared edge logic simplified
+                    ctx.stroke();
+                    // Connectors
+                    ctx.beginPath();
+                    ctx.moveTo(x + width*0.2, y + height*0.2); ctx.lineTo(x + width*0.4, y + height*0.4);
+                    ctx.moveTo(x + width*0.8, y + height*0.1); ctx.lineTo(x + width, y + height*0.3);
+                    ctx.moveTo(x + width*0.9, y + height*0.7); ctx.lineTo(x + width, y + height*0.9);
+                    ctx.stroke();
+                    break;
+
+                case '3d-pyramid':
+                    const baseY = y + height * 0.8;
+                    const apexX = cx, apexY = y + height * 0.2;
+                    const baseW = width * 0.6;
+                    // Base square (perspective)
+                    ctx.beginPath();
+                    ctx.moveTo(cx - baseW/2, baseY);
+                    ctx.lineTo(cx + baseW/2, baseY);
+                    ctx.lineTo(cx + baseW/4, baseY - height*0.2);
+                    ctx.lineTo(cx - baseW/4, baseY - height*0.2);
+                    ctx.closePath();
+                    ctx.stroke();
+                    // Sides to apex
+                    ctx.beginPath();
+                    ctx.moveTo(cx - baseW/2, baseY); ctx.lineTo(apexX, apexY);
+                    ctx.moveTo(cx + baseW/2, baseY); ctx.lineTo(apexX, apexY);
+                    ctx.moveTo(cx + baseW/4, baseY - height*0.2); ctx.lineTo(apexX, apexY);
+                    ctx.stroke();
+                    // Hidden back edge
+                    drawDotted();
+                    ctx.beginPath();
+                    ctx.moveTo(cx - baseW/4, baseY - height*0.2); ctx.lineTo(apexX, apexY);
+                    ctx.stroke();
+                    endDotted();
+                    break;
+
+                case '3d-cone':
+                    const coneBaseY = y + height * 0.8;
+                    const coneApexY = y + height * 0.2;
+                    const coneRX = width * 0.4;
+                    const coneRY = height * 0.1;
+                    // Sides
+                    ctx.beginPath();
+                    ctx.moveTo(cx - coneRX, coneBaseY);
+                    ctx.lineTo(cx, coneApexY);
+                    ctx.lineTo(cx + coneRX, coneBaseY);
+                    ctx.stroke();
+                    // Base
+                    ctx.beginPath();
+                    ctx.ellipse(cx, coneBaseY, coneRX, coneRY, 0, 0, Math.PI);
+                    ctx.stroke();
+                    drawDotted();
+                    ctx.beginPath();
+                    ctx.ellipse(cx, coneBaseY, coneRX, coneRY, 0, Math.PI, Math.PI*2);
+                    ctx.stroke();
+                    endDotted();
+                    break;
+
+                case '3d-sphere':
+                    ctx.beginPath(); ctx.arc(cx, cy, minDim/2, 0, Math.PI*2); ctx.stroke();
+                    // Equator
+                    ctx.beginPath(); ctx.ellipse(cx, cy, minDim/2, minDim/2 * 0.3, 0, 0, Math.PI*2); ctx.stroke();
+                    // Meridian
+                    drawDotted();
+                    ctx.beginPath(); ctx.ellipse(cx, cy, minDim/2 * 0.3, minDim/2, 0, 0, Math.PI*2); ctx.stroke();
+                    endDotted();
+                    break;
+
+                case '3d-tetrahedron':
+                    const tBaseY = y + height * 0.8;
+                    const tApexY = y + height * 0.2;
+                    const tBaseW = width * 0.6;
+                    ctx.beginPath();
+                    ctx.moveTo(cx - tBaseW/2, tBaseY);
+                    ctx.lineTo(cx + tBaseW/2, tBaseY);
+                    ctx.lineTo(cx, tApexY);
+                    ctx.closePath();
+                    ctx.stroke();
+                    // Internal edge
+                    drawDotted();
+                    ctx.beginPath();
+                    ctx.moveTo(cx, tBaseY - height*0.2);
+                    ctx.lineTo(cx, tApexY);
+                    ctx.moveTo(cx - tBaseW/2, tBaseY);
+                    ctx.lineTo(cx, tBaseY - height*0.2);
+                    ctx.lineTo(cx + tBaseW/2, tBaseY);
+                    ctx.stroke();
+                    endDotted();
+                    break;
+                
+                case '3d-prism':
+                    const pW = width * 0.5;
+                    const pH = height * 0.5;
+                    // Front triangle
+                    ctx.beginPath();
+                    ctx.moveTo(cx, y + height*0.2);
+                    ctx.lineTo(cx - pW/2, y + height*0.7);
+                    ctx.lineTo(cx + pW/2, y + height*0.7);
+                    ctx.closePath();
+                    ctx.stroke();
+                    // Extrusion
+                    ctx.beginPath();
+                    ctx.moveTo(cx, y + height*0.2); ctx.lineTo(cx + width*0.2, y + height*0.4);
+                    ctx.moveTo(cx - pW/2, y + height*0.7); ctx.lineTo(cx - pW/2 + width*0.2, y + height*0.9);
+                    ctx.moveTo(cx + pW/2, y + height*0.7); ctx.lineTo(cx + pW/2 + width*0.2, y + height*0.9);
+                    ctx.stroke();
+                    // Back triangle
+                    ctx.beginPath();
+                    ctx.moveTo(cx + width*0.2, y + height*0.4);
+                    ctx.lineTo(cx - pW/2 + width*0.2, y + height*0.9);
+                    ctx.lineTo(cx + pW/2 + width*0.2, y + height*0.9);
+                    ctx.closePath();
+                    ctx.stroke();
+                    break;
+
+                case '3d-octahedron':
+                    const oTop = y + height*0.2;
+                    const oBot = y + height*0.8;
+                    const oMid = cy;
+                    const oW = width * 0.4;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, oTop); ctx.lineTo(cx - oW, oMid); ctx.lineTo(cx, oBot); ctx.lineTo(cx + oW, oMid); ctx.closePath();
+                    ctx.stroke();
+                    // Inner diamond
+                    drawDotted();
+                    ctx.beginPath();
+                    ctx.moveTo(cx - oW*0.5, oMid - height*0.1);
+                    ctx.lineTo(cx + oW*0.5, oMid - height*0.1);
+                    ctx.lineTo(cx, oMid + height*0.1);
+                    ctx.closePath();
+                    ctx.stroke();
+                    endDotted();
+                    break;
+
+                case '3d-frustum':
+                    const fTopW = width * 0.3;
+                    const fBotW = width * 0.6;
+                    const fTopY = y + height*0.3;
+                    const fBotY = y + height*0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(cx - fTopW/2, fTopY);
+                    ctx.lineTo(cx + fTopW/2, fTopY);
+                    ctx.lineTo(cx + fBotW/2, fBotY);
+                    ctx.lineTo(cx - fBotW/2, fBotY);
+                    ctx.closePath();
+                    ctx.stroke();
+                    // Top face perspective
+                    ctx.beginPath();
+                    ctx.moveTo(cx - fTopW/2, fTopY);
+                    ctx.lineTo(cx - fTopW/2 + width*0.1, fTopY - height*0.1);
+                    ctx.lineTo(cx + fTopW/2 + width*0.1, fTopY - height*0.1);
+                    ctx.lineTo(cx + fTopW/2, fTopY);
+                    ctx.stroke();
+                    break;
+
+                case '3d-cone-frustum':
+                    const cfTopY = y + height*0.3;
+                    const cfBotY = y + height*0.8;
+                    const cfTopRX = width * 0.2;
+                    const cfBotRX = width * 0.4;
+                    const cfRY = height * 0.08;
+                    // Sides
+                    ctx.beginPath();
+                    ctx.moveTo(cx - cfTopRX, cfTopY); ctx.lineTo(cx - cfBotRX, cfBotY);
+                    ctx.moveTo(cx + cfTopRX, cfTopY); ctx.lineTo(cx + cfBotRX, cfBotY);
+                    ctx.stroke();
+                    // Top
+                    ctx.beginPath(); ctx.ellipse(cx, cfTopY, cfTopRX, cfRY, 0, 0, Math.PI*2); ctx.stroke();
+                    // Bottom
+                    ctx.beginPath(); ctx.ellipse(cx, cfBotY, cfBotRX, cfRY, 0, 0, Math.PI); ctx.stroke();
+                    drawDotted();
+                    ctx.beginPath(); ctx.ellipse(cx, cfBotY, cfBotRX, cfRY, 0, Math.PI, Math.PI*2); ctx.stroke();
+                    endDotted();
+                    break;
+            }
+        }
+        else {
+            ctx.stroke();
+        }
     } else if (obj.type === 'text') {
         ctx.fillStyle = obj.color || '#000';
         ctx.textBaseline = 'alphabetic';
         
         const baseSize = obj.size * scale;
         
-        // ВИПРАВЛЕННЯ: Перевіряємо segments, але якщо пусто - використовуємо text
         if (obj.segments && obj.segments.length > 0) {
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
         } else if (obj.text && obj.text.trim() !== '') {
-            // Фолбек на звичайний текст
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const textLines = obj.text.split('\n');
             const lineH = baseSize * 1.4;
@@ -1476,7 +1765,6 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // ВИПРАВЛЕННЯ: Завантаження HTML з segments або text
     if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else if (obj.text && obj.text.trim() !== '') {
@@ -1775,15 +2063,12 @@ function stopTextEdit(cancel = false) {
     if (!cancel && editingObject) {
         saveHistory();
         
-        // ВИПРАВЛЕННЯ: Зберігаємо HTML структуру в segments
         const html = editorDiv.innerHTML;
         const segments = htmlToSegments(html);
         
-        // Якщо segments порожній, але є текст - зберігаємо тільки text
         if (segments && segments.length > 0) {
             editingObject.segments = segments;
         } else {
-            // Видаляємо segments якщо порожній, щоб fallback працював
             delete editingObject.segments;
         }
         
