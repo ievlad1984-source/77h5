@@ -170,6 +170,7 @@
             width: 100%;
             white-space: nowrap;
             line-height: 1.2;
+            min-width: 10px;
         }
         .math-den {
             display: block;
@@ -178,6 +179,7 @@
             white-space: nowrap;
             line-height: 1.2;
             padding-top: 2px;
+            min-width: 10px;
         }
 
         .handle {
@@ -1467,18 +1469,7 @@ function insertFraction(editorDiv) {
     
     const range = sel.getRangeAt(0);
     
-    let numeratorText = "";
-    if (range.startContainer.nodeType === Node.TEXT_NODE) {
-        const textNode = range.startContainer;
-        const offset = range.startOffset;
-        if (offset > 0) {
-            numeratorText = textNode.textContent.substring(offset - 1, offset);
-            textNode.textContent = textNode.textContent.substring(0, offset - 1) + textNode.textContent.substring(offset);
-            range.setStart(textNode, offset - 1);
-            range.setEnd(textNode, offset - 1);
-        }
-    }
-
+    // Створюємо дріб з курсором у ЧИСЕЛЬНИКУ
     const fracDiv = document.createElement('div');
     fracDiv.className = 'math-frac';
     fracDiv.style.display = 'inline-flex';
@@ -1487,11 +1478,11 @@ function insertFraction(editorDiv) {
     
     const numSpan = document.createElement('span');
     numSpan.className = 'math-num';
-    numSpan.textContent = numeratorText || '\u200B';
+    numSpan.textContent = '\u200B'; // Порожній чисельник з курсором
     
     const denSpan = document.createElement('span');
     denSpan.className = 'math-den';
-    denSpan.textContent = '\u200B';
+    denSpan.textContent = '\u200B'; // Порожній знаменник
     
     fracDiv.appendChild(numSpan);
     fracDiv.appendChild(denSpan);
@@ -1499,8 +1490,9 @@ function insertFraction(editorDiv) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
+    // Курсор у ЧИСЕЛЬНИКУ
     const newRange = document.createRange();
-    newRange.selectNodeContents(denSpan);
+    newRange.selectNodeContents(numSpan);
     newRange.collapse(false);
     sel.removeAllRanges();
     sel.addRange(newRange);
@@ -1603,69 +1595,10 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
+        // Створення дробу через /
         if (e.key === '/') {
             e.preventDefault();
-            
-            let textNode = node;
-            let offset = range.startOffset;
-            
-            if (textNode.nodeType !== Node.TEXT_NODE) {
-                if (textNode.closest('.math-frac')) return;
-                
-                if (textNode.childNodes.length > 0 && offset < textNode.childNodes.length) {
-                    textNode = textNode.childNodes[offset];
-                    offset = 0;
-                } else if (textNode.childNodes.length > 0 && offset === textNode.childNodes.length) {
-                     textNode = textNode.childNodes[offset - 1];
-                     offset = textNode.textContent.length;
-                } else {
-                    return;
-                }
-            }
-            
-            if (textNode.nodeType !== Node.TEXT_NODE) return;
-
-            let text = textNode.textContent;
-            let wordStart = offset;
-            while (wordStart > 0 && !/\s/.test(text[wordStart - 1])) {
-                wordStart--;
-            }
-            
-            const word = text.substring(wordStart, offset);
-            
-            const beforeText = text.substring(0, wordStart);
-            const afterText = text.substring(offset);
-            
-            textNode.textContent = beforeText + afterText;
-            
-            const fracDiv = document.createElement('div');
-            fracDiv.className = 'math-frac';
-            fracDiv.style.display = 'inline-flex';
-            fracDiv.style.flexDirection = 'column';
-            fracDiv.style.verticalAlign = 'middle';
-            
-            const numSpan = document.createElement('span');
-            numSpan.className = 'math-num';
-            numSpan.textContent = word || '\u200B';
-            
-            const denSpan = document.createElement('span');
-            denSpan.className = 'math-den';
-            denSpan.textContent = '\u200B';
-            
-            fracDiv.appendChild(numSpan);
-            fracDiv.appendChild(denSpan);
-            
-            const newRange = document.createRange();
-            newRange.setStart(textNode, wordStart);
-            newRange.collapse(true);
-            newRange.insertNode(fracDiv);
-            
-            const focusRange = document.createRange();
-            focusRange.selectNodeContents(denSpan);
-            focusRange.collapse(false);
-            sel.removeAllRanges();
-            sel.addRange(focusRange);
-            
+            insertFraction(editorDiv);
             updateSize();
             return;
         }
