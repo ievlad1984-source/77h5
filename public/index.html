@@ -1,3 +1,6 @@
+Ось повний код з додаванням **панелі фігур**. Я додав кнопку "Фігури" на панель інструментів, яка відкриває меню з різними геометричними формами (квадрати, трикутники, кола, зірки тощо).
+
+```html
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -187,6 +190,66 @@
         .cursor-grid { 
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
         }
+
+        /* Стилі для палітри фігур */
+        #shapes-palette {
+            position: absolute;
+            top: 70px;
+            left: 15px;
+            width: 220px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 1001;
+            display: none;
+            flex-direction: column;
+            padding: 10px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .shape-category {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 3px;
+        }
+
+        .shape-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .shape-item {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shape-item:hover {
+            background: #f0f7ff;
+            border-color: #007bff;
+        }
+
+        .shape-item svg {
+            width: 24px;
+            height: 24px;
+            stroke: #333;
+            stroke-width: 2;
+            fill: none;
+        }
     </style>
 </head>
 <body>
@@ -199,6 +262,8 @@
     <button class="tool-btn" data-tool="line">Лінія</button>
     <button class="tool-btn" data-tool="arrow">Стрілка</button>
     <button class="tool-btn" data-tool="rect" title="Прямокутник">⬜</button>
+    <!-- НОВА КНОПКА ФІГУРИ -->
+    <button class="tool-btn" id="shapesBtn" title="Фігури">🔷</button>
     <button class="tool-btn" data-tool="grid">📊 Сітка</button>
     <button class="tool-btn" data-tool="text">Текст</button>
     <button class="tool-btn" data-tool="eraser">Ластик</button>
@@ -210,6 +275,33 @@
     <div class="separator"></div>
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
     <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
+</div>
+
+<!-- ПАЛІТРА ФІГУР -->
+<div id="shapes-palette">
+    <div class="shape-category">Основні</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" /></svg></div>
+        <div class="shape-item" onclick="selectShape('circle')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg></div>
+        <div class="shape-item" onclick="selectShape('triangle')"><svg viewBox="0 0 24 24"><path d="M12 3 L22 21 L2 21 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('diamond')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 12 L12 22 L2 12 Z" /></svg></div>
+    </div>
+
+    <div class="shape-category">Багатокутники</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('pentagon')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 9 L18 21 L6 21 L2 9 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('hexagon')"><svg viewBox="0 0 24 24"><path d="M7 2 L17 2 L22 12 L17 22 L7 22 L2 12 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('star')"><svg viewBox="0 0 24 24"><path d="M12 2 L15 9 L22 9 L16 14 L18 21 L12 17 L6 21 L8 14 L2 9 L9 9 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('parallelogram')"><svg viewBox="0 0 24 24"><path d="M6 4 L20 4 L18 20 L4 20 Z" /></svg></div>
+    </div>
+
+    <div class="shape-category">Округлені</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('rounded-rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" /></svg></div>
+        <div class="shape-item" onclick="selectShape('semi-circle')"><svg viewBox="0 0 24 24"><path d="M2 12 A10 10 0 0 1 22 12 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('quarter-circle')"><svg viewBox="0 0 24 24"><path d="M2 22 A20 20 0 0 1 22 2 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('heart')"><svg viewBox="0 0 24 24"><path d="M12 21 C12 21 2 14 2 8 C2 5 5 2 8 2 C10 2 12 4 12 4 C12 4 14 2 16 2 C19 2 22 5 22 8 C22 14 12 21 12 21 Z" /></svg></div>
+    </div>
 </div>
 
 <div id="zoom-display">100%</div>
@@ -252,9 +344,10 @@ let needsRedraw = false;
 let animationFrameId = null;
 
 const MAX_HISTORY = 50;
-
-// ЗГЛАДЖУВАННЯ: Коефіцієнт згладжування для олівця (0.5 = середнє, 0.7 = більш плавне)
 const SMOOTHING_FACTOR = 0.5;
+
+// Змінна для зберігання вибраної фігури
+let selectedShapeType = null;
 
 function requestDraw() {
     if (!needsRedraw) {
@@ -346,6 +439,43 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { 
     if (e.key === 'Shift') shiftKey = false;
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
+});
+
+// Функція для вибору фігури
+function selectShape(type) {
+    selectedShapeType = type;
+    currentTool = 'shape';
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('shapesBtn').classList.add('active');
+    
+    // Закриваємо палітру після вибору
+    document.getElementById('shapes-palette').style.display = 'none';
+    canvas.className = 'cursor-crosshair';
+}
+
+// Відкриття/закриття палітри
+document.getElementById('shapesBtn').addEventListener('click', () => {
+    const palette = document.getElementById('shapes-palette');
+    if (palette.style.display === 'flex') {
+        palette.style.display = 'none';
+    } else {
+        palette.style.display = 'flex';
+        // Якщо вже обрано інструмент фігури, знімаємо виділення
+        if (currentTool !== 'shape') {
+            selectedShapeType = null;
+        }
+    }
+});
+
+// Закриття палітри при кліку поза нею
+document.addEventListener('mousedown', (e) => {
+    const palette = document.getElementById('shapes-palette');
+    const btn = document.getElementById('shapesBtn');
+    if (palette.style.display === 'flex' && 
+        !palette.contains(e.target) && 
+        !btn.contains(e.target)) {
+        palette.style.display = 'none';
+    }
 });
 
 function htmlToSegments(html) {
@@ -458,8 +588,9 @@ function getBBox(obj) {
             h: (lineH * lines) 
         };
     }
-    if (obj.type === 'rect') {
-        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
+    if (obj.type === 'rect' || obj.type === 'shape') {
+        // Для фігур використовуємо w та h
+        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
     }
     if (obj.type === 'image') {
         return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
@@ -868,7 +999,6 @@ function drawCoordinateGrid(obj) {
     ctx.restore();
 }
 
-// ЗГЛАДЖУВАННЯ: Функція для малювання плавних кривих через точки
 function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
     if (points.length === 0) return;
     
@@ -890,23 +1020,18 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
         return;
     }
     
-    // Використовуємо квадратичні криві Безьє для згладжування
     ctx.beginPath();
     
-    // Починаємо з першої точки
     const p0 = points[0];
     ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
     
-    // Для кожної пари точок малюємо криву через середню точку
     for (let i = 1; i < points.length - 1; i++) {
         const p1 = points[i];
         const p2 = points[i + 1];
         
-        // Середня точка між поточною і наступною
         const midX = (p1.x + p2.x) / 2;
         const midY = (p1.y + p2.y) / 2;
         
-        // Квадратична крива Безьє: контрольна точка = p1, кінцева = mid
         ctx.quadraticCurveTo(
             p1.x * scaleX + offsetX, 
             p1.y * scaleX + offsetY, 
@@ -915,7 +1040,6 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
         );
     }
     
-    // З'єднуємо з останньою точкою
     const lastPoint = points[points.length - 1];
     ctx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
     
@@ -929,7 +1053,7 @@ function drawObject(obj, isTemp = false) {
     
     ctx.lineWidth = (obj.width || 2) * scale;
     ctx.strokeStyle = obj.color || '#000';
-    ctx.fillStyle = obj.color || '#000';
+    ctx.fillStyle = obj.color || '#000'; // Для заповнення (якщо потрібно)
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
@@ -941,8 +1065,6 @@ function drawObject(obj, isTemp = false) {
     
     if (obj.type === 'pen') {
         if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
-        
-        // ЗГЛАДЖУВАННЯ: Використовуємо плавні криві замість прямих ліній
         const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
         drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
     } else if (obj.type === 'line' || obj.type === 'arrow') {
@@ -966,6 +1088,91 @@ function drawObject(obj, isTemp = false) {
         const w = (obj.ex - obj.x) * scale;
         const h = (obj.ey - obj.y) * scale;
         ctx.strokeRect(sx, sy, w, h);
+    } else if (obj.type === 'shape') {
+        // Малювання нових фігур
+        const w = obj.w * scale;
+        const h = obj.h * scale;
+        const cx = sx + w / 2;
+        const cy = sy + h / 2;
+        const minDim = Math.min(w, h);
+        
+        ctx.beginPath();
+        
+        if (obj.shapeType === 'circle') {
+            ctx.ellipse(cx, cy, minDim/2, minDim/2, 0, 0, Math.PI * 2);
+        } else if (obj.shapeType === 'triangle') {
+            ctx.moveTo(cx, sy);
+            ctx.lineTo(sx + w, sy + h);
+            ctx.lineTo(sx, sy + h);
+            ctx.closePath();
+        } else if (obj.shapeType === 'diamond') {
+            ctx.moveTo(cx, sy);
+            ctx.lineTo(sx + w, cy);
+            ctx.lineTo(cx, sy + h);
+            ctx.lineTo(sx, cy);
+            ctx.closePath();
+        } else if (obj.shapeType === 'pentagon') {
+            const r = minDim / 2;
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+                const px = cx + r * Math.cos(angle);
+                const py = cy + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+        } else if (obj.shapeType === 'hexagon') {
+            const r = minDim / 2;
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * 2 * Math.PI / 6) - Math.PI / 2;
+                const px = cx + r * Math.cos(angle);
+                const py = cy + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+        } else if (obj.shapeType === 'star') {
+            const r = minDim / 2;
+            const innerR = r * 0.4;
+            for (let i = 0; i < 10; i++) {
+                const angle = (i * Math.PI / 5) - Math.PI / 2;
+                const rad = (i % 2 === 0) ? r : innerR;
+                const px = cx + rad * Math.cos(angle);
+                const py = cy + rad * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+        } else if (obj.shapeType === 'parallelogram') {
+            const offset = w * 0.2;
+            ctx.moveTo(sx + offset, sy);
+            ctx.lineTo(sx + w, sy);
+            ctx.lineTo(sx + w - offset, sy + h);
+            ctx.lineTo(sx, sy + h);
+            ctx.closePath();
+        } else if (obj.shapeType === 'rounded-rect') {
+            const radius = Math.min(w, h) * 0.2;
+            ctx.roundRect(sx, sy, w, h, radius);
+        } else if (obj.shapeType === 'semi-circle') {
+            ctx.arc(cx, cy, minDim/2, Math.PI, 0);
+            ctx.lineTo(sx + w, cy);
+            ctx.lineTo(sx, cy);
+            ctx.closePath();
+        } else if (obj.shapeType === 'quarter-circle') {
+            ctx.arc(sx, sy + h, minDim, -Math.PI/2, 0);
+            ctx.lineTo(sx, sy + h);
+            ctx.closePath();
+        } else if (obj.shapeType === 'heart') {
+            // Спрощене серце через криві Безьє
+            const topCurveHeight = h * 0.3;
+            ctx.moveTo(cx, sy + h * 0.2);
+            ctx.bezierCurveTo(cx, sy, sx, sy, sx, cy);
+            ctx.bezierCurveTo(sx, sy + h, cx, sy + h * 1.2, sx + w, sy + h);
+            ctx.bezierCurveTo(sx + w, cy, sx + w, sy, cx, sy);
+            ctx.closePath();
+        }
+        
+        ctx.stroke();
     } else if (obj.type === 'text') {
         ctx.fillStyle = obj.color || '#000';
         ctx.textBaseline = 'alphabetic';
@@ -1166,7 +1373,6 @@ function startTextEdit(obj) {
     }, 50);
     
     editorDiv.addEventListener('keydown', (e) => {
-        // ВИПРАВЛЕНО: Ручна вставка розриву рядка
         if (e.key === 'Enter') {
             e.preventDefault();
             const selection = window.getSelection();
@@ -1190,7 +1396,6 @@ function startTextEdit(obj) {
             return;
         }
 
-        // ДОДАНО: Обробка комбінації +- для знаку ±
         if (e.key === '-') {
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {
@@ -1549,6 +1754,12 @@ canvas.addEventListener('mousedown', (e) => {
         return; 
     }
     
+    // Обробка інструменту ФІГУРИ
+    if (currentTool === 'shape' && selectedShapeType) {
+        startDrawing(coords);
+        return;
+    }
+
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
         else if (currentTool === 'text') {
@@ -1640,7 +1851,7 @@ canvas.addEventListener('mousemove', (e) => {
         if (e.buttons === 1) eraseAt(coords.x, coords.y);
     } else if (currentTool === 'pen') {
         canvas.style.cursor = 'pencil';
-    } else if (currentTool === 'line' || currentTool === 'arrow') {
+    } else if (currentTool === 'line' || currentTool === 'arrow' || currentTool === 'shape') {
         canvas.style.cursor = 'crosshair';
     } else if (currentTool === 'rect') {
         canvas.style.cursor = 'rect';
@@ -1656,7 +1867,7 @@ canvas.addEventListener('mousemove', (e) => {
         
         startResizeState.forEach(state => {
             const o = state.obj;
-            if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid') {
+            if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid' || o.type === 'shape') {
                 o.x = state.x + dx;
                 o.y = state.y + dy;
                 o.ex = state.ex + dx;
@@ -1687,19 +1898,21 @@ canvas.addEventListener('mousemove', (e) => {
     } 
     else if (isDrawing && currentPath) {
         if (currentPath.type === 'pen') {
-            // ЗГЛАДЖУВАННЯ: Додаємо точки з фільтрацією для плавності
             const lastPoint = currentPath.points.length > 0 
                 ? currentPath.points[currentPath.points.length - 1] 
                 : { x: currentPath.x, y: currentPath.y };
             
-            // Додаємо точку тільки якщо відстань достатня (фільтрація шуму)
             const dist = Math.hypot(coords.x - lastPoint.x, coords.y - lastPoint.y);
             if (dist > 2 / scale) {
-                // ЗГЛАДЖУВАННЯ: Середнє з попередньою точкою для плавності
                 const smoothedX = lastPoint.x + (coords.x - lastPoint.x) * SMOOTHING_FACTOR;
                 const smoothedY = lastPoint.y + (coords.y - lastPoint.y) * SMOOTHING_FACTOR;
                 currentPath.points.push({ x: smoothedX, y: smoothedY });
             }
+        }
+        else if (currentPath.type === 'shape') {
+            // Оновлення розміру фігури при малюванні
+            currentPath.w = coords.x - currentPath.x;
+            currentPath.h = coords.y - currentPath.y;
         }
         else if (currentPath.type === 'grid') {
             currentPath.w = coords.x - currentPath.x;
@@ -1755,6 +1968,15 @@ canvas.addEventListener('mouseup', () => {
             saveHistory();
             objects.push(currentPath);
             if (socket && socket.connected) socket.emit('new-object', currentPath);
+        } else if (currentPath.type === 'shape') {
+            // Збереження фігури, якщо вона достатнього розміру
+            if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
+                saveHistory();
+                currentPath.type = 'shape';
+                currentPath.shapeType = selectedShapeType;
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
+            }
         } else if (currentPath.type === 'grid') {
             if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
                 saveHistory();
@@ -1804,13 +2026,11 @@ function eraseAt(mx, my) {
             }
         } else if (obj.type === 'line' || obj.type === 'arrow') {
             if (distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < eraserRadius) shouldRemove = true;
-        } else if (obj.type === 'rect') {
+        } else if (obj.type === 'rect' || obj.type === 'shape') {
             const bbox = getBBox(obj);
-            const onBorder = (Math.abs(mx - bbox.x) < eraserRadius || Math.abs(mx - (bbox.x + bbox.w)) < eraserRadius) &&
-                             my >= bbox.y && my <= bbox.y + bbox.h ||
-                             (Math.abs(my - bbox.y) < eraserRadius || Math.abs(my - (bbox.y + bbox.h)) < eraserRadius) &&
-                             mx >= bbox.x && mx <= bbox.x + bbox.w;
-            if (onBorder || hitTest(obj, mx, my)) shouldRemove = true;
+            if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
+                shouldRemove = true;
+            }
         } else if (obj.type === 'text' || obj.type === 'image' || obj.type === 'grid') {
             const bbox = getBBox(obj);
             if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
@@ -1840,7 +2060,7 @@ function startDrawing(coords) {
         x: coords.x, y: coords.y, ex: coords.x, ey: coords.y
     };
     if (currentTool === 'pen') currentPath.points = [];
-    if (currentTool === 'grid') {
+    if (currentTool === 'grid' || currentTool === 'shape') {
         currentPath.w = 0;
         currentPath.h = 0;
     }
@@ -1913,12 +2133,12 @@ function startResizeGroup(handle, e) {
             startResizeState.objects.forEach(state => {
                 const o = state.obj;
                 
-                if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid') {
+                if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid' || o.type === 'shape') {
                     o.x = newX + (state.x - oldBBox.x) * scaleX;
                     o.y = newY + (state.y - oldBBox.y) * scaleY;
                     o.ex = newX + (state.ex - oldBBox.x) * scaleX;
                     o.ey = newY + (state.ey - oldBBox.y) * scaleY;
-                    if (o.type === 'grid') {
+                    if (o.type === 'grid' || o.type === 'shape') {
                         o.w = state.w * scaleX;
                         o.h = state.h * scaleY;
                     }
@@ -1986,7 +2206,7 @@ function setTool(tool) {
     else if (tool === 'hand') canvas.className = 'cursor-grab';
     else if (tool === 'eraser') canvas.className = 'cursor-eraser';
     else if (tool === 'pen') canvas.className = 'cursor-pencil';
-    else if (tool === 'line' || tool === 'arrow') canvas.className = 'cursor-crosshair';
+    else if (tool === 'line' || tool === 'arrow' || tool === 'shape') canvas.className = 'cursor-crosshair';
     else if (tool === 'rect') canvas.className = 'cursor-rect';
     else if (tool === 'grid') canvas.className = 'cursor-grid';
     else if (tool === 'text') canvas.className = 'cursor-text';
