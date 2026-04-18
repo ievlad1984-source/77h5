@@ -21,7 +21,6 @@
             position: relative;
         }
         
-        /* Стиль для кнопок з випадаючим меню */
         .tool-btn.split-btn {
             padding-right: 24px;
         }
@@ -62,38 +61,61 @@
         .tool-btn.active .dropdown-trigger { border-left-color: rgba(255,255,255,0.3); }
         .tool-btn.active .dropdown-trigger:hover { background: rgba(255,255,255,0.2); }
         
-        /* Кнопки вибору кольору ручки */
+        /* Стиль для кнопок вибору кольору (Олівці) */
         .pen-color-btn {
-            width: 36px;
-            height: 36px;
-            padding: 4px;
+            width: 44px;
+            height: 44px;
+            padding: 0;
             cursor: pointer;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
             background: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Ефект прозорості (шахматний фон) */
+        .pen-color-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                linear-gradient(45deg, #eee 25%, transparent 25%), 
+                linear-gradient(-45deg, #eee 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #eee 75%), 
+                linear-gradient(-45deg, transparent 75%, #eee 75%);
+            background-size: 8px 8px;
+            background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+            z-index: 0;
+            opacity: 0.5;
         }
         
         .pen-color-btn:hover {
-            background: #f0f7ff;
             border-color: #007bff;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
         .pen-color-btn.active {
-            background: #e3f2fd;
             border-color: #007bff;
             box-shadow: 0 0 0 2px rgba(0,123,255,0.3);
+            background: #e3f2fd;
+        }
+        .pen-color-btn.active::before {
+            opacity: 0.2;
         }
         
         .pen-color-btn svg {
-            width: 28px;
-            height: 28px;
+            width: 36px;
+            height: 36px;
+            z-index: 1;
+            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.2));
         }
         
-        /* Іконки інструментів */
         .tool-icon {
             width: 20px;
             height: 20px;
@@ -326,7 +348,6 @@
             fill: none;
         }
         
-        /* Стиль для іконки циркуля (як на малюнку 87) */
         .compass-icon-bg {
             width: 32px;
             height: 32px;
@@ -351,7 +372,6 @@
     <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
     <div class="separator"></div>
     
-    <!-- КНОПКА ОЛІВЕЦЬ -->
     <button class="tool-btn" data-tool="pen" id="penToolBtn" title="Олівець">
         <svg class="tool-icon" viewBox="0 0 24 24">
             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" fill="currentColor"/>
@@ -359,30 +379,46 @@
         </svg>
     </button>
     
-    <!-- ВИБІР КОЛЬОРУ РУЧКИ (на панелі, як на малюнку 88) -->
+    <!-- КНОПКИ ВИБОРУ КОЛЬОРУ (Як на малюнку 88) -->
     <div class="pen-color-btn active" id="penColorBlack" onclick="selectPenColor('#000000')" title="Чорний">
-        <svg viewBox="0 0 40 40">
-            <path d="M10 30 L30 10" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
-            <path d="M25 15 L30 10 L20 0 L15 5 Z" fill="#333"/>
-            <path d="M15 5 L5 15 L10 20 L20 10 Z" fill="#666"/>
+        <svg viewBox="0 0 64 64">
+            <!-- Лінія -->
+            <path d="M10 50 Q20 30 30 30" stroke="#000000" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <!-- Корпус олівця -->
+            <path d="M35 25 L55 5 L60 10 L40 30 Z" fill="#333"/>
+            <path d="M40 30 L50 40 L45 45 L35 35 Z" fill="#333"/>
+            <!-- Дерево -->
+            <path d="M35 35 L45 45 L40 50 L30 40 Z" fill="#E0C090"/>
+            <!-- Грифель -->
+            <path d="M30 40 L40 50 L38 52 L28 42 Z" fill="#111"/>
+            <circle cx="38" cy="52" r="1" fill="#111"/>
+            <!-- Металева окантовка -->
+            <path d="M55 5 L60 10 L58 12 L53 7 Z" fill="#999"/>
         </svg>
     </div>
     <div class="pen-color-btn" id="penColorBlue" onclick="selectPenColor('#0055FF')" title="Синій">
-        <svg viewBox="0 0 40 40">
-            <path d="M10 30 Q20 10 30 10" stroke="#0055FF" stroke-width="4" stroke-linecap="round" fill="none"/>
-            <path d="M25 15 L30 10 L20 0 L15 5 Z" fill="#333"/>
-            <path d="M15 5 L5 15 L10 20 L20 10 Z" fill="#0055FF"/>
+        <svg viewBox="0 0 64 64">
+            <path d="M10 50 Q20 30 30 30" stroke="#0055FF" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M35 25 L55 5 L60 10 L40 30 Z" fill="#0055FF"/>
+            <path d="M40 30 L50 40 L45 45 L35 35 Z" fill="#0055FF"/>
+            <path d="M35 35 L45 45 L40 50 L30 40 Z" fill="#E0C090"/>
+            <path d="M30 40 L40 50 L38 52 L28 42 Z" fill="#111"/>
+            <circle cx="38" cy="52" r="1" fill="#111"/>
+            <path d="M55 5 L60 10 L58 12 L53 7 Z" fill="#999"/>
         </svg>
     </div>
     <div class="pen-color-btn" id="penColorRed" onclick="selectPenColor('#FF3333')" title="Червоний">
-        <svg viewBox="0 0 40 40">
-            <path d="M10 30 Q20 5 30 15" stroke="#FF3333" stroke-width="4" stroke-linecap="round" fill="none"/>
-            <path d="M25 15 L30 10 L20 0 L15 5 Z" fill="#333"/>
-            <path d="M15 5 L5 15 L10 20 L20 10 Z" fill="#FF3333"/>
+        <svg viewBox="0 0 64 64">
+            <path d="M10 50 Q20 30 30 30" stroke="#FF3333" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M35 25 L55 5 L60 10 L40 30 Z" fill="#FF3333"/>
+            <path d="M40 30 L50 40 L45 45 L35 35 Z" fill="#FF3333"/>
+            <path d="M35 35 L45 45 L40 50 L30 40 Z" fill="#E0C090"/>
+            <path d="M30 40 L40 50 L38 52 L28 42 Z" fill="#111"/>
+            <circle cx="38" cy="52" r="1" fill="#111"/>
+            <path d="M55 5 L60 10 L58 12 L53 7 Z" fill="#999"/>
         </svg>
     </div>
     
-    <!-- КНОПКА ЛІНІЯ (Split Button) -->
     <button class="tool-btn split-btn" data-tool="line" id="lineToolBtn" title="Лінія">
         <svg class="tool-icon" viewBox="0 0 24 24" style="transform: rotate(-45deg);">
             <line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
@@ -402,7 +438,6 @@
     <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
     <button class="tool-btn" data-tool="text" title="Текст">Т</button>
     
-    <!-- КНОПКА ЛАСТИК -->
     <button class="tool-btn" data-tool="eraser" title="Ластик">
         <svg class="tool-icon" viewBox="0 0 24 24">
             <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
@@ -419,14 +454,13 @@
     <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
 </div>
 
-<!-- ПАЛІТРА ЛІНІЙ (Лінія / Циркуль) -->
+<!-- ПАЛІТРА ЛІНІЙ -->
 <div id="line-palette">
     <div class="shape-category">Інструменти</div>
     <div class="shape-grid">
         <div class="shape-item" onclick="selectLineTool('line')" title="Лінія">
             <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);"><line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-linecap="round" /></svg>
         </div>
-        <!-- ІКОНКА ЦИРКУЛЯ (Як на малюнку 87) -->
         <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
             <div class="compass-icon-bg">
                 <svg viewBox="0 0 24 24">
@@ -604,12 +638,10 @@ window.addEventListener('keyup', (e) => {
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
 
-// Вибір кольору ручки
 function selectPenColor(color) {
     currentPenColor = color;
     document.getElementById('colorPicker').value = color;
     
-    // Оновлення активної кнопки
     document.querySelectorAll('.pen-color-btn').forEach(btn => btn.classList.remove('active'));
     if (color === '#000000') document.getElementById('penColorBlack').classList.add('active');
     else if (color === '#0055FF') document.getElementById('penColorBlue').classList.add('active');
@@ -634,7 +666,6 @@ function selectLineTool(type) {
     canvas.className = 'cursor-crosshair';
 }
 
-// Логіка для кнопки Лінія
 const lineBtn = document.getElementById('lineToolBtn');
 const lineTrigger = document.getElementById('lineDropdownTrigger');
 
@@ -656,7 +687,6 @@ lineBtn.addEventListener('click', (e) => {
     selectLineTool('line');
 });
 
-// Логіка для кнопки Прямокутник
 const rectBtn = document.getElementById('rectToolBtn');
 const rectTrigger = document.getElementById('rectDropdownTrigger');
 
@@ -678,7 +708,6 @@ rectBtn.addEventListener('click', (e) => {
     setTool('rect');
 });
 
-// Закриття палітр при кліку поза ними
 document.addEventListener('mousedown', (e) => {
     const linePalette = document.getElementById('line-palette');
     const shapePalette = document.getElementById('shapes-palette');
@@ -2282,6 +2311,9 @@ function startDrawing(coords) {
     if (currentTool === 'grid' || currentTool === 'shape' || currentTool === 'rect') {
         currentPath.w = 0;
         currentPath.h = 0;
+        if (currentTool === 'shape') {
+            currentPath.shapeType = selectedShapeType;
+        }
     }
     if (currentTool === 'line' && selectedLineToolType === 'compass') {
         currentPath.type = 'compass';
