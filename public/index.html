@@ -1559,6 +1559,62 @@ function startTextEdit(obj) {
         sel.addRange(range);
     }, 50);
     
+    // Допоміжна функція для перевірки чи курсор в кінці поля
+    function isCursorAtEndOfField(fieldElement) {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return false;
+        const range = sel.getRangeAt(0);
+        
+        // Перевіряємо чи ми всередині цього поля
+        let current = range.startContainer;
+        while (current && current !== fieldElement) {
+            current = current.parentElement;
+        }
+        if (!current) return false;
+        
+        // Отримуємо весь текст всередині поля
+        const fieldText = fieldElement.textContent || '';
+        const actualLength = fieldText.replace(/\u200B/g, '').length;
+        
+        // Перевіряємо позицію курсора
+        if (range.startContainer.nodeType === Node.TEXT_NODE) {
+            const textInField = range.startContainer.textContent || '';
+            const offsetInField = range.startOffset;
+            // Рахуємо позицію відносно всього поля
+            let totalOffset = 0;
+            let found = false;
+            
+            function countOffsets(node) {
+                if (found) return;
+                if (node.nodeType === Node.TEXT_NODE) {
+                    if (node === range.startContainer) {
+                        totalOffset += offsetInField;
+                        found = true;
+                    } else {
+                        totalOffset += node.textContent.length;
+                    }
+                } else {
+                    node.childNodes.forEach(countOffsets);
+                }
+            }
+            
+            fieldElement.childNodes.forEach(countOffsets);
+            
+            return totalOffset >= actualLength;
+        }
+        
+        return false;
+    }
+    
+    // Допоміжна функція для перевірки чи курсор на початку поля
+    function isCursorAtStartOfField(fieldElement) {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return false;
+        const range = sel.getRangeAt(0);
+        
+        return range.startContainer === fieldElement && range.startOffset === 0;
+    }
+    
     editorDiv.addEventListener('keydown', (e) => {
         const sel = window.getSelection();
         if (!sel.rangeCount) return;
@@ -1642,148 +1698,144 @@ function startTextEdit(obj) {
         
         // НАВІГАЦІЯ СТРІЛКАМИ В ДРОБУ
         if (e.key === 'ArrowRight') {
-            let parent = node.parentElement;
-            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
-                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+            // Перевіряємо чи ми в знаменнику
+            const denElement = node.closest?.('.math-den');
+            if (denElement && isCursorAtEndOfField(denElement)) {
+                e.preventDefault();
+                const frac = denElement.parentElement;
+                const nextSibling = frac.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
             
-            if (isAtEnd && parent) {
-                // З чисельника (верхнє поле) → в знаменник (нижнє поле)
-                if (parent.classList.contains('math-num')) {
-                    e.preventDefault();
-                    const frac = parent.parentElement;
-                    const denSpan = frac.querySelector('.math-den');
-                    if (denSpan) {
-                        const newRange = document.createRange();
-                        newRange.selectNodeContents(denSpan);
-                        newRange.collapse(false);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
+            // Перевіряємо чи ми в чисельнику
+            const numElement = node.closest?.('.math-num');
+            if (numElement && isCursorAtEndOfField(numElement)) {
+                e.preventDefault();
+                const frac = numElement.parentElement;
+                const denSpan = frac.querySelector('.math-den');
+                if (denSpan) {
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(denSpan);
+                    newRange.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
                 }
-                // З знаменника (нижнє поле) → в текст ПІСЛЯ дробу
-                if (parent.classList.contains('math-den')) {
-                    e.preventDefault();
-                    const frac = parent.parentElement;
-                    const nextSibling = frac.nextSibling;
-                    if (nextSibling) {
-                        const newRange = document.createRange();
-                        if (nextSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(nextSibling, 0);
-                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(nextSibling);
-                            newRange.collapse(true);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        // Створюємо текстовий вузол після дробу
-                        const textNode = document.createTextNode('\u200B');
-                        frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
+                return;
+            }
+            
+            // Для степені/індексу
+            const supSubElement = node.closest?.('.math-sup, .math-sub');
+            if (supSubElement && isCursorAtEndOfField(supSubElement)) {
+                e.preventDefault();
+                const nextSibling = supSubElement.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
                     }
-                    return;
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                     const textNode = document.createTextNode('\u200B');
+                     supSubElement.parentNode.insertBefore(textNode, supSubElement.nextSibling);
+                     const newRange = document.createRange();
+                     newRange.setStart(textNode, 0);
+                     sel.removeAllRanges();
+                     sel.addRange(newRange);
                 }
-                // З степені/індексу → далі
-                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-                    e.preventDefault();
-                    const nextSibling = parent.nextSibling;
-                    if (nextSibling) {
-                        const newRange = document.createRange();
-                        if (nextSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(nextSibling, 0);
-                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(nextSibling);
-                            newRange.collapse(true);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                         const textNode = document.createTextNode('\u200B');
-                         parent.parentNode.insertBefore(textNode, parent.nextSibling);
-                         const newRange = document.createRange();
-                         newRange.setStart(textNode, 0);
-                         sel.removeAllRanges();
-                         sel.addRange(newRange);
-                    }
-                    return;
-                }
+                return;
             }
         }
         
         if (e.key === 'ArrowLeft') {
-            let parent = node.parentElement;
-            let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
-                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
+            // Перевіряємо чи ми в знаменнику
+            const denElement = node.closest?.('.math-den');
+            if (denElement && isCursorAtStartOfField(denElement)) {
+                e.preventDefault();
+                const frac = denElement.parentElement;
+                const numSpan = frac.querySelector('.math-num');
+                if (numSpan) {
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(numSpan);
+                    newRange.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
             
-            if (isAtStart && parent) {
-                // З знаменника (нижнє поле) → в чисельник (верхнє поле)
-                if (parent.classList.contains('math-den')) {
-                    e.preventDefault();
-                    const frac = parent.parentElement;
-                    const numSpan = frac.querySelector('.math-num');
-                    if (numSpan) {
-                        const newRange = document.createRange();
-                        newRange.selectNodeContents(numSpan);
-                        newRange.collapse(false);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
+            // Перевіряємо чи ми в чисельнику
+            const numElement = node.closest?.('.math-num');
+            if (numElement && isCursorAtStartOfField(numElement)) {
+                e.preventDefault();
+                const frac = numElement.parentElement;
+                const prevSibling = frac.previousSibling;
+                if (prevSibling) {
+                    const newRange = document.createRange();
+                    if (prevSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(prevSibling, prevSibling.textContent.length);
+                    } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                         newRange.selectNodeContents(prevSibling);
+                         newRange.collapse(false);
                     }
-                    return;
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
                 }
-                // З чисельника (верхнє поле) → в текст ПЕРЕД дробом
-                if (parent.classList.contains('math-num')) {
-                    e.preventDefault();
-                    const frac = parent.parentElement;
-                    const prevSibling = frac.previousSibling;
-                    if (prevSibling) {
-                        const newRange = document.createRange();
-                        if (prevSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(prevSibling, prevSibling.textContent.length);
-                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                             newRange.selectNodeContents(prevSibling);
-                             newRange.collapse(false);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        // Створюємо текстовий вузол перед дробом
-                        const textNode = document.createTextNode('\u200B');
-                        frac.parentNode.insertBefore(textNode, frac);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
+                return;
+            }
+            
+            // Для степені/індексу
+            const supSubElement = node.closest?.('.math-sup, .math-sub');
+            if (supSubElement && isCursorAtStartOfField(supSubElement)) {
+                e.preventDefault();
+                const prevSibling = supSubElement.previousSibling;
+                if (prevSibling) {
+                    const newRange = document.createRange();
+                    if (prevSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(prevSibling, prevSibling.textContent.length);
+                    } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                         newRange.selectNodeContents(prevSibling);
+                         newRange.collapse(false);
                     }
-                    return;
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    supSubElement.parentNode.insertBefore(textNode, supSubElement);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
                 }
-                // З степені/індексу → назад
-                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-                    e.preventDefault();
-                    const prevSibling = parent.previousSibling;
-                    if (prevSibling) {
-                        const newRange = document.createRange();
-                        if (prevSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(prevSibling, prevSibling.textContent.length);
-                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                             newRange.selectNodeContents(prevSibling);
-                             newRange.collapse(false);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('\u200B');
-                        parent.parentNode.insertBefore(textNode, parent);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
+                return;
             }
         }
 
