@@ -647,6 +647,8 @@ document.addEventListener('mousedown', (e) => {
 });
 
 function htmlToSegments(html) {
+    if (!html || html.trim() === '') return [];
+    
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const segments = [];
@@ -673,19 +675,25 @@ function htmlToSegments(html) {
                     numerator: numSegs, 
                     denominator: denSegs 
                 });
-            } else if (node.tagName === 'BR' || node.tagName === 'DIV') {
+            } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
+            } else if (node.tagName === 'DIV') {
+                // Обробляємо дочірні елементи DIV
+                node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
             }
         }
     }
     
-    doc.body.childNodes.forEach(processNode);
+    // Обробляємо body або кореневі елементи
+    Array.from(doc.body.childNodes).forEach(processNode);
+    
     return segments;
 }
 
 function segmentsToHtml(segments) {
+    if (!segments || segments.length === 0) return '';
     return segments.map(s => {
         if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
         if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
@@ -694,8 +702,8 @@ function segmentsToHtml(segments) {
             const denHtml = segmentsToHtml(s.denominator);
             return `<div class="math-frac"><span class="math-num">${numHtml}</span><span class="math-den">${denHtml}</span></div>`;
         }
-        if (s.text === '\n') return '<div><br></div>';
-        return s.text;
+        if (s.text === '\n') return '<br>';
+        return s.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }).join('');
 }
 
@@ -708,11 +716,8 @@ function getBBox(obj) {
         const lineH = baseSize * 1.4;
         
         let maxW = 0;
-        let currentLineW = 0;
         let lines = 1;
         
-        // If segments exist, we approximate width based on text content for bounding box
-        // A more precise calculation would iterate segments, but for bbox text is usually sufficient
         const text = obj.text || ''; 
         const textLines = text.split('\n');
         lines = textLines.length;
@@ -1318,12 +1323,13 @@ function drawObject(obj, isTemp = false) {
         
         const baseSize = obj.size * scale;
         
-        // ВИПРАВЛЕННЯ: Пріоритет віддається segments, якщо вони є
+        // ВИПРАВЛЕННЯ: Перевіряємо segments, але якщо пусто - використовуємо text
         if (obj.segments && obj.segments.length > 0) {
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
-        } else {
+        } else if (obj.text && obj.text.trim() !== '') {
+            // Фолбек на звичайний текст
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-            const textLines = (obj.text || '').split('\n');
+            const textLines = obj.text.split('\n');
             const lineH = baseSize * 1.4;
             textLines.forEach((line, i) => {
                 ctx.fillText(line, sx, sy + (baseSize * 0.8) + (i * lineH));
@@ -1470,7 +1476,7 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // ВИПРАВЛЕННЯ: Завантаження HTML з segments
+    // ВИПРАВЛЕННЯ: Завантаження HTML з segments або text
     if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else if (obj.text && obj.text.trim() !== '') {
@@ -1734,8 +1740,7 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
-            // Оновлюємо текст для сумісності, але головне - це segments при збереженні
-            editingObject.text = editorDiv.innerText; 
+            editingObject.text = editorDiv.innerText;
             if (socket && socket.connected) socket.emit('update-all', objects);
         }
     });
@@ -1772,8 +1777,17 @@ function stopTextEdit(cancel = false) {
         
         // ВИПРАВЛЕННЯ: Зберігаємо HTML структуру в segments
         const html = editorDiv.innerHTML;
-        editingObject.segments = htmlToSegments(html);
-        editingObject.text = editorDiv.innerText; // Зберігаємо plain text як фолбек
+        const segments = htmlToSegments(html);
+        
+        // Якщо segments порожній, але є текст - зберігаємо тільки text
+        if (segments && segments.length > 0) {
+            editingObject.segments = segments;
+        } else {
+            // Видаляємо segments якщо порожній, щоб fallback працював
+            delete editingObject.segments;
+        }
+        
+        editingObject.text = editorDiv.innerText;
         
         if (socket && socket.connected) socket.emit('update-all', objects);
     }
@@ -1894,9 +1908,14 @@ canvas.addEventListener('mousedown', (e) => {
         
         if (clickedText) {
             saveHistory();
-            // Зберігаємо поточний стан перед перемиканням
             const editorDiv = textEditor.querySelector('.text-edit-content');
-            editingObject.segments = htmlToSegments(editorDiv.innerHTML);
+            const html = editorDiv.innerHTML;
+            const segments = htmlToSegments(html);
+            if (segments && segments.length > 0) {
+                editingObject.segments = segments;
+            } else {
+                delete editingObject.segments;
+            }
             editingObject.text = editorDiv.innerText;
             
             if (textEditor.parentNode) {
