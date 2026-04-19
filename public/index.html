@@ -1666,83 +1666,55 @@ function collectNumeratorContent(range, editorDiv) {
 
     // Якщо ми всередині текстового вузла
     if (currentNode.nodeType === Node.TEXT_NODE) {
-        if (currentOffset > 0) {
-            const textBefore = currentNode.textContent.substring(0, currentOffset);
-            const lastSpaceIndex = textBefore.lastIndexOf(' ');
-            
-            if (lastSpaceIndex !== -1 && lastSpaceIndex === textBefore.length - 1) {
-                return null;
-            } else if (textBefore.trim().length === 0) {
-                return null;
-            }
+        const textBefore = currentNode.textContent.substring(0, currentOffset);
+        
+        // Знаходимо останній розділювач (пробіл або знак операції)
+        // Знаки: > < = + - * :
+        const separators = /[><=+\-*:\s]/g;
+        let lastSepIndex = -1;
+        let match;
+        while ((match = separators.exec(textBefore)) !== null) {
+            lastSepIndex = match.index;
+        }
 
-            const startOffset = lastSpaceIndex === -1 ? 0 : lastSpaceIndex + 1;
-            if (startOffset < currentOffset) {
-                const textNode = document.createTextNode(textBefore.substring(startOffset));
+        if (lastSepIndex !== -1) {
+            // Є розділювач. Беремо все після нього.
+            const startOffset = lastSepIndex + 1;
+            const numeratorText = textBefore.substring(startOffset);
+            
+            if (numeratorText.trim().length > 0) {
+                const textNode = document.createTextNode(numeratorText);
                 collectedNodes.push({ 
                     node: currentNode, 
                     start: startOffset, 
                     end: currentOffset, 
                     clone: textNode 
                 });
+                // Видаляємо цей текст з поточного вузла
                 currentNode.textContent = textBefore.substring(0, startOffset) + 
                                          currentNode.textContent.substring(currentOffset);
                 range.setStart(currentNode, startOffset);
+            }
+        } else {
+            // Немає розділювача. Беремо весь текст до курсора.
+            if (textBefore.trim().length > 0) {
+                const textNode = document.createTextNode(textBefore);
+                collectedNodes.push({ 
+                    node: currentNode, 
+                    start: 0, 
+                    end: currentOffset, 
+                    clone: textNode 
+                });
+                currentNode.textContent = currentNode.textContent.substring(currentOffset);
+                range.setStart(currentNode, 0);
             }
         }
         currentNode = currentNode.parentElement;
     }
 
-    // Рухаємось назад по DOM
-    while (currentNode && currentNode !== editorDiv) {
-        let prevSibling = currentNode.previousSibling;
-        
-        while (prevSibling) {
-            currentNode = prevSibling;
-            prevSibling = currentNode.previousSibling;
-        }
-        
-        if (currentNode.nodeType === Node.TEXT_NODE) {
-            const text = currentNode.textContent;
-            const spaceIndex = text.lastIndexOf(' ');
-            if (spaceIndex !== -1) {
-                if (spaceIndex < text.length - 1) {
-                    const textAfterSpace = text.substring(spaceIndex + 1);
-                    if (textAfterSpace.trim().length > 0) {
-                        const textNode = document.createTextNode(textAfterSpace);
-                        collectedNodes.push({ 
-                            node: currentNode, 
-                            start: spaceIndex + 1, 
-                            end: text.length, 
-                            clone: textNode 
-                        });
-                        currentNode.textContent = text.substring(0, spaceIndex + 1);
-                    }
-                }
-                break;
-            } else if (text.trim().length > 0) {
-                collectedNodes.push({ 
-                    node: currentNode, 
-                    start: 0, 
-                    end: text.length, 
-                    clone: currentNode.cloneNode(true) 
-                });
-                currentNode.textContent = '';
-            }
-        } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
-            collectedNodes.push({ 
-                node: currentNode, 
-                start: 0, 
-                end: 0, 
-                clone: currentNode.cloneNode(true) 
-            });
-            const parent = currentNode.parentNode;
-            if (parent) parent.removeChild(currentNode);
-        }
-        
-        if (currentNode.parentNode === editorDiv) break;
-        currentNode = currentNode.parentNode;
-    }
+    // Рухаємось назад по DOM, якщо потрібно (для складних випадків, хоча для простого тексту достатньо попереднього блоку)
+    // У цьому випадку ми обробляємо лише поточний текстовий вузол для простоти та надійності
+    // Якщо потрібно збирати з кількох вузлів, логіка ускладнюється, але для "/ " це зазвичай не потрібно.
 
     if (collectedNodes.length === 0) return null;
 
