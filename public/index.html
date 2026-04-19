@@ -1639,9 +1639,9 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    // Курсор у знаменник
+    // КУРСОР У ЧИСЕЛЬНИК (виправлено)
     const newRange = document.createRange();
-    newRange.selectNodeContents(denSpan);
+    newRange.selectNodeContents(numSpan);
     newRange.collapse(false);
     sel.removeAllRanges();
     sel.addRange(newRange);
@@ -1669,41 +1669,8 @@ function collectNumeratorContent(range, editorDiv) {
     
     let hasContent = false;
     
-    // 1. Обробка текстового вмісту перед курсором
-    if (currentNode.nodeType === Node.TEXT_NODE) {
-        const textBefore = currentNode.textContent.substring(0, currentOffset);
-        
-        // Знаходимо останній розділювач
-        let lastSepIndex = -1;
-        for (let i = textBefore.length - 1; i >= 0; i--) {
-            if (separatorChars.test(textBefore[i])) {
-                lastSepIndex = i;
-                break;
-            }
-        }
-
-        let startOffset = 0;
-        if (lastSepIndex !== -1) {
-            startOffset = lastSepIndex + 1;
-        }
-
-        // Збираємо текст після останнього розділювача
-        if (currentOffset > startOffset) {
-            const numeratorText = textBefore.substring(startOffset);
-            if (numeratorText.trim().length > 0) {
-                const textNode = document.createTextNode(numeratorText);
-                fragment.appendChild(textNode);
-                hasContent = true;
-                // Оновлюємо оригінальний вузол
-                currentNode.textContent = textBefore.substring(0, startOffset) + 
-                                         currentNode.textContent.substring(currentOffset);
-                range.setStart(currentNode, startOffset);
-            }
-        }
-    }
-
-    // 2. Перевірка на сусідні елементи (степені/індекси)
-    // Знаходимо вузол одразу ліворуч від курсора
+    // 1. Спочатку перевіряємо сусідні елементи (степені/індекси)
+    // Це важливо для випадків коли курсор одразу після степеня
     let nodeBeforeCursor = null;
     
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -1732,32 +1699,74 @@ function collectNumeratorContent(range, editorDiv) {
         }
 
         // Додаємо базовий текст (якщо є)
-        if (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim().length > 0) {
-            // Перевіряємо, чи не був вже доданий у кроці 1
-            let alreadyAdded = false;
-            for (let child of fragment.childNodes) {
-                if (child === baseNode) {
-                    alreadyAdded = true;
-                    break;
+        if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
+            const baseText = baseNode.textContent.trim();
+            if (baseText.length > 0) {
+                // Перевіряємо чи є розділювач в базовому тексті
+                let lastSepIndex = -1;
+                for (let i = baseText.length - 1; i >= 0; i--) {
+                    if (separatorChars.test(baseText[i])) {
+                        lastSepIndex = i;
+                        break;
+                    }
                 }
-            }
-            if (!alreadyAdded) {
-                fragment.insertBefore(baseNode, fragment.firstChild);
-                hasContent = true;
+                
+                if (lastSepIndex === -1) {
+                    // Немає розділювача - беремо весь текст
+                    const textNode = document.createTextNode(baseText);
+                    fragment.insertBefore(textNode, fragment.firstChild);
+                    hasContent = true;
+                    // Видаляємо текст з оригінального вузла
+                    baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
+                } else {
+                    // Є розділювач - беремо тільки частину після нього
+                    const numeratorText = baseText.substring(lastSepIndex + 1);
+                    if (numeratorText.trim().length > 0) {
+                        const textNode = document.createTextNode(numeratorText);
+                        fragment.insertBefore(textNode, fragment.firstChild);
+                        hasContent = true;
+                        // Видаляємо тільки частину для чисельника
+                        baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
+                    }
+                }
             }
         }
         
         // Додаємо степінь/індекс
-        let alreadyAdded = false;
-        for (let child of fragment.childNodes) {
-            if (child === nodeBeforeCursor) {
-                alreadyAdded = true;
+        fragment.appendChild(nodeBeforeCursor);
+        hasContent = true;
+    }
+    
+    // 2. Обробка текстового вмісту перед курсором (якщо не було степеня)
+    if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
+        const textBefore = currentNode.textContent.substring(0, currentOffset);
+        
+        // Знаходимо останній розділювач
+        let lastSepIndex = -1;
+        for (let i = textBefore.length - 1; i >= 0; i--) {
+            if (separatorChars.test(textBefore[i])) {
+                lastSepIndex = i;
                 break;
             }
         }
-        if (!alreadyAdded) {
-            fragment.appendChild(nodeBeforeCursor);
-            hasContent = true;
+
+        let startOffset = 0;
+        if (lastSepIndex !== -1) {
+            startOffset = lastSepIndex + 1;
+        }
+
+        // Збираємо текст після останнього розділювача
+        if (currentOffset > startOffset) {
+            const numeratorText = textBefore.substring(startOffset);
+            if (numeratorText.trim().length > 0) {
+                const textNode = document.createTextNode(numeratorText);
+                fragment.appendChild(textNode);
+                hasContent = true;
+                // Оновлюємо оригінальний вузол
+                currentNode.textContent = textBefore.substring(0, startOffset) + 
+                                         currentNode.textContent.substring(currentOffset);
+                range.setStart(currentNode, startOffset);
+            }
         }
     }
 
