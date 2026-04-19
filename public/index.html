@@ -1639,9 +1639,9 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    // ЛОГІКА КУРСОРА:
-    // Якщо чисельник НЕ пустий → курсор у ЗНАМЕННИК
-    // Якщо чисельник ПУСТИЙ → курсор у ЧИСЕЛЬНИК
+    // ВИПРАВЛЕНА ЛОГІКА КУРСОРА:
+    // Якщо чисельник не пустий (було перенесено контент) → курсор у знаменник
+    // Якщо чисельник пустий (порожній дріб) → курсор у чисельник
     const newRange = document.createRange();
     const numeratorHasContent = numeratorContent && 
         (typeof numeratorContent === 'string' ? numeratorContent.trim().length > 0 : numeratorContent.childNodes.length > 0);
@@ -1669,7 +1669,7 @@ function insertFraction(editorDiv, numeratorContent) {
 }
 
 // ============================================
-// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА
+// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА (ВИПРАВЛЕНА ВЕРСІЯ)
 // ============================================
 
 function collectNumeratorContent(range, editorDiv) {
@@ -1677,10 +1677,13 @@ function collectNumeratorContent(range, editorDiv) {
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
     
+    // Знаки-розділювачі: пробіл та арифметичні оператори
     const separatorChars = /[+\-*/:><=\s]/;
+    
     let hasContent = false;
     
     // 1. Спочатку перевіряємо сусідні елементи (степені/індекси)
+    // Це важливо для випадків коли курсор одразу після степеня
     let nodeBeforeCursor = null;
     
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -1693,21 +1696,26 @@ function collectNumeratorContent(range, editorDiv) {
         }
     }
 
+    // Пропускаємо порожні текстові вузли
     while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
         nodeBeforeCursor = nodeBeforeCursor.previousSibling;
     }
 
+    // Якщо знайдено степінь або індекс
     if (nodeBeforeCursor && nodeBeforeCursor.classList && 
         (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
         
+        // Шукаємо базовий текст перед степенем
         let baseNode = nodeBeforeCursor.previousSibling;
         while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
             baseNode = baseNode.previousSibling;
         }
 
+        // Додаємо базовий текст (якщо є)
         if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
             const baseText = baseNode.textContent.trim();
             if (baseText.length > 0) {
+                // Перевіряємо чи є розділювач в базовому тексті
                 let lastSepIndex = -1;
                 for (let i = baseText.length - 1; i >= 0; i--) {
                     if (separatorChars.test(baseText[i])) {
@@ -1717,30 +1725,36 @@ function collectNumeratorContent(range, editorDiv) {
                 }
                 
                 if (lastSepIndex === -1) {
+                    // Немає розділювача - беремо весь текст
                     const textNode = document.createTextNode(baseText);
                     fragment.insertBefore(textNode, fragment.firstChild);
                     hasContent = true;
+                    // Видаляємо текст з оригінального вузла
                     baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
                 } else {
+                    // Є розділювач - беремо тільки частину після нього
                     const numeratorText = baseText.substring(lastSepIndex + 1);
                     if (numeratorText.trim().length > 0) {
                         const textNode = document.createTextNode(numeratorText);
                         fragment.insertBefore(textNode, fragment.firstChild);
                         hasContent = true;
+                        // Видаляємо тільки частину для чисельника
                         baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
                     }
                 }
             }
         }
         
+        // Додаємо степінь/індекс
         fragment.appendChild(nodeBeforeCursor);
         hasContent = true;
     }
     
-    // 2. Обробка текстового вмісту перед курсором
+    // 2. Обробка текстового вмісту перед курсором (якщо не було степеня)
     if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
         
+        // Знаходимо останній розділювач
         let lastSepIndex = -1;
         for (let i = textBefore.length - 1; i >= 0; i--) {
             if (separatorChars.test(textBefore[i])) {
@@ -1754,12 +1768,14 @@ function collectNumeratorContent(range, editorDiv) {
             startOffset = lastSepIndex + 1;
         }
 
+        // Збираємо текст після останнього розділювача
         if (currentOffset > startOffset) {
             const numeratorText = textBefore.substring(startOffset);
             if (numeratorText.trim().length > 0) {
                 const textNode = document.createTextNode(numeratorText);
                 fragment.appendChild(textNode);
                 hasContent = true;
+                // Оновлюємо оригінальний вузол
                 currentNode.textContent = textBefore.substring(0, startOffset) + 
                                          currentNode.textContent.substring(currentOffset);
                 range.setStart(currentNode, startOffset);
@@ -1890,7 +1906,6 @@ function startTextEdit(obj) {
             
             if (isAtEnd && parent) {
                 if (parent.classList.contains('math-den')) {
-                    // Курсор в кінці знаменника → переходимо за дріб
                     e.preventDefault();
                     const frac = parent.parentElement;
                     const nextSibling = frac.nextSibling;
@@ -1915,13 +1930,12 @@ function startTextEdit(obj) {
                     return;
                 } 
                 else if (parent.classList.contains('math-num')) {
-                    // Курсор в кінці чисельника → переходимо в знаменник
                     e.preventDefault();
                     const denSpan = parent.parentElement.querySelector('.math-den');
                     if (denSpan) {
                         const newRange = document.createRange();
                         newRange.selectNodeContents(denSpan);
-                        newRange.collapse(false);
+                        newRange.collapse(true);
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     }
@@ -1961,7 +1975,6 @@ function startTextEdit(obj) {
             
             if (isAtStart && parent) {
                 if (parent.classList.contains('math-den')) {
-                    // Курсор на початку знаменника → переходимо в чисельник
                     e.preventDefault();
                     const numSpan = parent.parentElement.querySelector('.math-num');
                     if (numSpan) {
@@ -1974,7 +1987,6 @@ function startTextEdit(obj) {
                     return;
                 }
                 if (parent.classList.contains('math-num')) {
-                    // Курсор на початку чисельника → переходимо перед дріб
                     e.preventDefault();
                     const frac = parent.parentElement;
                     const prevSibling = frac.previousSibling;
