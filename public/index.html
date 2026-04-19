@@ -1639,10 +1639,23 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    // КУРСОР У ЧИСЕЛЬНИК (виправлено)
+    // ВИПРАВЛЕНА ЛОГІКА КУРСОРА:
+    // Якщо чисельник не пустий (було перенесено контент) → курсор у знаменник
+    // Якщо чисельник пустий (порожній дріб) → курсор у чисельник
     const newRange = document.createRange();
-    newRange.selectNodeContents(numSpan);
-    newRange.collapse(false);
+    const numeratorHasContent = numeratorContent && 
+        (typeof numeratorContent === 'string' ? numeratorContent.trim().length > 0 : numeratorContent.childNodes.length > 0);
+    
+    if (numeratorHasContent) {
+        // Курсор у знаменник
+        newRange.selectNodeContents(denSpan);
+        newRange.collapse(false);
+    } else {
+        // Курсор у чисельник
+        newRange.selectNodeContents(numSpan);
+        newRange.collapse(false);
+    }
+    
     sel.removeAllRanges();
     sel.addRange(newRange);
     
