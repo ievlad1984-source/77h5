@@ -6,43 +6,18 @@
     <title>Математична Дошка Pro (Math Fields)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            height: 100%; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #ffffff; 
-        }
+        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
         
         #toolbar {
-            position: absolute; 
-            top: 15px; 
-            left: 15px; 
-            background: white; 
-            padding: 8px;
-            display: flex; 
-            gap: 6px; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-            z-index: 1000; 
-            align-items: center; 
-            flex-wrap: wrap; 
-            max-width: 90vw;
+            position: absolute; top: 15px; left: 15px; background: white; padding: 8px;
+            display: flex; gap: 6px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
+            z-index: 1000; align-items: center; flex-wrap: wrap; max-width: 90vw;
         }
 
         .tool-btn { 
-            padding: 8px 14px; 
-            cursor: pointer; 
-            border: 1px solid #e0e0e0; 
-            background: #fff; 
-            border-radius: 6px; 
-            font-size: 14px; 
-            transition: all 0.2s;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            user-select: none;
+            padding: 8px 14px; cursor: pointer; border: 1px solid #e0e0e0; 
+            background: #fff; border-radius: 6px; font-size: 14px; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; user-select: none;
             position: relative;
         }
         
@@ -80,18 +55,11 @@
             background: rgba(0,0,0,0.05);
         }
         
-        .tool-btn:hover { 
-            background: #f0f7ff; 
-            border-color: #007bff; 
-        }
-        .tool-btn.active { 
-            background: #007bff; 
-            color: white; 
-            border-color: #0056b3; 
-        }
-        .tool-btn.active .dropdown-arrow { 
-            color: white; 
-        }
+        .tool-btn:hover { background: #f0f7ff; border-color: #007bff; }
+        .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
+        .tool-btn.active .dropdown-arrow { color: white; }
+        .tool-btn.active .dropdown-trigger { border-left-color: rgba(255,255,255,0.3); }
+        .tool-btn.active .dropdown-trigger:hover { background: rgba(255,255,255,0.2); }
         
         .color-picker-btn {
             width: 32px;
@@ -128,17 +96,9 @@
         }
 
         #zoom-display { 
-            position: absolute; 
-            bottom: 20px; 
-            right: 20px; 
-            background: rgba(255,255,255,0.9); 
-            padding: 8px 15px; 
-            border-radius: 20px; 
-            font-weight: bold; 
-            font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-            z-index: 1000; 
-            border: 1px solid #ddd;
+            position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); 
+            padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; border: 1px solid #ddd;
         }
 
         .text-edit-wrapper {
@@ -160,7 +120,9 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            white-space: pre !important;
+            white-space: pre-wrap !important;
+            overflow-wrap: break-word !important;
+            word-wrap: break-word !important;
             overflow: visible;
             display: inline-block;
             box-sizing: border-box;
@@ -183,47 +145,40 @@
             min-width: 10px;
             min-height: 1em;
             line-height: 1.2;
-            vertical-align: baseline;
         }
 
-        .math-sup { 
-            vertical-align: super; 
-        }
-        .math-sub { 
-            vertical-align: sub; 
-        }
+        .math-sup { vertical-align: super; }
+        .math-sub { vertical-align: sub; }
 
         .math-frac {
             display: inline-flex;
             flex-direction: column;
             align-items: center;
             vertical-align: middle;
-            margin: 0 8px;
+            margin: 0 4px;
             border: 1px dashed #9C27B0;
             background: rgba(156, 39, 176, 0.1);
             border-radius: 3px;
-            padding: 2px 4px;
-            line-height: 1.0;
+            padding: 3px 4px;
+            line-height: 1.5;
         }
         .math-num {
             border-bottom: 2px solid currentColor;
-            padding-bottom: 2px;
-            margin-bottom: 2px;
+            padding-bottom: 3px;
+            margin-bottom: 4px;
             display: block;
             text-align: center;
             width: 100%;
             white-space: nowrap;
-            line-height: 1.2;
-            min-width: 10px;
+            line-height: 1.3;
         }
         .math-den {
             display: block;
             text-align: center;
             width: 100%;
             white-space: nowrap;
-            line-height: 1.2;
+            line-height: 1.3;
             padding-top: 2px;
-            min-width: 10px;
         }
 
         .handle {
@@ -238,10 +193,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
         
-        .handle:hover { 
-            background: #45a049; 
-            transform: scale(1.2); 
-        }
+        .handle:hover { background: #45a049; transform: scale(1.2); }
         .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
         .handle.n { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
         .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
@@ -277,29 +229,11 @@
             pointer-events: none;
         }
 
-        input[type="color"] { 
-            border: none; 
-            width: 0; 
-            height: 0; 
-            overflow: hidden; 
-            padding: 0; 
-            position: absolute; 
-        }
-        input[type="range"] { 
-            cursor: pointer; 
-        }
-        .separator { 
-            width: 1px; 
-            height: 25px; 
-            background: #ddd; 
-            margin: 0 5px; 
-        }
+        input[type="color"] { border: none; width: 0; height: 0; overflow: hidden; padding: 0; position: absolute; }
+        input[type="range"] { cursor: pointer; }
+        .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
         
-        canvas { 
-            display: block; 
-            touch-action: none; 
-            background: #ffffff; 
-        }
+        canvas { display: block; touch-action: none; background: #ffffff; }
         
         .cursor-default { cursor: default !important; }
         .cursor-move { cursor: move !important; }
@@ -317,6 +251,10 @@
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>') 0 24, auto !important; 
         }
         
+        .cursor-rect { 
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>') 0 24, auto !important; 
+        }
+
         .cursor-grid { 
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
         }
@@ -449,11 +387,6 @@
         <div class="shape-item" onclick="selectLineTool('line')" title="Лінія">
             <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);"><line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-linecap="round" /></svg>
         </div>
-        <div class="shape-item" onclick="selectLineTool('dotted')" title="Пунктирна лінія">
-            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);">
-                <line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-dasharray="4,4" stroke-linecap="round" />
-            </svg>
-        </div>
         <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
             <div class="compass-icon-bg">
                 <svg viewBox="0 0 24 24">
@@ -496,9 +429,6 @@
 <canvas id="board"></canvas>
 
 <script>
-// ============================================
-// ІНІЦІАЛІЗАЦІЯ
-// ============================================
 const boardId = window.location.pathname.replace('/', '') || 'main';
 let socket;
 try {
@@ -511,7 +441,6 @@ try {
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
-// Змінні стану
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'select';
 let selectedObjects = []; 
@@ -541,10 +470,6 @@ const SMOOTHING_FACTOR = 0.5;
 let selectedShapeType = null;
 let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
-
-// ============================================
-// ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
-// ============================================
 
 function requestDraw() {
     if (!needsRedraw) {
@@ -598,10 +523,6 @@ function updateZoomDisplay() {
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
 }
 
-// ============================================
-// ОБРОБКА КЛАВІШ
-// ============================================
-
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
@@ -637,15 +558,10 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'h' || e.key === 'H') setTool('hand');
     if (e.key === 'g' || e.key === 'G') setTool('grid');
 });
-
 window.addEventListener('keyup', (e) => { 
     if (e.key === 'Shift') shiftKey = false;
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
-
-// ============================================
-// ІНСТРУМЕНТИ ТА ПАЛІТРИ
-// ============================================
 
 function selectPenColor(color) {
     currentPenColor = color;
@@ -730,56 +646,6 @@ document.addEventListener('mousedown', (e) => {
     }
 });
 
-// ============================================
-// ВИМІРЮВАННЯ СЕГМЕНТІВ ТЕКСТУ
-// ============================================
-
-function measureSegments(segments, baseSize, isBold) {
-    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-    const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
-    
-    let totalWidth = 0;
-    let maxHeight = 0;
-    let maxAscent = 0;
-    
-    const tempCtx = canvas.getContext('2d');
-    
-    segments.forEach(s => {
-        if (s.type === 'normal') {
-            tempCtx.font = normalFont;
-            const metrics = tempCtx.measureText(s.text);
-            totalWidth += metrics.width;
-            maxHeight = Math.max(maxHeight, baseSize);
-            maxAscent = Math.max(maxAscent, metrics.actualBoundingBoxAscent || baseSize * 0.8);
-        } else if (s.type === 'sup') {
-            tempCtx.font = smallFont;
-            const metrics = tempCtx.measureText(s.text);
-            totalWidth += metrics.width;
-            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5));
-        } else if (s.type === 'sub') {
-            tempCtx.font = smallFont;
-            const metrics = tempCtx.measureText(s.text);
-            totalWidth += metrics.width;
-            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.3));
-        } else if (s.type === 'frac') {
-            const numMetrics = measureSegments(s.numerator, baseSize, isBold);
-            const denMetrics = measureSegments(s.denominator, baseSize, isBold);
-            
-            const fracWidth = Math.max(numMetrics.w, denMetrics.w);
-            const fracHeight = numMetrics.h + denMetrics.h + 6;
-            
-            totalWidth += fracWidth;
-            maxHeight = Math.max(maxHeight, fracHeight);
-        }
-    });
-    
-    return { w: totalWidth, h: maxHeight, ascent: maxAscent };
-}
-
-// ============================================
-// КОНВЕРТАЦІЯ HTML <-> СЕГМЕНТИ
-// ============================================
-
 function htmlToSegments(html) {
     if (!html || html.trim() === '') return [];
     
@@ -812,6 +678,7 @@ function htmlToSegments(html) {
             } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
             } else if (node.tagName === 'DIV') {
+                // Обробляємо дочірні елементи DIV
                 node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
@@ -819,6 +686,7 @@ function htmlToSegments(html) {
         }
     }
     
+    // Обробляємо body або кореневі елементи
     Array.from(doc.body.childNodes).forEach(processNode);
     
     return segments;
@@ -839,26 +707,12 @@ function segmentsToHtml(segments) {
     }).join('');
 }
 
-// ============================================
-// ОБЧИСЛЕННЯ РАМОК (BOUNDING BOX)
-// ============================================
-
 function getBBox(obj) {
     if (!obj) return null;
     if (obj.type === 'text') {
         const baseSize = obj.size; 
-        
-        if (obj.segments && obj.segments.length > 0) {
-            const metrics = measureSegments(obj.segments, baseSize, obj.isBold);
-            return { 
-                x: obj.x, 
-                y: obj.y - (metrics.ascent * 0.2),
-                w: metrics.w || 2, 
-                h: metrics.h * 1.2 
-            };
-        }
-
         ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+        
         const lineH = baseSize * 1.4;
         
         let maxW = 0;
@@ -980,10 +834,6 @@ function getCursor(handle) {
     return 'move';
 }
 
-// ============================================
-// РОЗМІР ВІКНА
-// ============================================
-
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -991,10 +841,6 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 resize();
-
-// ============================================
-// МАЛЮВАННЯ СІТКИ
-// ============================================
 
 function drawGrid() {
     const smallStep = 20 * scale;
@@ -1034,10 +880,6 @@ function drawGrid() {
     }
     ctx.stroke();
 }
-
-// ============================================
-// МАЛЮВАННЯ ВИДІЛЕННЯ
-// ============================================
 
 function drawSelection() {
     if (selectedObjects.length === 0) return;
@@ -1079,7 +921,7 @@ function drawSelection() {
     ctx.arc(sx + sw/2, sy - 15, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'white';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
     
     ctx.beginPath();
@@ -1111,10 +953,6 @@ function drawMarqueeSelection() {
     ctx.restore();
 }
 
-// ============================================
-// ГОЛОВНА ФУНКЦІЯ МАЛЮВАННЯ
-// ============================================
-
 function draw() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1131,10 +969,6 @@ function draw() {
     
     drawMarqueeSelection();
 }
-
-// ============================================
-// МАЛЮВАННЯ СЕГМЕНТОВАНОГО ТЕКСТУ
-// ============================================
 
 function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     let currentX = x;
@@ -1164,71 +998,35 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'frac') {
-            const numMetrics = measureSegments(s.numerator, baseSize, isBold);
-            const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            const numW = s.numerator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+            const denW = s.denominator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
+            const fracW = Math.max(numW, denW);
             
-            const fracW = Math.max(numMetrics.w, denMetrics.w);
-            const gap = 3;
-            
-            const numStartX = currentX + (fracW - numMetrics.w) / 2;
-            const denStartX = currentX + (fracW - denMetrics.w) / 2;
-            
-            const fractionCenterY = currentY - (baseSize * 0.15);
-            const lineY = fractionCenterY;
-            
-            const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
-            const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
+            const startX = currentX + (fracW - numW) / 2;
+            const denStartX = currentX + (fracW - denW) / 2;
             
             ctx.font = normalFont;
-            let cx = numStartX;
+            let cx = startX;
             s.numerator.forEach(seg => {
-                if(seg.type === 'normal') {
-                    ctx.fillText(seg.text, cx, numBaselineY);
-                    cx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'sup') {
-                    ctx.font = smallFont;
-                    ctx.fillText(seg.text, cx, numBaselineY - baseSize * 0.5);
-                    ctx.font = normalFont;
-                    cx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'sub') {
-                    ctx.font = smallFont;
-                    ctx.fillText(seg.text, cx, numBaselineY + baseSize * 0.3);
-                    ctx.font = normalFont;
-                    cx += ctx.measureText(seg.text).width;
-                }
+                ctx.fillText(seg.text, cx, currentY - baseSize * 0.6);
+                cx += ctx.measureText(seg.text).width;
             });
             
             ctx.beginPath();
-            ctx.moveTo(currentX, lineY);
-            ctx.lineTo(currentX + fracW, lineY);
+            ctx.moveTo(currentX, currentY - baseSize * 0.1);
+            ctx.lineTo(currentX + fracW, currentY - baseSize * 0.1);
             ctx.stroke();
             
             let dx = denStartX;
             s.denominator.forEach(seg => {
-                if(seg.type === 'normal') {
-                    ctx.fillText(seg.text, dx, denBaselineY);
-                    dx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'sup') {
-                    ctx.font = smallFont;
-                    ctx.fillText(seg.text, dx, denBaselineY - baseSize * 0.5);
-                    ctx.font = normalFont;
-                    dx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'sub') {
-                    ctx.font = smallFont;
-                    ctx.fillText(seg.text, dx, denBaselineY + baseSize * 0.3);
-                    ctx.font = normalFont;
-                    dx += ctx.measureText(seg.text).width;
-                }
+                ctx.fillText(seg.text, dx, currentY + baseSize * 0.7);
+                dx += ctx.measureText(seg.text).width;
             });
             
             currentX += fracW;
         }
     });
 }
-
-// ============================================
-// МАЛЮВАННЯ КООРДИНАТНОЇ СІТКИ
-// ============================================
 
 function drawCoordinateGrid(obj) {
     const sx = obj.x * scale + offsetX;
@@ -1347,10 +1145,6 @@ function drawCoordinateGrid(obj) {
     ctx.restore();
 }
 
-// ============================================
-// МАЛЮВАННЯ ПЛАВНИХ ЛІНІЙ
-// ============================================
-
 function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
     if (points.length === 0) return;
     
@@ -1398,10 +1192,6 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
     ctx.stroke();
 }
 
-// ============================================
-// МАЛЮВАННЯ ОБ'ЄКТА
-// ============================================
-
 function drawObject(obj, isTemp = false) {
     ctx.save();
     const sx = obj.x * scale + offsetX;
@@ -1412,12 +1202,6 @@ function drawObject(obj, isTemp = false) {
     ctx.fillStyle = obj.color || '#000';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    
-    if (obj.lineStyle === 'dotted') {
-        ctx.setLineDash([5 * scale, 5 * scale]);
-    } else {
-        ctx.setLineDash([]);
-    }
     
     if (obj.rotation) {
         ctx.translate(sx, sy);
@@ -1539,9 +1323,11 @@ function drawObject(obj, isTemp = false) {
         
         const baseSize = obj.size * scale;
         
+        // ВИПРАВЛЕННЯ: Перевіряємо segments, але якщо пусто - використовуємо text
         if (obj.segments && obj.segments.length > 0) {
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
         } else if (obj.text && obj.text.trim() !== '') {
+            // Фолбек на звичайний текст
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const textLines = obj.text.split('\n');
             const lineH = baseSize * 1.4;
@@ -1564,10 +1350,6 @@ function drawObject(obj, isTemp = false) {
     ctx.restore();
 }
 
-// ============================================
-// ОТРИМАННЯ КООРДИНАТ
-// ============================================
-
 function getCoords(e) {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -1578,10 +1360,6 @@ function getCoords(e) {
         rawY: clientY 
     };
 }
-
-// ============================================
-// ВСТАВКА МАТЕМАТИЧНИХ ПОЛІВ
-// ============================================
 
 function insertMathField(type) {
     const sel = window.getSelection();
@@ -1604,12 +1382,24 @@ function insertMathField(type) {
     return span;
 }
 
-function insertFraction(editorDiv, numeratorContent) {
+function insertFraction(editorDiv) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
     
     const range = sel.getRangeAt(0);
     
+    let numeratorText = "";
+    if (range.startContainer.nodeType === Node.TEXT_NODE) {
+        const textNode = range.startContainer;
+        const offset = range.startOffset;
+        if (offset > 0) {
+            numeratorText = textNode.textContent.substring(offset - 1, offset);
+            textNode.textContent = textNode.textContent.substring(0, offset - 1) + textNode.textContent.substring(offset);
+            range.setStart(textNode, offset - 1);
+            range.setEnd(textNode, offset - 1);
+        }
+    }
+
     const fracDiv = document.createElement('div');
     fracDiv.className = 'math-frac';
     fracDiv.style.display = 'inline-flex';
@@ -1618,16 +1408,7 @@ function insertFraction(editorDiv, numeratorContent) {
     
     const numSpan = document.createElement('span');
     numSpan.className = 'math-num';
-    
-    if (numeratorContent) {
-        if (typeof numeratorContent === 'string') {
-            numSpan.textContent = numeratorContent;
-        } else {
-            numSpan.appendChild(numeratorContent);
-        }
-    } else {
-        numSpan.textContent = '\u200B';
-    }
+    numSpan.textContent = numeratorText || '\u200B';
     
     const denSpan = document.createElement('span');
     denSpan.className = 'math-den';
@@ -1639,20 +1420,9 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    // ✅ ПЕРЕВІРКА: чи є вміст у чисельнику
-    const hasNumeratorContent = numSpan.textContent && 
-                                 numSpan.textContent.trim() !== '' && 
-                                 numSpan.textContent !== '\u200B';
-
-    // ✅ КУРСОР У ЗНАМЕННИК (якщо чисельник не пустий)
     const newRange = document.createRange();
-    if (hasNumeratorContent) {
-        newRange.selectNodeContents(denSpan);
-        newRange.collapse(true);
-    } else {
-        newRange.selectNodeContents(numSpan);
-        newRange.collapse(false);
-    }
+    newRange.selectNodeContents(denSpan);
+    newRange.collapse(false);
     sel.removeAllRanges();
     sel.addRange(newRange);
     
@@ -1664,129 +1434,6 @@ function insertFraction(editorDiv, numeratorContent) {
         editorDiv.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
-
-// ============================================
-// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА (ВИПРАВЛЕНА ВЕРСІЯ)
-// ============================================
-
-function collectNumeratorContent(range, editorDiv) {
-    let currentNode = range.startContainer;
-    let currentOffset = range.startOffset;
-    const fragment = document.createDocumentFragment();
-    
-    // Знаки-розділювачі: пробіл та арифметичні оператори
-    const separatorChars = /[+\-*/:><=\s]/;
-    
-    let hasContent = false;
-    
-    // 1. Спочатку перевіряємо сусідні елементи (степені/індекси)
-    // Це важливо для випадків коли курсор одразу після степеня
-    let nodeBeforeCursor = null;
-    
-    if (currentNode.nodeType === Node.TEXT_NODE) {
-        if (currentOffset === 0) {
-            nodeBeforeCursor = currentNode.previousSibling;
-        }
-    } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
-        if (currentOffset > 0) {
-            nodeBeforeCursor = currentNode.childNodes[currentOffset - 1];
-        }
-    }
-
-    // Пропускаємо порожні текстові вузли
-    while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
-        nodeBeforeCursor = nodeBeforeCursor.previousSibling;
-    }
-
-    // Якщо знайдено степінь або індекс
-    if (nodeBeforeCursor && nodeBeforeCursor.classList && 
-        (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
-        
-        // Шукаємо базовий текст перед степенем
-        let baseNode = nodeBeforeCursor.previousSibling;
-        while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
-            baseNode = baseNode.previousSibling;
-        }
-
-        // Додаємо базовий текст (якщо є)
-        if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
-            const baseText = baseNode.textContent.trim();
-            if (baseText.length > 0) {
-                // Перевіряємо чи є розділювач в базовому тексті
-                let lastSepIndex = -1;
-                for (let i = baseText.length - 1; i >= 0; i--) {
-                    if (separatorChars.test(baseText[i])) {
-                        lastSepIndex = i;
-                        break;
-                    }
-                }
-                
-                if (lastSepIndex === -1) {
-                    // Немає розділювача - беремо весь текст
-                    const textNode = document.createTextNode(baseText);
-                    fragment.insertBefore(textNode, fragment.firstChild);
-                    hasContent = true;
-                    // Видаляємо текст з оригінального вузла
-                    baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
-                } else {
-                    // Є розділювач - беремо тільки частину після нього
-                    const numeratorText = baseText.substring(lastSepIndex + 1);
-                    if (numeratorText.trim().length > 0) {
-                        const textNode = document.createTextNode(numeratorText);
-                        fragment.insertBefore(textNode, fragment.firstChild);
-                        hasContent = true;
-                        // Видаляємо тільки частину для чисельника
-                        baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
-                    }
-                }
-            }
-        }
-        
-        // Додаємо степінь/індекс
-        fragment.appendChild(nodeBeforeCursor);
-        hasContent = true;
-    }
-    
-    // 2. Обробка текстового вмісту перед курсором (якщо не було степеня)
-    if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
-        const textBefore = currentNode.textContent.substring(0, currentOffset);
-        
-        // Знаходимо останній розділювач
-        let lastSepIndex = -1;
-        for (let i = textBefore.length - 1; i >= 0; i--) {
-            if (separatorChars.test(textBefore[i])) {
-                lastSepIndex = i;
-                break;
-            }
-        }
-
-        let startOffset = 0;
-        if (lastSepIndex !== -1) {
-            startOffset = lastSepIndex + 1;
-        }
-
-        // Збираємо текст після останнього розділювача
-        if (currentOffset > startOffset) {
-            const numeratorText = textBefore.substring(startOffset);
-            if (numeratorText.trim().length > 0) {
-                const textNode = document.createTextNode(numeratorText);
-                fragment.appendChild(textNode);
-                hasContent = true;
-                // Оновлюємо оригінальний вузол
-                currentNode.textContent = textBefore.substring(0, startOffset) + 
-                                         currentNode.textContent.substring(currentOffset);
-                range.setStart(currentNode, startOffset);
-            }
-        }
-    }
-
-    if (!hasContent) return null;
-    return fragment;
-}
-
-// ============================================
-// ПОЧАТОК РЕДАГУВАННЯ ТЕКСТУ
-// ============================================
 
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
@@ -1829,6 +1476,7 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
+    // ВИПРАВЛЕННЯ: Завантаження HTML з segments або text
     if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else if (obj.text && obj.text.trim() !== '') {
@@ -1877,16 +1525,73 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
-        // Створення дробу клавішею /
         if (e.key === '/') {
             e.preventDefault();
-            const numeratorContent = collectNumeratorContent(range, editorDiv);
-            insertFraction(editorDiv, numeratorContent);
+            
+            let textNode = node;
+            let offset = range.startOffset;
+            
+            if (textNode.nodeType !== Node.TEXT_NODE) {
+                if (textNode.closest('.math-frac')) return;
+                
+                if (textNode.childNodes.length > 0 && offset < textNode.childNodes.length) {
+                    textNode = textNode.childNodes[offset];
+                    offset = 0;
+                } else if (textNode.childNodes.length > 0 && offset === textNode.childNodes.length) {
+                     textNode = textNode.childNodes[offset - 1];
+                     offset = textNode.textContent.length;
+                } else {
+                    return;
+                }
+            }
+            
+            if (textNode.nodeType !== Node.TEXT_NODE) return;
+
+            let text = textNode.textContent;
+            let wordStart = offset;
+            while (wordStart > 0 && !/\s/.test(text[wordStart - 1])) {
+                wordStart--;
+            }
+            
+            const word = text.substring(wordStart, offset);
+            
+            const beforeText = text.substring(0, wordStart);
+            const afterText = text.substring(offset);
+            
+            textNode.textContent = beforeText + afterText;
+            
+            const fracDiv = document.createElement('div');
+            fracDiv.className = 'math-frac';
+            fracDiv.style.display = 'inline-flex';
+            fracDiv.style.flexDirection = 'column';
+            fracDiv.style.verticalAlign = 'middle';
+            
+            const numSpan = document.createElement('span');
+            numSpan.className = 'math-num';
+            numSpan.textContent = word || '\u200B';
+            
+            const denSpan = document.createElement('span');
+            denSpan.className = 'math-den';
+            denSpan.textContent = '\u200B';
+            
+            fracDiv.appendChild(numSpan);
+            fracDiv.appendChild(denSpan);
+            
+            const newRange = document.createRange();
+            newRange.setStart(textNode, wordStart);
+            newRange.collapse(true);
+            newRange.insertNode(fracDiv);
+            
+            const focusRange = document.createRange();
+            focusRange.selectNodeContents(denSpan);
+            focusRange.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(focusRange);
+            
             updateSize();
             return;
         }
 
-        // Створення степеня/індексу
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const type = e.key === '^' ? 'sup' : 'sub';
@@ -1895,80 +1600,63 @@ function startTextEdit(obj) {
             return;
         }
         
-        // ✅ Навігація правою стрілкою (ВИПРАВЛЕНО - 1 натискання)
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
-            
-            // Спеціальна обробка для знаменателя - завжди переходимо далі
-            if (parent && parent.classList.contains('math-den')) {
-                e.preventDefault();
-                const frac = parent.parentElement;
-                const nextSibling = frac.nextSibling;
-                if (nextSibling) {
-                    const newRange = document.createRange();
-                    if (nextSibling.nodeType === Node.TEXT_NODE) {
-                        newRange.setStart(nextSibling, 0);
-                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                        newRange.selectNodeContents(nextSibling);
-                        newRange.collapse(true);
-                    }
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                } else {
-                    const textNode = document.createTextNode('\u200B');
-                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                    const newRange = document.createRange();
-                    newRange.setStart(textNode, 0);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
-                return;
-            }
-            
-            // Стандартна обробка для інших елементів
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
             if (isAtEnd && parent) {
-                if (parent.classList.contains('math-num')) {
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub') || parent.classList.contains('math-den')) {
                     e.preventDefault();
-                    const denSpan = parent.parentElement.querySelector('.math-den');
-                    if (denSpan) {
-                        const newRange = document.createRange();
-                        newRange.selectNodeContents(denSpan);
-                        newRange.collapse(true);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
-                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-                    e.preventDefault();
-                    const nextSibling = parent.nextSibling;
-                    if (nextSibling) {
-                        const newRange = document.createRange();
-                        if (nextSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(nextSibling, 0);
-                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(nextSibling);
-                            newRange.collapse(true);
+                    
+                    if (parent.classList.contains('math-den')) {
+                        const frac = parent.parentElement;
+                        const nextSibling = frac.nextSibling;
+                        if (nextSibling) {
+                            const newRange = document.createRange();
+                            if (nextSibling.nodeType === Node.TEXT_NODE) {
+                                newRange.setStart(nextSibling, 0);
+                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                                newRange.selectNodeContents(nextSibling);
+                                newRange.collapse(true);
+                            }
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                        } else {
+                            const textNode = document.createTextNode('\u200B');
+                            frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                            const newRange = document.createRange();
+                            newRange.setStart(textNode, 0);
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
                         }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('\u200B');
-                        parent.parentNode.insertBefore(textNode, parent.nextSibling);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
+                    } 
+                    else {
+                        const nextSibling = parent.nextSibling;
+                        if (nextSibling) {
+                            const newRange = document.createRange();
+                            if (nextSibling.nodeType === Node.TEXT_NODE) {
+                                newRange.setStart(nextSibling, 0);
+                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                                newRange.selectNodeContents(nextSibling);
+                                newRange.collapse(true);
+                            }
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                        } else {
+                             const textNode = document.createTextNode('\u200B');
+                             parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                             const newRange = document.createRange();
+                             newRange.setStart(textNode, 0);
+                             sel.removeAllRanges();
+                             sel.addRange(newRange);
+                        }
                     }
                     return;
                 }
             }
         }
         
-        // Навігація лівою стрілкою
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
             let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
@@ -1996,8 +1684,8 @@ function startTextEdit(obj) {
                         if (prevSibling.nodeType === Node.TEXT_NODE) {
                             newRange.setStart(prevSibling, prevSibling.textContent.length);
                         } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(prevSibling);
-                            newRange.collapse(false);
+                             newRange.selectNodeContents(prevSibling);
+                             newRange.collapse(false);
                         }
                         sel.removeAllRanges();
                         sel.addRange(newRange);
@@ -2019,8 +1707,8 @@ function startTextEdit(obj) {
                         if (prevSibling.nodeType === Node.TEXT_NODE) {
                             newRange.setStart(prevSibling, prevSibling.textContent.length);
                         } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(prevSibling);
-                            newRange.collapse(false);
+                             newRange.selectNodeContents(prevSibling);
+                             newRange.collapse(false);
                         }
                         sel.removeAllRanges();
                         sel.addRange(newRange);
@@ -2081,22 +1769,21 @@ function startTextEdit(obj) {
     });
 }
 
-// ============================================
-// ЗАВЕРШЕННЯ РЕДАГУВАННЯ ТЕКСТУ
-// ============================================
-
 function stopTextEdit(cancel = false) {
     if (!textEditor) return;
     const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
         
+        // ВИПРАВЛЕННЯ: Зберігаємо HTML структуру в segments
         const html = editorDiv.innerHTML;
         const segments = htmlToSegments(html);
         
+        // Якщо segments порожній, але є текст - зберігаємо тільки text
         if (segments && segments.length > 0) {
             editingObject.segments = segments;
         } else {
+            // Видаляємо segments якщо порожній, щоб fallback працював
             delete editingObject.segments;
         }
         
@@ -2111,10 +1798,6 @@ function stopTextEdit(cancel = false) {
     editingObject = null;
     requestDraw();
 }
-
-// ============================================
-// ЗМІНА РОЗМІРУ ТЕКСТУ
-// ============================================
 
 function startTextResize(obj, handle, e, wrapper, editorDiv) {
     isResizing = true;
@@ -2159,10 +1842,6 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
     document.addEventListener('mouseup', onUp);
 }
 
-// ============================================
-// ПЕРЕМІЩЕННЯ ТЕКСТУ
-// ============================================
-
 function startTextDrag(obj, e, wrapper) {
     isDragging = true;
     const coords = getCoords(e);
@@ -2193,10 +1872,6 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
-
-// ============================================
-// ПОДІЇ CANVAS
-// ============================================
 
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
@@ -2437,8 +2112,8 @@ canvas.addEventListener('mousemove', (e) => {
         
         selectedObjects.forEach(obj => {
             if (!obj.rotation) obj.rotation = 0;
-            const originalRotation = startResizeState.originalRotation || 0;
-            obj.rotation = originalRotation + (degrees - startResizeState.startAngle);
+             const originalRotation = startResizeState.originalRotation || 0;
+             obj.rotation = originalRotation + (degrees - startResizeState.startAngle);
         });
         requestDraw();
     }
@@ -2519,10 +2194,6 @@ canvas.addEventListener('mouseup', () => {
     }
 });
 
-// ============================================
-// ЛАСТИК
-// ============================================
-
 function eraseAt(mx, my) {
     const eraserRadius = 30 / scale;
     let changed = false;
@@ -2566,10 +2237,6 @@ function eraseAt(mx, my) {
     }
 }
 
-// ============================================
-// ПОЧАТОК МАЛЮВАННЯ
-// ============================================
-
 function startDrawing(coords) {
     isDrawing = true;
     currentPath = {
@@ -2579,11 +2246,6 @@ function startDrawing(coords) {
         x: coords.x, y: coords.y, ex: coords.x, ey: coords.y,
         w: 0, h: 0
     };
-    
-    if (selectedLineToolType === 'dotted') {
-        currentPath.lineStyle = 'dotted';
-    }
-    
     if (currentTool === 'pen') currentPath.points = [];
     if (currentTool === 'shape') {
         currentPath.shapeType = selectedShapeType;
@@ -2593,10 +2255,6 @@ function startDrawing(coords) {
         currentPath.radius = 0;
     }
 }
-
-// ============================================
-// ЗМІНА РОЗМІРУ ГРУПИ
-// ============================================
 
 function startResizeGroup(handle, e) {
     isResizing = true;
@@ -2712,10 +2370,6 @@ function startResizeGroup(handle, e) {
 
 function startRotate(e) {}
 
-// ============================================
-// СТВОРЕННЯ НОВОГО ТЕКСТУ
-// ============================================
-
 function createNewText(coords) {
     const obj = {
         type: 'text', x: coords.x, y: coords.y, 
@@ -2730,10 +2384,6 @@ function createNewText(coords) {
     requestDraw();
     startTextEdit(obj);
 }
-
-// ============================================
-// ВИБІР ІНСТРУМЕНТУ
-// ============================================
 
 function setTool(tool) {
     currentTool = tool;
@@ -2752,10 +2402,6 @@ function setTool(tool) {
 }
 
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = () => setTool(btn.dataset.tool));
-
-// ============================================
-// КНОПКИ ПАНЕЛІ
-// ============================================
 
 document.getElementById('clearBtn').onclick = () => { 
     if(confirm("Очистити дошку?")) {
@@ -2782,10 +2428,6 @@ colorPickerBtn.addEventListener('click', () => {
 colorPickerInput.addEventListener('input', (e) => {
     selectPenColor(e.target.value);
 });
-
-// ============================================
-// МАСШТАБУВАННЯ
-// ============================================
 
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -2816,10 +2458,6 @@ canvas.addEventListener('wheel', (e) => {
     requestDraw();
 }, { passive: false });
 
-// ============================================
-// ВСТАВКА ЗОБРАЖЕНЬ
-// ============================================
-
 window.addEventListener('paste', (e) => {
     if (textEditor) return;
     const items = e.clipboardData.items;
@@ -2833,30 +2471,16 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
-                    const obj = { 
-                        type: 'image', 
-                        src: event.target.result, 
-                        x: centerX - img.width/4, 
-                        y: centerY - img.height/4, 
-                        w: img.width/2, 
-                        h: img.height/2, 
-                        rotation: 0 
-                    };
+                    const obj = { type: 'image', src: event.target.result, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2, rotation: 0 };
                     saveHistory();
-                    objects.push(obj); 
-                    selectedObjects = [obj];
-                    if (socket && socket.connected) socket.emit('new-object', obj); 
-                    requestDraw();
+                    objects.push(obj); selectedObjects = [obj];
+                    if (socket && socket.connected) socket.emit('new-object', obj); requestDraw();
                 };
             };
             reader.readAsDataURL(blob);
         }
     }
 });
-
-// ============================================
-// SOCKET.IO ПОДІЇ
-// ============================================
 
 socket.on('init-history', (h) => { 
     objects = h;
