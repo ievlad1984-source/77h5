@@ -1639,22 +1639,22 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-// ✅ ПЕРЕВІРКА: чи є вміст у чисельнику
-const hasNumeratorContent = numSpan.textContent && 
-                             numSpan.textContent.trim() !== '' && 
-                             numSpan.textContent !== '\u200B';
+    // ✅ ПЕРЕВІРКА: чи є вміст у чисельнику
+    const hasNumeratorContent = numSpan.textContent && 
+                                 numSpan.textContent.trim() !== '' && 
+                                 numSpan.textContent !== '\u200B';
 
-// ✅ КУРСОР У ЗНАМЕННИК (якщо чисельник не пустий)
-const newRange = document.createRange();
-if (hasNumeratorContent) {
-    newRange.selectNodeContents(denSpan);  // ← Знаменатель
-    newRange.collapse(true);
-} else {
-    newRange.selectNodeContents(numSpan);  // ← Числитель
-    newRange.collapse(false);
-}
-sel.removeAllRanges();
-sel.addRange(newRange);
+    // ✅ КУРСОР У ЗНАМЕННИК (якщо чисельник не пустий)
+    const newRange = document.createRange();
+    if (hasNumeratorContent) {
+        newRange.selectNodeContents(denSpan);
+        newRange.collapse(true);
+    } else {
+        newRange.selectNodeContents(numSpan);
+        newRange.collapse(false);
+    }
+    sel.removeAllRanges();
+    sel.addRange(newRange);
     
     if (editorDiv) {
         const wrapper = editorDiv.parentElement;
@@ -1895,38 +1895,42 @@ function startTextEdit(obj) {
             return;
         }
         
-        // Навігація правою стрілкою
+        // ✅ Навігація правою стрілкою (ВИПРАВЛЕНО - 1 натискання)
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
+            
+            // Спеціальна обробка для знаменателя - завжди переходимо далі
+            if (parent && parent.classList.contains('math-den')) {
+                e.preventDefault();
+                const frac = parent.parentElement;
+                const nextSibling = frac.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+            
+            // Стандартна обробка для інших елементів
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
             if (isAtEnd && parent) {
-                if (parent.classList.contains('math-den')) {
-                    e.preventDefault();
-                    const frac = parent.parentElement;
-                    const nextSibling = frac.nextSibling;
-                    if (nextSibling) {
-                        const newRange = document.createRange();
-                        if (nextSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(nextSibling, 0);
-                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(nextSibling);
-                            newRange.collapse(true);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('');
-                        frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                } 
-                else if (parent.classList.contains('math-num')) {
+                if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const denSpan = parent.parentElement.querySelector('.math-den');
                     if (denSpan) {
@@ -1952,7 +1956,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('');
+                        const textNode = document.createTextNode('\u200B');
                         parent.parentNode.insertBefore(textNode, parent.nextSibling);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
@@ -1998,7 +2002,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('');
+                        const textNode = document.createTextNode('\u200B');
                         frac.parentNode.insertBefore(textNode, frac);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
@@ -2021,7 +2025,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('');
+                        const textNode = document.createTextNode('\u200B');
                         parent.parentNode.insertBefore(textNode, parent);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
