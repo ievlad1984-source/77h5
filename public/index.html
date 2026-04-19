@@ -1663,14 +1663,11 @@ function collectNumeratorContent(range, editorDiv) {
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
     
-    // Знаки, які НЕ повинні входити в чисельник (розділювачі між виразами)
     const separatorChars = /[+\-*/=<>]/;
     
-    // 1. Якщо курсор всередині текстового вузла
+    // 1. Handle Text Content before cursor
     if (currentNode.nodeType === Node.TEXT_NODE) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
-        
-        // Знаходимо останній розділювач (оператор)
         let lastSepIndex = -1;
         for (let i = textBefore.length - 1; i >= 0; i--) {
             if (separatorChars.test(textBefore[i])) {
@@ -1681,52 +1678,61 @@ function collectNumeratorContent(range, editorDiv) {
 
         let startOffset = 0;
         if (lastSepIndex !== -1) {
-            // Зберігаємо оператор перед дробом (не видаляємо його)
             startOffset = lastSepIndex + 1;
         }
 
-        // Збираємо текст для чисельника (після останнього оператора)
         if (currentOffset > startOffset) {
             const numeratorText = textBefore.substring(startOffset);
             if (numeratorText.length > 0) {
                 const textNode = document.createTextNode(numeratorText);
                 fragment.appendChild(textNode);
-                // Видаляємо перенесений текст з оригінального вузла
+                // Update original node
                 currentNode.textContent = textBefore.substring(0, startOffset) + 
                                          currentNode.textContent.substring(currentOffset);
                 range.setStart(currentNode, startOffset);
             }
         }
+    }
 
-        // 2. ПЕРЕВІРКА НА СУСІДНІ ЕЛЕМЕНТИ (СТЕПІНІ/ІНДЕКСИ)
-        // Якщо ми забрали текст або курсор на початку, перевіряємо чи немає ліворуч степеня/індексу
-        let checkForSupSub = (currentOffset === startOffset);
-        
-        if (checkForSupSub) {
-            let prev = currentNode.previousSibling;
-            // Пропускаємо порожні текстові вузли
-            while (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.trim() === '') {
-                prev = prev.previousSibling;
-            }
-            
-            // Якщо знайшли степінь або індекс - переносимо його
-            if (prev && prev.classList && (prev.classList.contains('math-sup') || prev.classList.contains('math-sub'))) {
-                // Вставляємо елемент ПЕРЕД текстом у фрагменті
-                if (fragment.firstChild) {
-                    fragment.insertBefore(prev, fragment.firstChild);
-                } else {
-                    fragment.appendChild(prev);
-                }
-            }
+    // 2. Handle Mathematical Structures (Sup/Sub) immediately before cursor
+    // Determine the node immediately to the left of the cursor
+    let nodeBeforeCursor = null;
+    
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+        if (currentOffset === 0) {
+            nodeBeforeCursor = currentNode.previousSibling;
         }
-    } 
-    // 3. Якщо курсор між елементами
-    else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+    } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
         if (currentOffset > 0) {
-            const prevNode = currentNode.childNodes[currentOffset - 1];
-            if (prevNode && prevNode.classList && (prevNode.classList.contains('math-sup') || prevNode.classList.contains('math-sub'))) {
-                fragment.appendChild(prevNode);
-            }
+            nodeBeforeCursor = currentNode.childNodes[currentOffset - 1];
+        }
+    }
+
+    // Skip whitespace text nodes to find the actual element
+    while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
+        nodeBeforeCursor = nodeBeforeCursor.previousSibling;
+    }
+
+    // Check if it's a Sup or Sub
+    if (nodeBeforeCursor && nodeBeforeCursor.classList && 
+        (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
+        
+        // Found Exponent/Index. Now check for Base.
+        let baseNode = nodeBeforeCursor.previousSibling;
+        while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
+            baseNode = baseNode.previousSibling;
+        }
+
+        // If there is a text base (e.g. 'x'), add it first
+        if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
+            // We must ensure we don't add it if it was already added in step 1.
+            // Step 1 adds text from currentNode. baseNode is previousSibling. So they are distinct.
+            fragment.insertBefore(baseNode, fragment.firstChild);
+        }
+        
+        // Add the Exponent/Index
+        if (!fragment.contains(nodeBeforeCursor)) {
+            fragment.appendChild(nodeBeforeCursor);
         }
     }
 
