@@ -198,18 +198,17 @@
             flex-direction: column;
             align-items: center;
             vertical-align: middle;
-            /* Збільшено відступи між дробом та іншими символами */
-            margin: 0 15px; 
+            margin: 0 8px;
             border: 1px dashed #9C27B0;
             background: rgba(156, 39, 176, 0.1);
             border-radius: 3px;
-            padding: 4px 6px;
+            padding: 2px 4px;
             line-height: 1.0;
         }
         .math-num {
             border-bottom: 2px solid currentColor;
-            padding-bottom: 3px;
-            margin-bottom: 3px;
+            padding-bottom: 2px;
+            margin-bottom: 2px;
             display: block;
             text-align: center;
             width: 100%;
@@ -223,7 +222,7 @@
             width: 100%;
             white-space: nowrap;
             line-height: 1.2;
-            padding-top: 3px;
+            padding-top: 2px;
             min-width: 10px;
         }
 
@@ -767,7 +766,7 @@ function measureSegments(segments, baseSize, isBold) {
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
             const fracWidth = Math.max(numMetrics.w, denMetrics.w);
-            const fracHeight = numMetrics.h + denMetrics.h + 10; // Збільшено висоту
+            const fracHeight = numMetrics.h + denMetrics.h + 6;
             
             totalWidth += fracWidth;
             maxHeight = Math.max(maxHeight, fracHeight);
@@ -1169,7 +1168,7 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
             const fracW = Math.max(numMetrics.w, denMetrics.w);
-            const gap = 5; // Збільшено відступ між чисельником і знаменником
+            const gap = 3;
             
             const numStartX = currentX + (fracW - numMetrics.w) / 2;
             const denStartX = currentX + (fracW - denMetrics.w) / 2;
@@ -1656,21 +1655,19 @@ function insertFraction(editorDiv, numeratorContent) {
 }
 
 // ============================================
-// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА (НОВА ФУНКЦІЯ)
+// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА (ВИПРАВЛЕНА ВЕРСІЯ)
 // ============================================
 
 function collectNumeratorContent(range, editorDiv) {
     let currentNode = range.startContainer;
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
-    const collectedNodes = [];
-
-    // Якщо ми всередині текстового вузла
+    
+    // 1. Якщо курсор всередині текстового вузла
     if (currentNode.nodeType === Node.TEXT_NODE) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
         
-        // Знаходимо останній розділювач (пробіл або знак операції)
-        // Знаки: > < = + - * :
+        // Шукаємо розділювачі (пробіл, знаки операцій), щоб не забрати зайве
         const separators = /[><=+\-*:\s]/g;
         let lastSepIndex = -1;
         let match;
@@ -1678,47 +1675,55 @@ function collectNumeratorContent(range, editorDiv) {
             lastSepIndex = match.index;
         }
 
+        let startOffset = 0;
         if (lastSepIndex !== -1) {
-            // Є розділювач. Беремо все після нього.
-            const startOffset = lastSepIndex + 1;
+            startOffset = lastSepIndex + 1;
+        }
+
+        // Якщо є текст для переносу
+        if (currentOffset > startOffset) {
             const numeratorText = textBefore.substring(startOffset);
-            
-            if (numeratorText.trim().length > 0) {
+            if (numeratorText.length > 0) {
                 const textNode = document.createTextNode(numeratorText);
-                collectedNodes.push({ 
-                    node: currentNode, 
-                    start: startOffset, 
-                    end: currentOffset, 
-                    clone: textNode 
-                });
-                // Видаляємо цей текст з поточного вузла
-                currentNode.textContent = textBefore.substring(0, startOffset) + 
-                                         currentNode.textContent.substring(currentOffset);
-                range.setStart(currentNode, startOffset);
-            }
-        } else {
-            // Немає розділювача. Беремо весь текст до курсора.
-            if (textBefore.trim().length > 0) {
-                const textNode = document.createTextNode(textBefore);
-                collectedNodes.push({ 
-                    node: currentNode, 
-                    start: 0, 
-                    end: currentOffset, 
-                    clone: textNode 
-                });
+                fragment.appendChild(textNode);
+                // Видаляємо перенесений текст з оригінального вузла
                 currentNode.textContent = currentNode.textContent.substring(currentOffset);
                 range.setStart(currentNode, 0);
             }
         }
-        currentNode = currentNode.parentElement;
+
+        // 2. ПЕРЕВІРКА НА СУСІДНІ ЕЛЕМЕНТИ (СТЕПІНІ/ІНДЕКСИ)
+        // Якщо ми забрали весь текст до початку цього вузла (або курсор на початку),
+        // перевіряємо, чи немає ліворуч степеня або індексу.
+        if (startOffset === 0) {
+            let prev = currentNode.previousSibling;
+            // Пропускаємо порожні текстові вузли (пробіли)
+            while (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.trim() === '') {
+                prev = prev.previousSibling;
+            }
+            
+            // Якщо знайшли степінь або індекс - переносимо його
+            if (prev && prev.classList && (prev.classList.contains('math-sup') || prev.classList.contains('math-sub'))) {
+                // Вставляємо елемент ПЕРЕД текстом у фрагменті
+                if (fragment.firstChild) {
+                    fragment.insertBefore(prev, fragment.firstChild);
+                } else {
+                    fragment.appendChild(prev);
+                }
+            }
+        }
+    } 
+    // 3. Якщо курсор між елементами (наприклад, одразу після закриваючого тега </span>)
+    else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+        if (currentOffset > 0) {
+            const prevNode = currentNode.childNodes[currentOffset - 1];
+            if (prevNode && prevNode.classList && (prevNode.classList.contains('math-sup') || prevNode.classList.contains('math-sub'))) {
+                fragment.appendChild(prevNode);
+            }
+        }
     }
 
-    if (collectedNodes.length === 0) return null;
-
-    for (let i = collectedNodes.length - 1; i >= 0; i--) {
-        fragment.appendChild(collectedNodes[i].clone);
-    }
-
+    if (fragment.childNodes.length === 0) return null;
     return fragment;
 }
 
