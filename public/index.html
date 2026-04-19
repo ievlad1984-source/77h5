@@ -1639,12 +1639,22 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    // КУРСОР У ЧИСЕЛЬНИК (виправлено)
-    const newRange = document.createRange();
-    newRange.selectNodeContents(numSpan);
+// ✅ ПЕРЕВІРКА: чи є вміст у чисельнику
+const hasNumeratorContent = numSpan.textContent && 
+                             numSpan.textContent.trim() !== '' && 
+                             numSpan.textContent !== '\u200B';
+
+// ✅ КУРСОР У ЗНАМЕННИК (якщо чисельник не пустий)
+const newRange = document.createRange();
+if (hasNumeratorContent) {
+    newRange.selectNodeContents(denSpan);  // ← Знаменатель
+    newRange.collapse(true);
+} else {
+    newRange.selectNodeContents(numSpan);  // ← Числитель
     newRange.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
+}
+sel.removeAllRanges();
+sel.addRange(newRange);
     
     if (editorDiv) {
         const wrapper = editorDiv.parentElement;
