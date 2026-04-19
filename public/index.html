@@ -1663,41 +1663,48 @@ function collectNumeratorContent(range, editorDiv) {
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
     
+    // Знаки, які НЕ повинні входити в чисельник (розділювачі між виразами)
+    const separatorChars = /[+\-*/=<>]/;
+    
     // 1. Якщо курсор всередині текстового вузла
     if (currentNode.nodeType === Node.TEXT_NODE) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
         
-        // Шукаємо розділювачі (пробіл, знаки операцій), щоб не забрати зайве
-        const separators = /[><=+\-*:\s]/g;
+        // Знаходимо останній розділювач (оператор)
         let lastSepIndex = -1;
-        let match;
-        while ((match = separators.exec(textBefore)) !== null) {
-            lastSepIndex = match.index;
+        for (let i = textBefore.length - 1; i >= 0; i--) {
+            if (separatorChars.test(textBefore[i])) {
+                lastSepIndex = i;
+                break;
+            }
         }
 
         let startOffset = 0;
         if (lastSepIndex !== -1) {
+            // Зберігаємо оператор перед дробом (не видаляємо його)
             startOffset = lastSepIndex + 1;
         }
 
-        // Якщо є текст для переносу
+        // Збираємо текст для чисельника (після останнього оператора)
         if (currentOffset > startOffset) {
             const numeratorText = textBefore.substring(startOffset);
             if (numeratorText.length > 0) {
                 const textNode = document.createTextNode(numeratorText);
                 fragment.appendChild(textNode);
                 // Видаляємо перенесений текст з оригінального вузла
-                currentNode.textContent = currentNode.textContent.substring(currentOffset);
-                range.setStart(currentNode, 0);
+                currentNode.textContent = textBefore.substring(0, startOffset) + 
+                                         currentNode.textContent.substring(currentOffset);
+                range.setStart(currentNode, startOffset);
             }
         }
 
         // 2. ПЕРЕВІРКА НА СУСІДНІ ЕЛЕМЕНТИ (СТЕПІНІ/ІНДЕКСИ)
-        // Якщо ми забрали весь текст до початку цього вузла (або курсор на початку),
-        // перевіряємо, чи немає ліворуч степеня або індексу.
-        if (startOffset === 0) {
+        // Якщо ми забрали текст або курсор на початку, перевіряємо чи немає ліворуч степеня/індексу
+        let checkForSupSub = (currentOffset === startOffset);
+        
+        if (checkForSupSub) {
             let prev = currentNode.previousSibling;
-            // Пропускаємо порожні текстові вузли (пробіли)
+            // Пропускаємо порожні текстові вузли
             while (prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.trim() === '') {
                 prev = prev.previousSibling;
             }
@@ -1713,7 +1720,7 @@ function collectNumeratorContent(range, editorDiv) {
             }
         }
     } 
-    // 3. Якщо курсор між елементами (наприклад, одразу після закриваючого тега </span>)
+    // 3. Якщо курсор між елементами
     else if (currentNode.nodeType === Node.ELEMENT_NODE) {
         if (currentOffset > 0) {
             const prevNode = currentNode.childNodes[currentOffset - 1];
