@@ -7,28 +7,8 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": [
-    "whiteboard",
-    "socket.io",
-    "express",
-    "math",
-    "education"
-  ],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "express": "^4.21.0",
-    "socket.io": "^4.8.0"
-  }
-}
-{
-  "name": "whiteboard",
-  "version": "1.0.0",
-  "description": "Математична дошка з підтримкою реального часу",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+  "engines": {
+    "node": "22.x"
   },
   "keywords": [
     "whiteboard",
