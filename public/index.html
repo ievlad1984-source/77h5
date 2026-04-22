@@ -1134,10 +1134,10 @@ function draw() {
 }
 
 // ============================================
-// МАЛЮВАННЯ СЕГМЕНТОВАНОГО ТЕКСТУ
+// ✅ ВИПРАВЛЕНА ФУНКЦІЯ МАЛЮВАННЯ СЕГМЕНТОВАНОГО ТЕКСТУ
 // ============================================
 
-function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
+function drawSegmentedText(ctx, segments, x, y, baseSize, isBold, textColor) {
     let currentX = x;
     let currentY = y;
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
@@ -1154,73 +1154,51 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
         
         if (s.type === 'normal') {
             ctx.font = normalFont;
+            ctx.fillStyle = textColor || '#000';
             ctx.fillText(s.text, currentX, currentY);
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'sup') {
             ctx.font = smallFont;
+            ctx.fillStyle = textColor || '#000';
             ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'sub') {
             ctx.font = smallFont;
+            ctx.fillStyle = textColor || '#000';
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'frac') {
+            // ✅ ВИПРАВЛЕННЯ: Рекурсивна обробка дробів
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
             const fracW = Math.max(numMetrics.w, denMetrics.w);
-            const gap = 3;
+            const gap = 2;
             
             const numStartX = currentX + (fracW - numMetrics.w) / 2;
             const denStartX = currentX + (fracW - denMetrics.w) / 2;
             
-            const fractionCenterY = currentY - (baseSize * 0.15);
+            const fractionCenterY = currentY - (baseSize * 0.1);
             const lineY = fractionCenterY;
             
-            const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
-            const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
+            const numBaselineY = lineY - gap - (baseSize * 0.3);
+            const denBaselineY = lineY + gap + (baseSize * 0.3);
             
-            ctx.font = normalFont;
-            let cx = numStartX;
-            s.numerator.forEach(seg => {
-                if(seg.type === 'normal') {
-                    ctx.fillText(seg.text, cx, numBaselineY);
-                    cx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'sup') {
-                    ctx.font = smallFont;
-                    ctx.fillText(seg.text, cx, numBaselineY - baseSize * 0.5);
-                    ctx.font = normalFont;
-                    cx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'sub') {
-                    ctx.font = smallFont;
-                    ctx.fillText(seg.text, cx, numBaselineY + baseSize * 0.3);
-                    ctx.font = normalFont;
-                    cx += ctx.measureText(seg.text).width;
-                }
-            });
+            // Малюємо чисельник (рекурсивно)
+            drawSegmentedText(ctx, s.numerator, numStartX, numBaselineY, baseSize, isBold, textColor);
             
+            // ✅ ВИПРАВЛЕННЯ: Малюємо дробову риску з явним стилем
+            ctx.save();
             ctx.beginPath();
+            ctx.strokeStyle = textColor || '#000';
+            ctx.lineWidth = Math.max(1, baseSize * 0.08);
             ctx.moveTo(currentX, lineY);
             ctx.lineTo(currentX + fracW, lineY);
             ctx.stroke();
+            ctx.restore();
             
-            let dx = denStartX;
-            s.denominator.forEach(seg => {
-                if(seg.type === 'normal') {
-                    ctx.fillText(seg.text, dx, denBaselineY);
-                    dx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'sup') {
-                    ctx.font = smallFont;
-                    ctx.fillText(seg.text, dx, denBaselineY - baseSize * 0.5);
-                    ctx.font = normalFont;
-                    dx += ctx.measureText(seg.text).width;
-                } else if (seg.type === 'sub') {
-                    ctx.font = smallFont;
-                    ctx.fillText(seg.text, dx, denBaselineY + baseSize * 0.3);
-                    ctx.font = normalFont;
-                    dx += ctx.measureText(seg.text).width;
-                }
-            });
+            // Малюємо знаменник (рекурсивно)
+            drawSegmentedText(ctx, s.denominator, denStartX, denBaselineY, baseSize, isBold, textColor);
             
             currentX += fracW;
         }
@@ -1541,7 +1519,8 @@ function drawObject(obj, isTemp = false) {
         const baseSize = obj.size * scale;
         
         if (obj.segments && obj.segments.length > 0) {
-            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
+            // ✅ ВИПРАВЛЕННЯ: Передаємо колір тексту в drawSegmentedText
+            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold, obj.color || '#000');
         } else if (obj.text && obj.text.trim() !== '') {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const textLines = obj.text.split('\n');
