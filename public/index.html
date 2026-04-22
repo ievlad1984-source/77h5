@@ -1134,10 +1134,10 @@ function draw() {
 }
 
 // ============================================
-// ✅ ВИПРАВЛЕНА ФУНКЦІЯ МАЛЮВАННЯ СЕГМЕНТОВАНОГО ТЕКСТУ
+// ✅ ВИПРАВЛЕНА ФУНКЦІЯ МАЛЮВАННЯ ДРОБІВ
 // ============================================
 
-function drawSegmentedText(ctx, segments, x, y, baseSize, isBold, textColor) {
+function drawSegmentedText(drawCtx, segments, x, y, baseSize, isBold, textColor) {
     let currentX = x;
     let currentY = y;
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
@@ -1153,52 +1153,53 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold, textColor) {
         }
         
         if (s.type === 'normal') {
-            ctx.font = normalFont;
-            ctx.fillStyle = textColor || '#000';
-            ctx.fillText(s.text, currentX, currentY);
-            currentX += ctx.measureText(s.text).width;
+            drawCtx.font = normalFont;
+            drawCtx.fillStyle = textColor || '#000';
+            drawCtx.fillText(s.text, currentX, currentY);
+            currentX += drawCtx.measureText(s.text).width;
         } else if (s.type === 'sup') {
-            ctx.font = smallFont;
-            ctx.fillStyle = textColor || '#000';
-            ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
-            currentX += ctx.measureText(s.text).width;
+            drawCtx.font = smallFont;
+            drawCtx.fillStyle = textColor || '#000';
+            drawCtx.fillText(s.text, currentX, currentY - baseSize * 0.5);
+            currentX += drawCtx.measureText(s.text).width;
         } else if (s.type === 'sub') {
-            ctx.font = smallFont;
-            ctx.fillStyle = textColor || '#000';
-            ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
-            currentX += ctx.measureText(s.text).width;
+            drawCtx.font = smallFont;
+            drawCtx.fillStyle = textColor || '#000';
+            drawCtx.fillText(s.text, currentX, currentY + baseSize * 0.3);
+            currentX += drawCtx.measureText(s.text).width;
         } else if (s.type === 'frac') {
-            // ✅ ВИПРАВЛЕННЯ: Рекурсивна обробка дробів
+            // Вимірюємо чисельник і знаменник
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
             const fracW = Math.max(numMetrics.w, denMetrics.w);
-            const gap = 2;
+            const fracGap = 3;
             
             const numStartX = currentX + (fracW - numMetrics.w) / 2;
             const denStartX = currentX + (fracW - denMetrics.w) / 2;
             
-            const fractionCenterY = currentY - (baseSize * 0.1);
-            const lineY = fractionCenterY;
+            // Позиція дробової риски
+            const fractionCenterY = currentY;
             
-            const numBaselineY = lineY - gap - (baseSize * 0.3);
-            const denBaselineY = lineY + gap + (baseSize * 0.3);
+            // Базові лінії для чисельника і знаменника
+            const numBaselineY = fractionCenterY - fracGap - (baseSize * 0.35);
+            const denBaselineY = fractionCenterY + fracGap + (baseSize * 0.35);
             
-            // Малюємо чисельник (рекурсивно)
-            drawSegmentedText(ctx, s.numerator, numStartX, numBaselineY, baseSize, isBold, textColor);
+            // ✅ МАЛЮЄМО ЧИСЕЛЬНИК
+            drawSegmentedText(drawCtx, s.numerator, numStartX, numBaselineY, baseSize, isBold, textColor);
             
-            // ✅ ВИПРАВЛЕННЯ: Малюємо дробову риску з явним стилем
-            ctx.save();
-            ctx.beginPath();
-            ctx.strokeStyle = textColor || '#000';
-            ctx.lineWidth = Math.max(1, baseSize * 0.08);
-            ctx.moveTo(currentX, lineY);
-            ctx.lineTo(currentX + fracW, lineY);
-            ctx.stroke();
-            ctx.restore();
+            // ✅ МАЛЮЄМО ДРОБОВУ РИСКУ (ВИПРАВЛЕНО)
+            drawCtx.save();
+            drawCtx.beginPath();
+            drawCtx.strokeStyle = textColor || '#000';
+            drawCtx.lineWidth = Math.max(1.5, baseSize * 0.08);
+            drawCtx.moveTo(currentX, fractionCenterY);
+            drawCtx.lineTo(currentX + fracW, fractionCenterY);
+            drawCtx.stroke();
+            drawCtx.restore();
             
-            // Малюємо знаменник (рекурсивно)
-            drawSegmentedText(ctx, s.denominator, denStartX, denBaselineY, baseSize, isBold, textColor);
+            // ✅ МАЛЮЄМО ЗНАМЕННИК
+            drawSegmentedText(drawCtx, s.denominator, denStartX, denBaselineY, baseSize, isBold, textColor);
             
             currentX += fracW;
         }
@@ -1330,31 +1331,31 @@ function drawCoordinateGrid(obj) {
 // МАЛЮВАННЯ ПЛАВНИХ ЛІНІЙ
 // ============================================
 
-function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
+function drawSmoothPath(drawCtx, points, scaleX, offsetX, offsetY) {
     if (points.length === 0) return;
     
     if (points.length === 1) {
         const p = points[0];
-        ctx.beginPath();
-        ctx.arc(p.x * scaleX + offsetX, p.y * scaleX + offsetY, 1, 0, Math.PI * 2);
-        ctx.fill();
+        drawCtx.beginPath();
+        drawCtx.arc(p.x * scaleX + offsetX, p.y * scaleX + offsetY, 1, 0, Math.PI * 2);
+        drawCtx.fill();
         return;
     }
     
     if (points.length === 2) {
         const p0 = points[0];
         const p1 = points[1];
-        ctx.beginPath();
-        ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
-        ctx.lineTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY);
-        ctx.stroke();
+        drawCtx.beginPath();
+        drawCtx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+        drawCtx.lineTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY);
+        drawCtx.stroke();
         return;
     }
     
-    ctx.beginPath();
+    drawCtx.beginPath();
     
     const p0 = points[0];
-    ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+    drawCtx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
     
     for (let i = 1; i < points.length - 1; i++) {
         const p1 = points[i];
@@ -1363,7 +1364,7 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
         const midX = (p1.x + p2.x) / 2;
         const midY = (p1.y + p2.y) / 2;
         
-        ctx.quadraticCurveTo(
+        drawCtx.quadraticCurveTo(
             p1.x * scaleX + offsetX, 
             p1.y * scaleX + offsetY, 
             midX * scaleX + offsetX, 
@@ -1372,9 +1373,9 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
     }
     
     const lastPoint = points[points.length - 1];
-    ctx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
+    drawCtx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
     
-    ctx.stroke();
+    drawCtx.stroke();
 }
 
 // ============================================
@@ -1519,7 +1520,7 @@ function drawObject(obj, isTemp = false) {
         const baseSize = obj.size * scale;
         
         if (obj.segments && obj.segments.length > 0) {
-            // ✅ ВИПРАВЛЕННЯ: Передаємо колір тексту в drawSegmentedText
+            // ✅ ВИПРАВЛЕНО: Передаємо ctx як перший параметр
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold, obj.color || '#000');
         } else if (obj.text && obj.text.trim() !== '') {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
