@@ -1,6 +1,3 @@
-### 1. Файл `server.js` (Сервер)
-
-
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
@@ -69,29 +66,20 @@ io.on('connection', (socket) => {
     log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
     log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
 
-    // Відправляємо поточний стан новому користувачу
     socket.emit('init-history', boardsData[boardId]);
 
-    // Новий об'єкт (малюнок, фігура)
     socket.on('new-object', (obj) => {
         if (!obj || typeof obj !== 'object') return;
         
         boardsData[boardId].push(obj);
-        
-        // Розсилаємо ВСІМ в кімнаті (включно з відправником для гарантії синхронізації)
         io.in(boardId).emit('new-object', obj);
         log(`[SERVER] Новий об'єкт в ${boardId}. Всього об'єктів: ${boardsData[boardId].length}`);
     });
 
-    // Оновлення стану (рух, зміна тексту)
     socket.on('update-all', (data) => {
         if (!Array.isArray(data)) return;
         
         boardsData[boardId] = data;
-        
-        // ВИПРАВЛЕННЯ: Розсилаємо ВСІМ (io.in), а не тільки іншим (socket.to).
-        // Це критично, щоб користувач, який рухає об'єкт, отримав підтвердження від сервера
-        // і його локальний стан синхронізувався з іншими.
         io.in(boardId).emit('update-all', data);
         log(`[SERVER] Оновлено стан дошки ${boardId}. Об'єктів: ${data.length}`);
     });
