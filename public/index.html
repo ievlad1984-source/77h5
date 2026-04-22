@@ -527,7 +527,6 @@ let selectionEnd = { x: 0, y: 0 };
 
 let textEditor = null;
 let editingObject = null;
-let textUpdateTimer = null;
 
 let historyStack = [];
 let historyIndex = -1;
@@ -1134,10 +1133,10 @@ function draw() {
 }
 
 // ============================================
-// ✅ ВИПРАВЛЕНА ФУНКЦІЯ МАЛЮВАННЯ ДРОБІВ
+// МАЛЮВАННЯ СЕГМЕНТОВАНОГО ТЕКСТУ
 // ============================================
 
-function drawSegmentedText(drawCtx, segments, x, y, baseSize, isBold, textColor) {
+function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     let currentX = x;
     let currentY = y;
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
@@ -1153,53 +1152,74 @@ function drawSegmentedText(drawCtx, segments, x, y, baseSize, isBold, textColor)
         }
         
         if (s.type === 'normal') {
-            drawCtx.font = normalFont;
-            drawCtx.fillStyle = textColor || '#000';
-            drawCtx.fillText(s.text, currentX, currentY);
-            currentX += drawCtx.measureText(s.text).width;
+            ctx.font = normalFont;
+            ctx.fillText(s.text, currentX, currentY);
+            currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'sup') {
-            drawCtx.font = smallFont;
-            drawCtx.fillStyle = textColor || '#000';
-            drawCtx.fillText(s.text, currentX, currentY - baseSize * 0.5);
-            currentX += drawCtx.measureText(s.text).width;
+            ctx.font = smallFont;
+            ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
+            currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'sub') {
-            drawCtx.font = smallFont;
-            drawCtx.fillStyle = textColor || '#000';
-            drawCtx.fillText(s.text, currentX, currentY + baseSize * 0.3);
-            currentX += drawCtx.measureText(s.text).width;
+            ctx.font = smallFont;
+            ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
+            currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'frac') {
-            // Вимірюємо чисельник і знаменник
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
             const fracW = Math.max(numMetrics.w, denMetrics.w);
-            const fracGap = 3;
+            const gap = 3;
             
             const numStartX = currentX + (fracW - numMetrics.w) / 2;
             const denStartX = currentX + (fracW - denMetrics.w) / 2;
             
-            // Позиція дробової риски
-            const fractionCenterY = currentY;
+            const fractionCenterY = currentY - (baseSize * 0.15);
+            const lineY = fractionCenterY;
             
-            // Базові лінії для чисельника і знаменника
-            const numBaselineY = fractionCenterY - fracGap - (baseSize * 0.35);
-            const denBaselineY = fractionCenterY + fracGap + (baseSize * 0.35);
+            const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
+            const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
             
-            // ✅ МАЛЮЄМО ЧИСЕЛЬНИК
-            drawSegmentedText(drawCtx, s.numerator, numStartX, numBaselineY, baseSize, isBold, textColor);
+            ctx.font = normalFont;
+            let cx = numStartX;
+            s.numerator.forEach(seg => {
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, cx, numBaselineY);
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                }
+            });
             
-            // ✅ МАЛЮЄМО ДРОБОВУ РИСКУ (ВИПРАВЛЕНО)
-            drawCtx.save();
-            drawCtx.beginPath();
-            drawCtx.strokeStyle = textColor || '#000';
-            drawCtx.lineWidth = Math.max(1.5, baseSize * 0.08);
-            drawCtx.moveTo(currentX, fractionCenterY);
-            drawCtx.lineTo(currentX + fracW, fractionCenterY);
-            drawCtx.stroke();
-            drawCtx.restore();
+            ctx.beginPath();
+            ctx.moveTo(currentX, lineY);
+            ctx.lineTo(currentX + fracW, lineY);
+            ctx.stroke();
             
-            // ✅ МАЛЮЄМО ЗНАМЕННИК
-            drawSegmentedText(drawCtx, s.denominator, denStartX, denBaselineY, baseSize, isBold, textColor);
+            let dx = denStartX;
+            s.denominator.forEach(seg => {
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, dx, denBaselineY);
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                }
+            });
             
             currentX += fracW;
         }
@@ -1331,31 +1351,31 @@ function drawCoordinateGrid(obj) {
 // МАЛЮВАННЯ ПЛАВНИХ ЛІНІЙ
 // ============================================
 
-function drawSmoothPath(drawCtx, points, scaleX, offsetX, offsetY) {
+function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
     if (points.length === 0) return;
     
     if (points.length === 1) {
         const p = points[0];
-        drawCtx.beginPath();
-        drawCtx.arc(p.x * scaleX + offsetX, p.y * scaleX + offsetY, 1, 0, Math.PI * 2);
-        drawCtx.fill();
+        ctx.beginPath();
+        ctx.arc(p.x * scaleX + offsetX, p.y * scaleX + offsetY, 1, 0, Math.PI * 2);
+        ctx.fill();
         return;
     }
     
     if (points.length === 2) {
         const p0 = points[0];
         const p1 = points[1];
-        drawCtx.beginPath();
-        drawCtx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
-        drawCtx.lineTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY);
-        drawCtx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+        ctx.lineTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY);
+        ctx.stroke();
         return;
     }
     
-    drawCtx.beginPath();
+    ctx.beginPath();
     
     const p0 = points[0];
-    drawCtx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+    ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
     
     for (let i = 1; i < points.length - 1; i++) {
         const p1 = points[i];
@@ -1364,7 +1384,7 @@ function drawSmoothPath(drawCtx, points, scaleX, offsetX, offsetY) {
         const midX = (p1.x + p2.x) / 2;
         const midY = (p1.y + p2.y) / 2;
         
-        drawCtx.quadraticCurveTo(
+        ctx.quadraticCurveTo(
             p1.x * scaleX + offsetX, 
             p1.y * scaleX + offsetY, 
             midX * scaleX + offsetX, 
@@ -1373,9 +1393,9 @@ function drawSmoothPath(drawCtx, points, scaleX, offsetX, offsetY) {
     }
     
     const lastPoint = points[points.length - 1];
-    drawCtx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
+    ctx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
     
-    drawCtx.stroke();
+    ctx.stroke();
 }
 
 // ============================================
@@ -1520,8 +1540,7 @@ function drawObject(obj, isTemp = false) {
         const baseSize = obj.size * scale;
         
         if (obj.segments && obj.segments.length > 0) {
-            // ✅ ВИПРАВЛЕНО: Передаємо ctx як перший параметр
-            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold, obj.color || '#000');
+            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
         } else if (obj.text && obj.text.trim() !== '') {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const textLines = obj.text.split('\n');
@@ -1620,18 +1639,10 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    const hasNumeratorContent = numSpan.textContent && 
-                                 numSpan.textContent.trim() !== '' && 
-                                 numSpan.textContent !== '\u200B';
-
+    // КУРСОР У ЧИСЕЛЬНИК (виправлено)
     const newRange = document.createRange();
-    if (hasNumeratorContent) {
-        newRange.selectNodeContents(denSpan);
-        newRange.collapse(true);
-    } else {
-        newRange.selectNodeContents(numSpan);
-        newRange.collapse(false);
-    }
+    newRange.selectNodeContents(numSpan);
+    newRange.collapse(false);
     sel.removeAllRanges();
     sel.addRange(newRange);
     
@@ -1645,7 +1656,7 @@ function insertFraction(editorDiv, numeratorContent) {
 }
 
 // ============================================
-// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА
+// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА (ВИПРАВЛЕНА ВЕРСІЯ)
 // ============================================
 
 function collectNumeratorContent(range, editorDiv) {
@@ -1653,8 +1664,13 @@ function collectNumeratorContent(range, editorDiv) {
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
     
+    // Знаки-розділювачі: пробіл та арифметичні оператори
     const separatorChars = /[+\-*/:><=\s]/;
+    
     let hasContent = false;
+    
+    // 1. Спочатку перевіряємо сусідні елементи (степені/індекси)
+    // Це важливо для випадків коли курсор одразу після степеня
     let nodeBeforeCursor = null;
     
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -1667,21 +1683,26 @@ function collectNumeratorContent(range, editorDiv) {
         }
     }
 
+    // Пропускаємо порожні текстові вузли
     while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
         nodeBeforeCursor = nodeBeforeCursor.previousSibling;
     }
 
+    // Якщо знайдено степінь або індекс
     if (nodeBeforeCursor && nodeBeforeCursor.classList && 
         (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
         
+        // Шукаємо базовий текст перед степенем
         let baseNode = nodeBeforeCursor.previousSibling;
         while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
             baseNode = baseNode.previousSibling;
         }
 
+        // Додаємо базовий текст (якщо є)
         if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
             const baseText = baseNode.textContent.trim();
             if (baseText.length > 0) {
+                // Перевіряємо чи є розділювач в базовому тексті
                 let lastSepIndex = -1;
                 for (let i = baseText.length - 1; i >= 0; i--) {
                     if (separatorChars.test(baseText[i])) {
@@ -1691,28 +1712,36 @@ function collectNumeratorContent(range, editorDiv) {
                 }
                 
                 if (lastSepIndex === -1) {
+                    // Немає розділювача - беремо весь текст
                     const textNode = document.createTextNode(baseText);
                     fragment.insertBefore(textNode, fragment.firstChild);
                     hasContent = true;
+                    // Видаляємо текст з оригінального вузла
                     baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
                 } else {
+                    // Є розділювач - беремо тільки частину після нього
                     const numeratorText = baseText.substring(lastSepIndex + 1);
                     if (numeratorText.trim().length > 0) {
                         const textNode = document.createTextNode(numeratorText);
                         fragment.insertBefore(textNode, fragment.firstChild);
                         hasContent = true;
+                        // Видаляємо тільки частину для чисельника
                         baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
                     }
                 }
             }
         }
         
+        // Додаємо степінь/індекс
         fragment.appendChild(nodeBeforeCursor);
         hasContent = true;
     }
     
+    // 2. Обробка текстового вмісту перед курсором (якщо не було степеня)
     if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
+        
+        // Знаходимо останній розділювач
         let lastSepIndex = -1;
         for (let i = textBefore.length - 1; i >= 0; i--) {
             if (separatorChars.test(textBefore[i])) {
@@ -1726,12 +1755,14 @@ function collectNumeratorContent(range, editorDiv) {
             startOffset = lastSepIndex + 1;
         }
 
+        // Збираємо текст після останнього розділювача
         if (currentOffset > startOffset) {
             const numeratorText = textBefore.substring(startOffset);
             if (numeratorText.trim().length > 0) {
                 const textNode = document.createTextNode(numeratorText);
                 fragment.appendChild(textNode);
                 hasContent = true;
+                // Оновлюємо оригінальний вузол
                 currentNode.textContent = textBefore.substring(0, startOffset) + 
                                          currentNode.textContent.substring(currentOffset);
                 range.setStart(currentNode, startOffset);
@@ -1836,6 +1867,7 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
+        // Створення дробу клавішею /
         if (e.key === '/') {
             e.preventDefault();
             const numeratorContent = collectNumeratorContent(range, editorDiv);
@@ -1844,6 +1876,7 @@ function startTextEdit(obj) {
             return;
         }
 
+        // Створення степеня/індексу
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const type = e.key === '^' ? 'sup' : 'sub';
@@ -1852,38 +1885,38 @@ function startTextEdit(obj) {
             return;
         }
         
+        // Навігація правою стрілкою
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
-            if (parent && parent.classList.contains('math-den')) {
-                e.preventDefault();
-                const frac = parent.parentElement;
-                const nextSibling = frac.nextSibling;
-                if (nextSibling) {
-                    const newRange = document.createRange();
-                    if (nextSibling.nodeType === Node.TEXT_NODE) {
-                        newRange.setStart(nextSibling, 0);
-                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                        newRange.selectNodeContents(nextSibling);
-                        newRange.collapse(true);
-                    }
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                } else {
-                    const textNode = document.createTextNode('\u200B');
-                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                    const newRange = document.createRange();
-                    newRange.setStart(textNode, 0);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
-                return;
-            }
-            
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
             if (isAtEnd && parent) {
-                if (parent.classList.contains('math-num')) {
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const nextSibling = frac.nextSibling;
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('');
+                        frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                } 
+                else if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const denSpan = parent.parentElement.querySelector('.math-den');
                     if (denSpan) {
@@ -1909,7 +1942,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('\u200B');
+                        const textNode = document.createTextNode('');
                         parent.parentNode.insertBefore(textNode, parent.nextSibling);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
@@ -1921,6 +1954,7 @@ function startTextEdit(obj) {
             }
         }
         
+        // Навігація лівою стрілкою
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
             let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
@@ -1954,7 +1988,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('\u200B');
+                        const textNode = document.createTextNode('');
                         frac.parentNode.insertBefore(textNode, frac);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
@@ -1977,7 +2011,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('\u200B');
+                        const textNode = document.createTextNode('');
                         parent.parentNode.insertBefore(textNode, parent);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
@@ -2005,14 +2039,7 @@ function startTextEdit(obj) {
         updateSize();
         if (editingObject) {
             editingObject.text = editorDiv.innerText;
-            requestDraw(); 
-            
-            if (textUpdateTimer) clearTimeout(textUpdateTimer);
-            textUpdateTimer = setTimeout(() => {
-                if (socket && socket.connected) {
-                    socket.emit('update-all', objects);
-                }
-            }, 500);
+            if (socket && socket.connected) socket.emit('update-all', objects);
         }
     });
     
@@ -2429,15 +2456,10 @@ canvas.addEventListener('mouseup', () => {
     }
     
     if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen') {
-            if (currentPath.points.length === 0) {
-                currentPath.points.push({ x: currentPath.x, y: currentPath.y });
-            }
-            if (currentPath.points.length > 0) {
-                saveHistory();
-                objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', currentPath);
-            }
+        if (currentPath.type === 'pen' && currentPath.points.length > 1) {
+            saveHistory();
+            objects.push(currentPath);
+            if (socket && socket.connected) socket.emit('new-object', currentPath);
         } else if (currentPath.type === 'shape') {
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
@@ -2823,22 +2845,7 @@ window.addEventListener('paste', (e) => {
 // ============================================
 
 socket.on('init-history', (h) => { 
-    let currentEditText = null;
-    
-    if (editingObject && textEditor) {
-        const editorDiv = textEditor.querySelector('.text-edit-content');
-        currentEditText = editorDiv.innerText;
-    }
-
     objects = h;
-    
-    if (editingObject && currentEditText !== null) {
-        const localObj = objects.find(o => o === editingObject);
-        if (localObj) {
-            localObj.text = currentEditText;
-        }
-    }
-
     historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
     historyIndex = 0;
     let imagesLoaded = 0;
@@ -2885,6 +2892,7 @@ socket.on('board-deleted', () => {
     historyIndex = -1;
     requestDraw(); 
 });
+
 </script>
 </body>
 </html>
