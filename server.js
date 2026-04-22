@@ -1,20 +1,23 @@
+### 1. Файл `server.js` (Сервер)
+
+
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, { 
     cors: { 
-        origin: "*",
+        origin: "*", 
         methods: ["GET", "POST"]
     },
-    maxHttpBufferSize: 1e8,
+    maxHttpBufferSize: 1e8, 
     pingTimeout: 60000,
     pingInterval: 25000
 });
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const boardsData = {};
-const boardTimers = {};
+const boardsData = {}; 
+const boardTimers = {}; 
 
 function log(message) {
     const timestamp = new Date().toLocaleTimeString('uk-UA');
@@ -37,33 +40,27 @@ app.get('/:boardId', (req, res) => {
     }
     if (boardId.includes('.')) {
         log(`[SECURITY] Спроба доступу до файлу через URL: ${boardId}`);
-        return res.status(404极速飞艇开奖直播开奖结果).send('Not found');
+        return res.status(404).send('Not found');
     }
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ✅ ВСЕ обробники socket.on() ПОВИННІ бути ВСЕРЕДИНІ цієї функції:
 io.on('connection', (socket) => {
-    // Отримуємо ID дошки
     const boardId = socket.handshake.query.boardId || 'main';
     
-    // Валідація boardId
     if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
         log(`[SECURITY] Недопустимий boardId від сокету: ${boardId}`);
         socket.disconnect(true);
         return;
     }
     
-    // Підключаємо сокет до кімнати
     socket.join(boardId);
     
-    // Ініціалізуємо дошку, якщо потрібно
     if (!boardsData[boardId]) {
         boardsData[boardId] = [];
         log(`[SERVER] Створено нову дошку: ${boardId}`);
     }
     
-    // Очищаємо таймер видалення
     if (boardTimers[boardId]) {
         clearTimeout(boardTimers[boardId]);
         delete boardTimers[boardId];
@@ -72,29 +69,30 @@ io.on('connection', (socket) => {
     log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
     log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
 
-    // Надсилаємо поточну історію
+    // Відправляємо поточний стан новому користувачу
     socket.emit('init-history', boardsData[boardId]);
 
-    // ✅ ОБРОБНИКИ ПОДІЙ - всередині connection handler:
+    // Новий об'єкт (малюнок, фігура)
     socket.on('new-object', (obj) => {
-        if (!obj || typeof obj !== 'object') {
-            log(`[WARNING] Отримано некоректний об'єкт від ${socket.id}`);
-            return;
-        }
+        if (!obj || typeof obj !== 'object') return;
         
         boardsData[boardId].push(obj);
-        socket.to(boardId).emit('new-object', obj);
+        
+        // Розсилаємо ВСІМ в кімнаті (включно з відправником для гарантії синхронізації)
+        io.in(boardId).emit('new-object', obj);
         log(`[SERVER] Новий об'єкт в ${boardId}. Всього об'єктів: ${boardsData[boardId].length}`);
     });
 
+    // Оновлення стану (рух, зміна тексту)
     socket.on('update-all', (data) => {
-        if (!Array.isArray(data)) {
-            log(`[WARNING] Отримано некоректні дані update-all від ${socket.id}`);
-            return;
-        }
+        if (!Array.isArray(data)) return;
         
         boardsData[boardId] = data;
-        socket.to(boardId).emit('init-history', data);
+        
+        // ВИПРАВЛЕННЯ: Розсилаємо ВСІМ (io.in), а не тільки іншим (socket.to).
+        // Це критично, щоб користувач, який рухає об'єкт, отримав підтвердження від сервера
+        // і його локальний стан синхронізувався з іншими.
+        io.in(boardId).emit('update-all', data);
         log(`[SERVER] Оновлено стан дошки ${boardId}. Об'єктів: ${data.length}`);
     });
 
@@ -117,7 +115,7 @@ io.on('connection', (socket) => {
         
         const room = io.sockets.adapter.rooms.get(boardId);
         const roomSize = room?.size || 0;
-        log(`[SERVER] В кімнаті ${board极速飞艇开奖直播开奖结果Id} залишилось ${roomSize} користувачів`);
+        log(`[SERVER] В кімнаті ${boardId} залишилось ${roomSize} користувачів`);
         
         if (roomSize === 0) {
             log(`[SERVER] Кімната ${boardId} пуста. Заплановано видалення через 5 хв`);
@@ -131,13 +129,12 @@ io.on('connection', (socket) => {
             }, 5 * 60 * 1000);
         }
     });
-
+    
     socket.on('error', (error) => {
         log(`[ERROR] Помилка сокету ${socket.id}: ${error.message}`);
     });
-}); // <- Кінець обробника connection
+});
 
-// Запуск сервера
 http.listen(PORT, () => {
     log('========================================');
     log(`СЕРВЕР ЗАПУЩЕНО: http://localhost:${PORT}`);
