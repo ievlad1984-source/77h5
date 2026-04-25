@@ -602,9 +602,8 @@
     </button>
     
     <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
-    <button class="tool-btn" data-tool="text" title="Текст">Т</button>
-
-    <button class="tool-btn" data-tool="fx" id="fxToolBtn" title="Математичні символи (fx)">
+    
+    <button class="tool-btn" data-tool="text" id="fxToolBtn" title="Текст та математика (fx)">
         <span>fx</span>
     </button>
     
@@ -647,71 +646,71 @@
 <div id="plusMinusPanel" class="popup-panel" style="top: 120px; left: 15px; width: 280px;">
     <div class="shape-category">Математичні операції</div>
     <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('+')" title="Плюс">+</button>
-        <button class="popup-btn" onclick="insertMathSymbol('-')" title="Мінус">−</button>
-        <button class="popup-btn" onclick="insertMathSymbol('×')" title="Множення">×</button>
-        <button class="popup-btn" onclick="insertMathSymbol('÷')" title="Ділення">÷</button>
-        <button class="popup-btn" onclick="insertMathSymbol('±')" title="Плюс-мінус">±</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∓')" title="Мінус-плюс">∓</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('+')" title="Плюс">+</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('−')" title="Мінус">−</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('×')" title="Множення">×</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('÷')" title="Ділення">÷</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('±')" title="Плюс-мінус">±</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∓')" title="Мінус-плюс">∓</button>
     </div>
     <div class="shape-category">Квантори</div>
     <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('∃')" title="Існування">∃</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∀')" title="Всі">∀</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∄')" title="Не існує">∄</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∈')" title="Належить">∈</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∉')" title="Не належить">∉</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∋')" title="Містить">∋</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∃')" title="Існування">∃</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∀')" title="Всі">∀</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∄')" title="Не існує">∄</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∈')" title="Належить">∈</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∉')" title="Не належить">∉</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∋')" title="Містить">∋</button>
     </div>
     <div class="shape-category">Множини</div>
     <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('∅')" title="Порожня множина">∅</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊂')" title="Підмножина">⊂</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊃')" title="Надмножина">⊃</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊆')" title="Підмножина або рівність">⊆</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊇')" title="Надмножина або рівність">⊇</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∪')" title="Об'єднання">∪</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∩')" title="Перетин">∩</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∖')" title="Різниця">∖</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∅')" title="Порожня множина">∅</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊂')" title="Підмножина">⊂</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊃')" title="Надмножина">⊃</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊆')" title="Підмножина або рівність">⊆</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊇')" title="Надмножина або рівність">⊇</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∪')" title="Об'єднання">∪</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∩')" title="Перетин">∩</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∖')" title="Різниця">∖</button>
     </div>
     <div class="shape-category">Геометрія</div>
     <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('∥')" title="Паралельні">∥</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊥')" title="Перпендикулярні">⊥</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∠')" title="Кут">∠</button>
-        <button class="popup-btn" onclick="insertMathSymbol('△')" title="Трикутник">△</button>
-        <button class="popup-btn" onclick="insertMathSymbol('□')" title="Квадрат">□</button>
-        <button class="popup-btn" onclick="insertMathSymbol('○')" title="Коло">○</button>
-        <button class="popup-btn" onclick="insertMathSymbol('°')" title="Градус">°</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊙')" title="Коло з центром">⊙</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∥')" title="Паралельні">∥</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊥')" title="Перпендикулярні">⊥</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∠')" title="Кут">∠</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('△')" title="Трикутник">△</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('□')" title="Квадрат">□</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('○')" title="Коло">○</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('°')" title="Градус">°</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊙')" title="Коло з центром">⊙</button>
     </div>
     <div class="shape-category">Логіка</div>
     <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('∧')" title="І (кон'юнкція)">∧</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∨')" title="Або (диз'юнкція)">∨</button>
-        <button class="popup-btn" onclick="insertMathSymbol('¬')" title="НЕ (заперечення)">¬</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊕')" title="Виключне АБО">⊕</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⇒')" title="Імплікація">⇒</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⇔')" title="Еквівалентність">⇔</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊤')" title="Істина">⊤</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊥')" title="Хибність">⊥</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∴')" title="Отже">∴</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∵')" title="Тому що">∵</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∧')" title="І (кон'юнкція)">∧</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∨')" title="Або (диз'юнкція)">∨</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('¬')" title="НЕ (заперечення)">¬</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊕')" title="Виключне АБО">⊕</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⇒')" title="Імплікація">⇒</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⇔')" title="Еквівалентність">⇔</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊤')" title="Істина">⊤</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('⊥')" title="Хибність">⊥</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∴')" title="Отже">∴</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∵')" title="Тому що">∵</button>
     </div>
     <div class="shape-category">Відношення</div>
     <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('=')" title="Дорівнює">=</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≠')" title="Не дорівнює">≠</button>
-        <button class="popup-btn" onclick="insertMathSymbol('<')" title="Менше">\<</button>
-        <button class="popup-btn" onclick="insertMathSymbol('>')" title="Більше">\></button>
-        <button class="popup-btn" onclick="insertMathSymbol('≤')" title="Менше або дорівнює">≤</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≥')" title="Більше або дорівнює">≥</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≈')" title="Приблизно">≈</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≡')" title="Тотожно">≡</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∼')" title="Подібно">∼</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≅')" title="Конгруентно">≅</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∞')" title="Нескінченність">∞</button>
-        <button class="popup-btn" onclick="insertMathSymbol('√')" title="Корінь">√</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('=')'" title="Дорівнює">=</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('≠')" title="Не дорівнює">≠</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('<')" title="Менше"><</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('>')" title="Більше">></button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('≤')" title="Менше або дорівнює">≤</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('≥')" title="Більше або дорівнює">≥</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('≈')" title="Приблизно">≈</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('≡')" title="Тотожно">≡</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∼')" title="Подібно">∼</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('≅')" title="Конгруентно">≅</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('∞')" title="Нескінченність">∞</button>
+        <button class="popup-btn" onclick="insertMathSymbolIntoEditor('√')" title="Корінь">√</button>
     </div>
 </div>
 
@@ -1218,25 +1217,6 @@ function initGreekPanels() {
 function insertGreekLetter(letter) {
     if (textEditor) {
         insertTextAtCursor(letter);
-    } else {
-        const centerX = (canvas.width / 2 - offsetX) / scale;
-        const centerY = (canvas.height / 2 - offsetY) / scale;
-        const obj = {
-            id: generateId(),
-            type: 'text',
-            x: centerX,
-            y: centerY,
-            text: letter,
-            color: currentPenColor,
-            size: 24,
-            isBold: false,
-            rotation: 0
-        };
-        saveHistory();
-        objects.push(obj);
-        selectedObjects = [obj];
-        if (socket && socket.connected) socket.emit('new-object', obj);
-        requestDraw();
     }
     hideAllPanels();
 }
@@ -1253,28 +1233,9 @@ function insertTextAtCursor(text) {
     sel.addRange(range);
 }
 
-function insertMathSymbol(symbol) {
+function insertMathSymbolIntoEditor(symbol) {
     if (textEditor) {
         insertTextAtCursor(symbol);
-    } else {
-        const centerX = (canvas.width / 2 - offsetX) / scale;
-        const centerY = (canvas.height / 2 - offsetY) / scale;
-        const obj = {
-            id: generateId(),
-            type: 'text',
-            x: centerX,
-            y: centerY,
-            text: symbol,
-            color: currentPenColor,
-            size: 24,
-            isBold: false,
-            rotation: 0
-        };
-        saveHistory();
-        objects.push(obj);
-        selectedObjects = [obj];
-        if (socket && socket.connected) socket.emit('new-object', obj);
-        requestDraw();
     }
     hideAllPanels();
 }
@@ -1419,71 +1380,30 @@ function updateIntPreview() {
 }
 
 function insertSummation() {
-    const centerX = (canvas.width / 2 - offsetX) / scale;
-    const centerY = (canvas.height / 2 - offsetY) / scale;
-    const upper = document.getElementById('sumUpperInput').value;
-    const lower = document.getElementById('sumLowerInput').value;
-    
-    const obj = {
-        id: generateId(),
-        type: 'text',
-        x: centerX,
-        y: centerY,
-        text: '∑',
-        color: currentPenColor,
-        size: 36,
-        isBold: false,
-        rotation: 0,
-        segments: [
-            { type: 'normal', text: upper + '\n' + lower + '\n∑' }
-        ]
-    };
-    
-    saveHistory();
-    objects.push(obj);
-    selectedObjects = [obj];
-    if (socket && socket.connected) socket.emit('new-object', obj);
-    requestDraw();
+    if (textEditor) {
+        const upper = document.getElementById('sumUpperInput').value || 'n';
+        const lower = document.getElementById('sumLowerInput').value || 'i=1';
+        insertTextAtCursor(upper + '\n' + lower + '\n∑');
+    }
     hideAllPanels();
 }
 
 function insertIntegral(order) {
-    const centerX = (canvas.width / 2 - offsetX) / scale;
-    const centerY = (canvas.height / 2 - offsetY) / scale;
-    const symbol = order === 1 ? '∫' : (order === 2 ? '∬' : '∭');
-    
-    let upper = '', lower = '';
-    if (order === 1) {
-        upper = document.getElementById('intUpperInput').value || 'b';
-        lower = document.getElementById('intLowerInput').value || 'a';
-    } else if (order === 2) {
-        upper = document.getElementById('dintUpperInput').value || 'D';
-        lower = document.getElementById('dintLowerInput').value || 'C';
-    } else {
-        upper = document.getElementById('tintUpperInput').value || 'V';
-        lower = document.getElementById('tintLowerInput').value || 'U';
+    if (textEditor) {
+        const symbol = order === 1 ? '∫' : (order === 2 ? '∬' : '∭');
+        let upper = '', lower = '';
+        if (order === 1) {
+            upper = document.getElementById('intUpperInput').value || 'b';
+            lower = document.getElementById('intLowerInput').value || 'a';
+        } else if (order === 2) {
+            upper = document.getElementById('dintUpperInput').value || 'D';
+            lower = document.getElementById('dintLowerInput').value || 'C';
+        } else {
+            upper = document.getElementById('tintUpperInput').value || 'V';
+            lower = document.getElementById('tintLowerInput').value || 'U';
+        }
+        insertTextAtCursor(upper + '\n' + lower + '\n' + symbol);
     }
-    
-    const obj = {
-        id: generateId(),
-        type: 'text',
-        x: centerX,
-        y: centerY,
-        text: symbol,
-        color: currentPenColor,
-        size: order === 1 ? 36 : (order === 2 ? 32 : 28),
-        isBold: false,
-        rotation: 0,
-        segments: [
-            { type: 'normal', text: upper + '\n' + lower + '\n' + symbol }
-        ]
-    };
-    
-    saveHistory();
-    objects.push(obj);
-    selectedObjects = [obj];
-    if (socket && socket.connected) socket.emit('new-object', obj);
-    requestDraw();
     hideAllPanels();
 }
 
@@ -1503,8 +1423,14 @@ const alphaPanel = document.getElementById('alphaPanel');
 const sigmaPanel = document.getElementById('sigmaPanel');
 
 fxBtn.addEventListener('click', () => {
-    mathToolbarRow.classList.toggle('visible');
-    hideAllPanels();
+    if (currentTool === 'text') {
+        // Already in text mode, just show/hide panels
+        mathToolbarRow.classList.toggle('visible');
+        hideAllPanels();
+    } else {
+        // Switch to text mode
+        setTool('text');
+    }
 });
 
 plusMinusBtn.addEventListener('click', (e) => {
@@ -2146,8 +2072,8 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
 }
 
 // ============================================
-// МАЛЮВАННЯ КООРДИНАТНОЇ СІТКИ (ВИПРАВЛЕНА)
-// Початок координат (0,0) в центрі, всі числа підписані
+// МАЛЮВАННЯ КООРДИНАТНОЇ СІТКИ
+// Осі проходять строго по лініях сітки
 // ============================================
 
 function drawCoordinateGrid(obj) {
@@ -2195,52 +2121,52 @@ function drawCoordinateGrid(obj) {
     const totalCellsX = Math.round(sw / gridSpacing);
     const totalCellsY = Math.round(sh / gridSpacing);
     
-    // Центр сітки (початок координат 0,0)
-    const centerX = sx + sw / 2;
-    const centerY = sy + sh / 2;
-    
-    // Визначаємо кількість клітинок в кожній чверті
+    // Визначаємо, де повинен бути центр (origin) - по лініях сітки
     const cellsRight = Math.floor(totalCellsX / 2);
     const cellsLeft = totalCellsX - cellsRight;
     const cellsUp = Math.floor(totalCellsY / 2);
     const cellsDown = totalCellsY - cellsUp;
     
-    // Малюємо вісь X (горизонтальна) - проходить через центр
+    // Координати центру (origin) - строго по лініях сітки
+    const originX = sx + cellsRight * gridSpacing;
+    const originY = sy + cellsUp * gridSpacing;
+    
+    // Малюємо вісь X (горизонтальна) - проходить через центр по лінії
     ctx.strokeStyle = axisColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(sx, centerY);
-    ctx.lineTo(sx + sw, centerY);
+    ctx.moveTo(sx, originY);
+    ctx.lineTo(sx + sw, originY);
     ctx.stroke();
     
-    // Малюємо вісь Y (вертикальна) - проходить через центр, напрямлена вгору
+    // Малюємо вісь Y (вертикальна) - проходить через центр по лінії, напрямлена вгору
     ctx.beginPath();
-    ctx.moveTo(centerX, sy + sh);
-    ctx.lineTo(centerX, sy);
+    ctx.moveTo(originX, sy + sh);
+    ctx.lineTo(originX, sy);
     ctx.stroke();
     
     // Стрілка осі X (направлена вправо)
     const arrowSize = 8;
     ctx.beginPath();
-    ctx.moveTo(sx + sw, centerY);
-    ctx.lineTo(sx + sw - arrowSize, centerY - arrowSize);
-    ctx.moveTo(sx + sw, centerY);
-    ctx.lineTo(sx + sw - arrowSize, centerY + arrowSize);
+    ctx.moveTo(sx + sw, originY);
+    ctx.lineTo(sx + sw - arrowSize, originY - arrowSize);
+    ctx.moveTo(sx + sw, originY);
+    ctx.lineTo(sx + sw - arrowSize, originY + arrowSize);
     ctx.stroke();
     
     // Стрілка осі Y (направлена вгору)
     ctx.beginPath();
-    ctx.moveTo(centerX, sy);
-    ctx.lineTo(centerX - arrowSize, sy + arrowSize);
-    ctx.moveTo(centerX, sy);
-    ctx.lineTo(centerX + arrowSize, sy + arrowSize);
+    ctx.moveTo(originX, sy);
+    ctx.lineTo(originX - arrowSize, sy + arrowSize);
+    ctx.moveTo(originX, sy);
+    ctx.lineTo(originX + arrowSize, sy + arrowSize);
     ctx.stroke();
     
     // Підписи осей
     ctx.fillStyle = axisColor;
     ctx.font = 'bold 16px Segoe UI';
-    ctx.fillText('X', sx + sw - 15, centerY - 15);
-    ctx.fillText('Y', centerX + 12, sy + 18);
+    ctx.fillText('X', sx + sw - 15, originY - 15);
+    ctx.fillText('Y', originX + 12, sy + 18);
     
     // Всі числа на осі X (праворуч від центру) - позитивні
     ctx.font = '12px Segoe UI';
@@ -2248,18 +2174,18 @@ function drawCoordinateGrid(obj) {
     ctx.textBaseline = 'top';
     
     for (let i = 1; i <= cellsRight; i++) {
-        const x = centerX + i * gridSpacing;
+        const x = originX + i * gridSpacing;
         if (x >= sx + 10 && x <= sx + sw - 10) {
-            ctx.fillText(i.toString(), x, centerY + 6);
+            ctx.fillText(i.toString(), x, originY + 6);
         }
     }
     
     // Всі числа на осі X (ліворуч від центру) - від'ємні
     ctx.textAlign = 'center';
     for (let i = 1; i <= cellsLeft; i++) {
-        const x = centerX - i * gridSpacing;
+        const x = originX - i * gridSpacing;
         if (x >= sx + 10 && x <= sx + sw - 10) {
-            ctx.fillText((-i).toString(), x, centerY + 6);
+            ctx.fillText((-i).toString(), x, originY + 6);
         }
     }
     
@@ -2267,9 +2193,9 @@ function drawCoordinateGrid(obj) {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let i = 1; i <= cellsUp; i++) {
-        const y = centerY - i * gridSpacing;
+        const y = originY - i * gridSpacing;
         if (y >= sy + 10 && y <= sy + sh - 10) {
-            ctx.fillText(i.toString(), centerX - 6, y);
+            ctx.fillText(i.toString(), originX - 6, y);
         }
     }
     
@@ -2277,9 +2203,9 @@ function drawCoordinateGrid(obj) {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let i = 1; i <= cellsDown; i++) {
-        const y = centerY + i * gridSpacing;
+        const y = originY + i * gridSpacing;
         if (y >= sy + 10 && y <= sy + sh - 10) {
-            ctx.fillText((-i).toString(), centerX - 6, y);
+            ctx.fillText((-i).toString(), originX - 6, y);
         }
     }
     
@@ -2287,7 +2213,7 @@ function drawCoordinateGrid(obj) {
     ctx.font = 'bold 12px Segoe UI';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
-    ctx.fillText('0', centerX - 6, centerY + 6);
+    ctx.fillText('0', originX - 6, originY + 6);
     
     ctx.restore();
 }
@@ -3040,6 +2966,9 @@ function startTextEdit(obj) {
     document.body.appendChild(wrapper);
     textEditor = wrapper;
     
+    // Show math toolbar when editing
+    mathToolbarRow.classList.add('visible');
+    
     function updateSize() {
         if (!editorDiv) return;
         const rect = editorDiv.getBoundingClientRect();
@@ -3302,6 +3231,8 @@ function stopTextEdit(cancel = false) {
     }
     textEditor = null;
     editingObject = null;
+    mathToolbarRow.classList.remove('visible');
+    hideAllPanels();
     requestDraw();
 }
 
@@ -3462,27 +3393,30 @@ canvas.addEventListener('mousedown', (e) => {
         return;
     }
 
-    if (currentTool !== 'select' && currentTool !== 'hand') {
-        if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
-        else if (currentTool === 'text') {
-            const existingText = [...objects].reverse().find(obj => {
-                if (obj.type === 'text') {
-                    return hitTest(obj, coords.x, coords.y, 2);
-                }
-                return false;
-            });
-            
-            if (existingText) {
-                startTextEdit(existingText);
-                requestDraw();
-                return;
+    if (currentTool === 'text') {
+        const existingText = [...objects].reverse().find(obj => {
+            if (obj.type === 'text') {
+                return hitTest(obj, coords.x, coords.y, 2);
             }
-            createNewText(coords);
-        }
-        else if (currentTool === 'grid') {
-            startDrawing(coords);
+            return false;
+        });
+        
+        if (existingText) {
+            startTextEdit(existingText);
+            requestDraw();
             return;
         }
+        createNewText(coords);
+        return;
+    }
+
+    if (currentTool === 'grid') {
+        startDrawing(coords);
+        return;
+    }
+
+    if (currentTool !== 'select' && currentTool !== 'hand') {
+        if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
         else startDrawing(coords);
         return;
     }
@@ -3557,6 +3491,8 @@ canvas.addEventListener('mousemove', (e) => {
         canvas.style.cursor = 'crosshair';
     } else if (currentTool === 'grid') {
         canvas.style.cursor = 'crosshair';
+    } else if (currentTool === 'text') {
+        canvas.style.cursor = 'text';
     } else if (currentTool === 'fill') {
         canvas.style.cursor = 'crosshair';
     } else canvas.style.cursor = 'crosshair';
@@ -3955,13 +3891,20 @@ function setTool(tool) {
     document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
     if (tool !== 'select' && selectedObjects.length > 0) { selectedObjects = []; requestDraw(); }
     
-    if (tool === 'select') canvas.className = 'cursor-default';
+    if (tool === 'select') {
+        canvas.className = 'cursor-default';
+        mathToolbarRow.classList.remove('visible');
+        hideAllPanels();
+    }
     else if (tool === 'hand') canvas.className = 'cursor-grab';
     else if (tool === 'eraser') canvas.className = 'cursor-eraser';
     else if (tool === 'pen') canvas.className = 'cursor-pencil';
     else if (tool === 'line' || tool === 'arrow' || tool === 'shape' || tool === 'rect') canvas.className = 'cursor-crosshair';
     else if (tool === 'grid') canvas.className = 'cursor-grid';
-    else if (tool === 'text') canvas.className = 'cursor-text';
+    else if (tool === 'text') {
+        canvas.className = 'cursor-text';
+        mathToolbarRow.classList.add('visible');
+    }
     else if (tool === 'fill') canvas.className = 'cursor-crosshair';
     else canvas.className = 'cursor-crosshair';
 }
