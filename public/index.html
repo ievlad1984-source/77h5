@@ -170,107 +170,6 @@
             width: auto !important;
             cursor: text;
             vertical-align: baseline;
-            padding: 4px 8px;
-        }
-
-        .math-symbol {
-            display: inline-flex;
-            align-items: baseline;
-            position: relative;
-            vertical-align: baseline;
-        }
-
-        .math-symbol-main {
-            font-size: inherit;
-        }
-
-        .math-symbol-subscript {
-            display: inline-block;
-            font-size: 0.6em;
-            vertical-align: sub;
-            margin-left: -2px;
-            padding: 0 2px;
-            min-width: 8px;
-            text-align: center;
-        }
-
-        .math-symbol-superscript {
-            display: inline-block;
-            font-size: 0.6em;
-            vertical-align: super;
-            margin-left: -2px;
-            padding: 0 2px;
-            min-width: 8px;
-            text-align: center;
-        }
-
-        .math-symbol-right {
-            display: inline-block;
-            font-size: 0.6em;
-            vertical-align: baseline;
-            margin-left: 1px;
-            padding: 0 2px;
-        }
-
-        .math-sum {
-            display: inline-flex;
-            align-items: center;
-            position: relative;
-            vertical-align: middle;
-            font-size: 1.2em;
-            margin: 0 2px;
-        }
-
-        .math-sum-upper {
-            position: absolute;
-            top: -0.3em;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 0.5em;
-            white-space: nowrap;
-        }
-
-        .math-sum-lower {
-            position: absolute;
-            bottom: -0.3em;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 0.5em;
-            white-space: nowrap;
-        }
-
-        .math-integral {
-            display: inline-flex;
-            align-items: center;
-            position: relative;
-            vertical-align: middle;
-            font-size: 1.4em;
-            margin: 0 2px;
-        }
-
-        .math-integral-upper {
-            position: absolute;
-            top: -0.4em;
-            left: 80%;
-            font-size: 0.45em;
-            white-space: nowrap;
-        }
-
-        .math-integral-lower {
-            position: absolute;
-            bottom: -0.4em;
-            left: 80%;
-            font-size: 0.45em;
-            white-space: nowrap;
-        }
-
-        .math-integral-inner {
-            position: absolute;
-            top: 50%;
-            right: -0.8em;
-            transform: translateY(-50%);
-            font-size: 0.4em;
-            white-space: nowrap;
         }
 
         .math-sup, .math-sub {
@@ -325,6 +224,109 @@
             line-height: 1.2;
             padding-top: 2px;
             min-width: 10px;
+        }
+
+        .math-root {
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 4px;
+            border: 1px dashed #FF9800;
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 3px;
+            padding: 0 4px;
+        }
+        .math-root-symbol {
+            font-size: 1.2em;
+            line-height: 1;
+            margin-right: 2px;
+        }
+        .math-root-content {
+            display: inline-block;
+            border-top: 2px solid currentColor;
+            padding: 0 2px;
+        }
+
+        .math-integral {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #E91E63;
+            background: rgba(233, 30, 99, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-int-upper {
+            font-size: 0.5em;
+            line-height: 1;
+            min-height: 0.5em;
+            margin-bottom: 2px;
+        }
+        .math-int-lower {
+            font-size: 0.5em;
+            line-height: 1;
+            min-height: 0.5em;
+            margin-top: 2px;
+        }
+        .math-int-symbol {
+            font-size: 1.4em;
+            line-height: 1;
+        }
+
+        .math-sum-prod {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #9C27B0;
+            background: rgba(156, 39, 176, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-sp-upper {
+            font-size: 0.5em;
+            line-height: 1;
+            min-height: 0.5em;
+            margin-bottom: 2px;
+        }
+        .math-sp-lower {
+            font-size: 0.5em;
+            line-height: 1;
+            min-height: 0.5em;
+            margin-top: 2px;
+        }
+        .math-sp-symbol {
+            font-size: 1.2em;
+            line-height: 1;
+        }
+
+        .math-bracket {
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+            border: 1px dashed #00BCD4;
+            background: rgba(0, 188, 212, 0.1);
+            border-radius: 3px;
+            padding: 4px 8px;
+            min-width: 40px;
+            min-height: 30px;
+        }
+
+        .math-matrix {
+            display: inline-flex;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 3px;
+            padding: 4px 8px;
+        }
+
+        .math-placeholder {
+            color: #aaa;
         }
 
         .handle {
@@ -497,126 +499,164 @@
             height: 20px;
         }
 
-        .tool-btn.fill-active {
-            background: #28a745;
-            color: white;
-            border-color: #1e7e34;
-        }
-
-        .math-toolbar-row {
-            display: none;
+        /* MATH PALETTE STYLES */
+        
+        #math-palette {
             position: absolute;
-            top: 60px;
-            left: 15px;
-            background: white;
-            padding: 8px;
-            gap: 6px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            z-index: 1001;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .math-toolbar-row.visible {
-            display: flex;
-        }
-
-        .popup-panel {
-            position: absolute;
+            top: 70px;
+            left: 270px;
+            width: 420px;
             background: white;
             border: 1px solid #ddd;
-            border-radius: 8px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-            z-index: 1002;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+            z-index: 1001;
             display: none;
             flex-direction: column;
-            padding: 10px;
-            max-height: 60vh;
+            padding: 12px;
+            max-height: 70vh;
             overflow-y: auto;
         }
 
-        .popup-panel.visible {
+        #math-palette.visible {
             display: flex;
         }
 
-        .popup-btn {
-            padding: 10px 14px;
-            cursor: pointer;
-            border: 1px solid #e0e0e0;
-            background: #fff;
+        .math-tab-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .math-tab {
+            padding: 6px 12px;
+            border: none;
+            background: #f5f5f5;
             border-radius: 6px;
-            font-size: 16px;
+            cursor: pointer;
+            font-size: 12px;
             transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            user-select: none;
-            min-width: 40px;
         }
 
-        .popup-btn:hover {
-            background: #f0f7ff;
-            border-color: #007bff;
+        .math-tab:hover {
+            background: #e8e8e8;
         }
 
-        .popup-btn:active {
-            background: #007bff;
+        .math-tab.active {
+            background: #2196F3;
             color: white;
         }
 
-        .math-symbols-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 6px;
+        .math-section {
+            display: none;
+        }
+
+        .math-section.active {
+            display: block;
+        }
+
+        .math-section-title {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 6px;
+            margin-top: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .math-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 8px;
+            margin: 3px;
+            border: 1px solid #e0e0e0;
+            background: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-family: 'Times New Roman', serif;
+            transition: all 0.15s;
+        }
+
+        .math-btn:hover {
+            background: #e3f2fd;
+            border-color: #2196F3;
+        }
+
+        .math-btn:active {
+            background: #2196F3;
+            color: white;
+        }
+
+        .math-btn.wide {
+            min-width: 70px;
+            font-size: 14px;
+        }
+
+        .math-btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            margin-bottom: 8px;
         }
 
         .greek-grid {
             display: grid;
             grid-template-columns: repeat(6, 1fr);
-            gap: 6px;
+            gap: 4px;
+            margin-bottom: 10px;
         }
 
-        .integral-btn {
-            padding: 12px 16px;
+        .greek-grid .math-btn {
+            min-width: 40px;
+            font-size: 18px;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .math-func-btn {
+            min-width: 50px;
+            font-size: 13px;
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+
+        .math-template-btn {
+            min-width: 60px;
+            height: 40px;
+            font-size: 12px;
+            background: #f8f8f8;
+        }
+
+        .math-close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: #f44336;
+            color: white;
+            border-radius: 50%;
             cursor: pointer;
-            border: 1px solid #e0e0e0;
-            background: #fff;
-            border-radius: 6px;
-            font-size: 24px;
-            transition: all 0.2s;
+            font-size: 14px;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            user-select: none;
-            min-width: 70px;
-            min-height: 70px;
+            z-index: 10;
         }
 
-        .integral-btn:hover {
-            background: #f0f7ff;
-            border-color: #007bff;
+        .math-close-btn:hover {
+            background: #d32f2f;
         }
 
-        .integral-btn-label {
-            font-size: 10px;
-            color: #666;
-            margin-top: 4px;
-        }
-
-        .copied-indicator {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #28a745;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            z-index: 2000;
-            display: none;
+        .math-section:first-child .math-section-title {
+            margin-top: 0;
         }
     </style>
 </head>
@@ -643,19 +683,12 @@
             <span class="dropdown-arrow">▼</span>
         </div>
     </button>
-
-    <button class="tool-btn" data-tool="fill" id="fillToolBtn" title="Заливка">
-        <svg class="tool-icon" viewBox="0 0 24 24">
-            <path d="M19 11V9a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="2" fill="none"/>
-            <path d="M12 11V3" stroke="currentColor" stroke-width="2"/>
-            <path d="M16 7l-4 4 4 4" stroke="currentColor" stroke-width="2" fill="none"/>
-        </svg>
-    </button>
     
     <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
-    
-    <button class="tool-btn" data-tool="text" id="fxToolBtn" title="Текст та математика (fx)">
-        <span>fx</span>
+    <button class="tool-btn" data-tool="text" title="Текст">Т</button>
+
+    <button class="tool-btn" id="mathToolBtn" title="Математичні символи (M)">
+        <span style="font-family: 'Times New Roman', serif; font-size: 16px;">∑</span>
     </button>
     
     <button class="tool-btn" data-tool="eraser" title="Ластик">
@@ -675,162 +708,6 @@
     <div class="separator"></div>
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
     <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
-</div>
-
-<!-- Math Toolbar Row -->
-<div id="mathToolbarRow" class="math-toolbar-row">
-    <button class="popup-btn" id="plusMinusBtn" title="Плюс/Мінус">
-        <span>±</span>
-    </button>
-    <button class="popup-btn" id="bracketsBtn" title="Дужки/Матриці">
-        <span>[ ]</span>
-    </button>
-    <button class="popup-btn" id="alphaBtn" title="Грецькі літери">
-        <span>α</span>
-    </button>
-    <button class="popup-btn" id="sigmaBtn" title="Сума/Інтеграли">
-        <span>∑</span>
-    </button>
-</div>
-
-<!-- Plus/Minus Popup Panel -->
-<div id="plusMinusPanel" class="popup-panel" style="top: 120px; left: 15px; width: 280px;">
-    <div class="shape-category">Математичні операції</div>
-    <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('+')" title="Плюс">+</button>
-        <button class="popup-btn" onclick="insertMathSymbol('−')" title="Мінус">−</button>
-        <button class="popup-btn" onclick="insertMathSymbol('×')" title="Множення">×</button>
-        <button class="popup-btn" onclick="insertMathSymbol('÷')" title="Ділення">÷</button>
-        <button class="popup-btn" onclick="insertMathSymbol('±')" title="Плюс-мінус">±</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∓')" title="Мінус-плюс">∓</button>
-    </div>
-    <div class="shape-category">Квантори</div>
-    <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('∃')" title="Існування">∃</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∀')" title="Всі">∀</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∈')" title="Належить">∈</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∉')" title="Не належить">∉</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∋')" title="Містить">∋</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∄')" title="Не існує">∄</button>
-    </div>
-    <div class="shape-category">Множини</div>
-    <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('∅')" title="Порожня множина">∅</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊂')" title="Підмножина">⊂</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊃')" title="Надмножина">⊃</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊆')" title="Підмножина або рівність">⊆</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊇')" title="Надмножина або рівність">⊇</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∪')" title="Об'єднання">∪</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∩')" title="Перетин">∩</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∖')" title="Різниця">∖</button>
-    </div>
-    <div class="shape-category">Геометрія</div>
-    <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('∥')" title="Паралельні">∥</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊥')" title="Перпендикулярні">⊥</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∠')" title="Кут">∠</button>
-        <button class="popup-btn" onclick="insertMathSymbol('△')" title="Трикутник">△</button>
-        <button class="popup-btn" onclick="insertMathSymbol('□')" title="Квадрат">□</button>
-        <button class="popup-btn" onclick="insertMathSymbol('○')" title="Коло">○</button>
-        <button class="popup-btn" onclick="insertMathSymbol('°')" title="Градус">°</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊙')" title="Коло з центром">⊙</button>
-    </div>
-    <div class="shape-category">Логіка</div>
-    <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('∧')" title="І (кон'юнкція)">∧</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∨')" title="Або (диз'юнкція)">∨</button>
-        <button class="popup-btn" onclick="insertMathSymbol('¬')" title="НЕ (заперечення)">¬</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊕')" title="Виключне АБО">⊕</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⇒')" title="Імплікація">⇒</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⇔')" title="Еквівалентність">⇔</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊤')" title="Істина">⊤</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⊥')" title="Хибність">⊥</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∴')" title="Отже">∴</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∵')" title="Тому що">∵</button>
-    </div>
-    <div class="shape-category">Відношення</div>
-    <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('=')" title="Дорівнює">=</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≠')" title="Не дорівнює">≠</button>
-        <button class="popup-btn" onclick="insertMathSymbol('<')" title="Менше"><</button>
-        <button class="popup-btn" onclick="insertMathSymbol('>')" title="Більше">></button>
-        <button class="popup-btn" onclick="insertMathSymbol('≤')" title="Менше або дорівнює">≤</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≥')" title="Більше або дорівнює">≥</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≈')" title="Приблизно">≈</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≡')" title="Тотожно">≡</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∼')" title="Подібно">∼</button>
-        <button class="popup-btn" onclick="insertMathSymbol('≅')" title="Конгруентно">≅</button>
-        <button class="popup-btn" onclick="insertMathSymbol('∞')" title="Нескінченність">∞</button>
-        <button class="popup-btn" onclick="insertMathSymbol('√')" title="Корінь">√</button>
-    </div>
-</div>
-
-<!-- Brackets/Matrix Popup Panel -->
-<div id="bracketsPanel" class="popup-panel" style="top: 120px; left: 100px; width: 320px;">
-    <div class="shape-category">Дужки</div>
-    <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('(')" title="Круглі дужки">(</button>
-        <button class="popup-btn" onclick="insertMathSymbol(')')" title="Круглі дужки">)</button>
-        <button class="popup-btn" onclick="insertMathSymbol('[')" title="Квадратні дужки">[</button>
-        <button class="popup-btn" onclick="insertMathSymbol(']')" title="Квадратні дужки">]</button>
-        <button class="popup-btn" onclick="insertMathSymbol('{')" title="Фігурні дужки">{</button>
-        <button class="popup-btn" onclick="insertMathSymbol('}')" title="Фігурні дужки">}</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⟨')" title="Кутові дужки">⟨</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⟩')" title="Кутові дужки">⟩</button>
-        <button class="popup-btn" onclick="insertMathSymbol('‖')" title="Модуль">‖</button>
-    </div>
-    <div class="shape-category">Матричні дужки</div>
-    <div class="math-symbols-grid">
-        <button class="popup-btn" onclick="insertMathSymbol('⌈')" title="Верхня квадратна">⌈</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⌉')" title="Верхня квадратна">⌉</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⌊')" title="Нижня квадратна">⌊</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⌋')" title="Нижня квадратна">⌋</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⌜')" title="Верхня квадратна">⌜</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⌝')" title="Верхня квадратна">⌝</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⌞')" title="Нижня квадратна">⌞</button>
-        <button class="popup-btn" onclick="insertMathSymbol('⌟')" title="Нижня квадратна">⌟</button>
-    </div>
-</div>
-
-<!-- Greek Alphabet Panel -->
-<div id="alphaPanel" class="popup-panel" style="top: 120px; left: 150px; width: 320px;">
-    <div class="shape-category">Рядкові (прописні) літери</div>
-    <div class="greek-grid" id="greekLowercaseGrid">
-    </div>
-    <div class="shape-category" style="margin-top: 10px;">Великі літери</div>
-    <div class="greek-grid" id="greekUppercaseGrid">
-    </div>
-</div>
-
-<!-- Sigma/Integral Panel -->
-<div id="sigmaPanel" class="popup-panel" style="top: 120px; left: 200px; width: 320px;">
-    <div class="shape-category">Сума та інтеграли</div>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-        <button class="integral-btn" onclick="insertSum()" title="Сума">
-            <div style="position: relative; display: inline-block;">
-                <span style="font-size: 10px; position: absolute; top: -8px; left: 50%; transform: translateX(-50%);">n</span>
-                <span style="font-size: 10px; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);">i=1</span>
-                <span style="font-size: 28px;">∑</span>
-            </div>
-            <span class="integral-btn-label">Сума ∑</span>
-        </button>
-        <button class="integral-btn" onclick="insertIntegral(1)" title="Визначений інтеграл">
-            <div style="position: relative; display: inline-block;">
-                <span style="font-size: 10px; position: absolute; top: -10px; left: 60%;">b</span>
-                <span style="font-size: 10px; position: absolute; bottom: -10px; left: 60%;">a</span>
-                <span style="font-size: 32px;">∫</span>
-            </div>
-            <span class="integral-btn-label">Інтеграл ∫</span>
-        </button>
-        <button class="integral-btn" onclick="insertIntegral(2)" title="Подвійний інтеграл">
-            <span style="font-size: 28px;">∬</span>
-            <span class="integral-btn-label">Подвійний ∬</span>
-        </button>
-        <button class="integral-btn" onclick="insertIntegral(3)" title="Потрійний інтеграл">
-            <span style="font-size: 26px;">∭</span>
-            <span class="integral-btn-label">Потрійний ∭</span>
-        </button>
-    </div>
 </div>
 
 <div id="line-palette">
@@ -880,27 +757,373 @@
         <div class="shape-item" onclick="selectShape('quarter-circle')"><svg viewBox="0 0 24 24"><path d="M2 22 A20 20 0 0 1 22 2 Z" /></svg></div>
         <div class="shape-item" onclick="selectShape('heart')"><svg viewBox="0 0 24 24"><path d="M12 21 C12 21 2 14 2 8 C2 5 5 2 8 2 C10 2 12 4 12 4 C12 4 14 2 16 2 C19 2 22 5 22 8 C22 14 12 21 12 21 Z" /></svg></div>
     </div>
+</div>
 
-    <div class="shape-category">Криві</div>
-    <div class="shape-grid">
-        <div class="shape-item" onclick="selectShape('parabola')" title="Парабола">
-            <svg viewBox="0 0 24 24">
-                <path d="M2 18 Q12 2 22 18" fill="none"/>
-            </svg>
+<!-- MATH PALETTE iDroo-Style -->
+<div id="math-palette">
+    <button class="math-close-btn" onclick="toggleMathPalette()">×</button>
+    
+    <div class="math-tab-bar">
+        <button class="math-tab active" onclick="switchMathTab('basic')">Основні</button>
+        <button class="math-tab" onclick="switchMathTab('greek')">Грецькі</button>
+        <button class="math-tab" onclick="switchMathTab('operators')">Оператори</button>
+        <button class="math-tab" onclick="switchMathTab('arrows')">Стрілки</button>
+        <button class="math-tab" onclick="switchMathTab('sets')">Множини</button>
+        <button class="math-tab" onclick="switchMathTab('templates')">Шаблони</button>
+    </div>
+
+    <!-- BASIC SYMBOLS -->
+    <div class="math-section active" id="math-section-basic">
+        <div class="math-section-title">Базові операції</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('+')" title="Плюс">+</button>
+            <button class="math-btn" onclick="insertMathSymbol('−')" title="Мінус">−</button>
+            <button class="math-btn" onclick="insertMathSymbol('×')" title="Множення">×</button>
+            <button class="math-btn" onclick="insertMathSymbol('÷')" title="Ділення">÷</button>
+            <button class="math-btn" onclick="insertMathSymbol('±')" title="Плюс-мінус">±</button>
+            <button class="math-btn" onclick="insertMathSymbol('∓')" title="Мінус-плюс">∓</button>
         </div>
-        <div class="shape-item" onclick="selectShape('hyperbola')" title="Гіпербола">
-            <svg viewBox="0 0 24 24">
-                <path d="M2 8 Q10 12 12 12 Q14 12 22 16" fill="none"/>
-                <path d="M2 16 Q10 12 12 12 Q14 12 22 8" fill="none"/>
-            </svg>
+        
+        <div class="math-section-title">Степені</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('²')" title="Квадрат">x²</button>
+            <button class="math-btn" onclick="insertMathSymbol('³')" title="Куб">x³</button>
+            <button class="math-btn" onclick="insertMathSymbol('ⁿ')" title="n-та степінь">xⁿ</button>
+            <button class="math-btn" onclick="insertMathSymbol('⁻¹')" title="Обернений">x⁻¹</button>
+            <button class="math-btn" onclick="insertMathSymbol('⁴')" title="Четверта степінь">x⁴</button>
+            <button class="math-btn" onclick="insertMathSymbol('⁵')" title="П'ята степінь">x⁵</button>
+        </div>
+        
+        <div class="math-section-title">Корені</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('√')" title="Корінь">√</button>
+            <button class="math-btn" onclick="insertMathSymbol('∛')" title="Кубічний корінь">∛</button>
+            <button class="math-btn" onclick="insertMathSymbol('∜')" title="Четвертий корінь">∜</button>
+            <button class="math-btn" onclick="insertMathSymbol('∛')" title="Корінь n-го степеня">ⁿ√</button>
+        </div>
+        
+        <div class="math-section-title">Дроби та індекси</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertFraction()" title="Дріб">a/b</button>
+            <button class="math-btn" onclick="insertMathSymbol('₀')" title="Індекс 0">₀</button>
+            <button class="math-btn" onclick="insertMathSymbol('₁')" title="Індекс 1">₁</button>
+            <button class="math-btn" onclick="insertMathSymbol('₂')" title="Індекс 2">₂</button>
+            <button class="math-btn" onclick="insertMathSymbol('₃')" title="Індекс 3">₃</button>
+            <button class="math-btn" onclick="insertMathSymbol('₄')" title="Індекс 4">₄</button>
+            <button class="math-btn" onclick="insertMathSymbol('ₙ')" title="Індекс n">ₙ</button>
+        </div>
+
+        <div class="math-section-title">Числа та константи</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('∞')" title="Нескінченність">∞</button>
+            <button class="math-btn" onclick="insertMathSymbol('π')" title="Пі">π</button>
+            <button class="math-btn" onclick="insertMathSymbol('τ')" title="Тау">τ</button>
+            <button class="math-btn" onclick="insertMathSymbol('e')" title="Число e">e</button>
+            <button class="math-btn" onclick="insertMathSymbol('φ')" title="Золотий перетин">φ</button>
+            <button class="math-btn" onclick="insertMathSymbol('°')" title="Градус">°</button>
+            <button class="math-btn" onclick="insertMathSymbol('%')" title="Відсоток">%</button>
+        </div>
+    </div>
+
+    <!-- GREEK LETTERS -->
+    <div class="math-section" id="math-section-greek">
+        <div class="math-section-title">Малі грецькі літери</div>
+        <div class="greek-grid">
+            <button class="math-btn" onclick="insertMathSymbol('α')" title="Альфа">α</button>
+            <button class="math-btn" onclick="insertMathSymbol('β')" title="Бета">β</button>
+            <button class="math-btn" onclick="insertMathSymbol('γ')" title="Гамма">γ</button>
+            <button class="math-btn" onclick="insertMathSymbol('δ')" title="Дельта">δ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ε')" title="Епсилон">ε</button>
+            <button class="math-btn" onclick="insertMathSymbol('ζ')" title="Дзета">ζ</button>
+            <button class="math-btn" onclick="insertMathSymbol('η')" title="Ета">η</button>
+            <button class="math-btn" onclick="insertMathSymbol('θ')" title="Тета">θ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ι')" title="Йота">ι</button>
+            <button class="math-btn" onclick="insertMathSymbol('κ')" title="Каппа">κ</button>
+            <button class="math-btn" onclick="insertMathSymbol('λ')" title="Лямбда">λ</button>
+            <button class="math-btn" onclick="insertMathSymbol('μ')" title="Мю">μ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ν')" title="Ню">ν</button>
+            <button class="math-btn" onclick="insertMathSymbol('ξ')" title="Ксі">ξ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ο')" title="Омікрон">ο</button>
+            <button class="math-btn" onclick="insertMathSymbol('π')" title="Пі">π</button>
+            <button class="math-btn" onclick="insertMathSymbol('ρ')" title="Ро">ρ</button>
+            <button class="math-btn" onclick="insertMathSymbol('σ')" title="Сігма">σ</button>
+            <button class="math-btn" onclick="insertMathSymbol('τ')" title="Тау">τ</button>
+            <button class="math-btn" onclick="insertMathSymbol('υ')" title="Іпсилон">υ</button>
+            <button class="math-btn" onclick="insertMathSymbol('φ')" title="Фі">φ</button>
+            <button class="math-btn" onclick="insertMathSymbol('χ')" title="Хі">χ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ψ')" title="Псі">ψ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ω')" title="Омега">ω</button>
+        </div>
+        
+        <div class="math-section-title">Великі грецькі літери</div>
+        <div class="greek-grid">
+            <button class="math-btn" onclick="insertMathSymbol('Γ')" title="Велика Гамма">Γ</button>
+            <button class="math-btn" onclick="insertMathSymbol('Δ')" title="Велика Дельта">Δ</button>
+            <button class="math-btn" onclick="insertMathSymbol('Θ')" title="Велика Тета">Θ</button>
+            <button class="math-btn" onclick="insertMathSymbol('Λ')" title="Велика Лямбда">Λ</button>
+            <button class="math-btn" onclick="insertMathSymbol('Ξ')" title="Велика Ксі">Ξ</button>
+            <button class="math-btn" onclick="insertMathSymbol('Π')" title="Велика Пі">Π</button>
+            <button class="math-btn" onclick="insertMathSymbol('Σ')" title="Велика Сигма">Σ</button>
+            <button class="math-btn" onclick="insertMathSymbol('Φ')" title="Велика Фі">Φ</button>
+            <button class="math-btn" onclick="insertMathSymbol('Ψ')" title="Велика Псі">Ψ</button>
+            <button class="math-btn" onclick="insertMathSymbol('Ω')" title="Велика Омега">Ω</button>
+        </div>
+    </div>
+
+    <!-- OPERATORS -->
+    <div class="math-section" id="math-section-operators">
+        <div class="math-section-title">Порівняння</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('=')" title="Дорівнює">=</button>
+            <button class="math-btn" onclick="insertMathSymbol('≠')" title="Не дорівнює">≠</button>
+            <button class="math-btn" onclick="insertMathSymbol('≈')" title="Приблизно">≈</button>
+            <button class="math-btn" onclick="insertMathSymbol('≡')" title="Тотожньо">≡</button>
+            <button class="math-btn" onclick="insertMathSymbol('≢')" title="Не тотожньо">≢</button>
+            <button class="math-btn" onclick="insertMathSymbol('≃')" title="Асимптотично">≃</button>
+            <button class="math-btn" onclick="insertMathSymbol('≅')" title="Конгруентно">≅</button>
+        </div>
+        
+        <div class="math-section-title">Нерівності</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('<')" title="Менше">&lt;</button>
+            <button class="math-btn" onclick="insertMathSymbol('>')" title="Більше">&gt;</button>
+            <button class="math-btn" onclick="insertMathSymbol('≤')" title="Менше-дорівнює">≤</button>
+            <button class="math-btn" onclick="insertMathSymbol('≥')" title="Більше-дорівнює">≥</button>
+            <button class="math-btn" onclick="insertMathSymbol('≪')" title="Набагато менше">≪</button>
+            <button class="math-btn" onclick="insertMathSymbol('≫')" title="Набагато більше">≫</button>
+            <button class="math-btn" onclick="insertMathSymbol('≺')" title="Менше">≺</button>
+            <button class="math-btn" onclick="insertMathSymbol('≻')" title="Більше">≻</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊀')" title="Не менше">⊀</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊁')" title="Не більше">⊁</button>
+        </div>
+
+        <div class="math-section-title">Логічні оператори</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('∧')" title="І (кон'юнкція)">∧</button>
+            <button class="math-btn" onclick="insertMathSymbol('∨')" title="Або (диз'юнкція)">∨</button>
+            <button class="math-btn" onclick="insertMathSymbol('¬')" title="Ні (заперечення)">¬</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊕')" title="Виключне АБО">⊕</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊗')" title="Тензорний добуток">⊗</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊙')" title="Коло в крапці">⊙</button>
+        </div>
+
+        <div class="math-section-title">Множення</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('·')" title="Крапка (множення)">·</button>
+            <button class="math-btn" onclick="insertMathSymbol('∘')" title="Композиція">∘</button>
+            <button class="math-btn" onclick="insertMathSymbol('⋆')" title="Зірочка">⋆</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊙')" title="Коло в крапці">⊙</button>
+        </div>
+
+        <div class="math-section-title">Пропорції</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('∝')" title="Пропорційно">∝</button>
+            <button class="math-btn" onclick="insertMathSymbol('∶')" title="Відношення">∶</button>
+            <button class="math-btn" onclick="insertMathSymbol('/')" title="Дріб">/</button>
+            <button class="math-btn" onclick="insertMathSymbol('⁄')" title="Дріб">⁄</button>
+        </div>
+    </div>
+
+    <!-- ARROWS -->
+    <div class="math-section" id="math-section-arrows">
+        <div class="math-section-title">Базові стрілки</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('→')" title="Вправо">→</button>
+            <button class="math-btn" onclick="insertMathSymbol('←')" title="Вліво">←</button>
+            <button class="math-btn" onclick="insertMathSymbol('↑')" title="Вгору">↑</button>
+            <button class="math-btn" onclick="insertMathSymbol('↓')" title="Вниз">↓</button>
+            <button class="math-btn" onclick="insertMathSymbol('↔')" title="В обидві сторони">↔</button>
+            <button class="math-btn" onclick="insertMathSymbol('↕')" title="Вгору-вниз">↕</button>
+        </div>
+
+        <div class="math-section-title">Логічні стрілки</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('⇒')" title="Тоді">⇒</button>
+            <button class="math-btn" onclick="insertMathSymbol('⇐')" title="Якщо">⇐</button>
+            <button class="math-btn" onclick="insertMathSymbol('⇔')" title="Тоді і тільки тоді">⇔</button>
+            <button class="math-btn" onclick="insertMathSymbol('⇑')" title="Вгору">⇑</button>
+            <button class="math-btn" onclick="insertMathSymbol('⇓')" title="Вниз">⇓</button>
+        </div>
+
+        <div class="math-section-title">Стрілки відображень</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('↦')" title="Відображає">↦</button>
+            <button class="math-btn" onclick="insertMathSymbol('↤')" title="Відображається в">↤</button>
+            <button class="math-btn" onclick="insertMathSymbol('↪')" title="Вбудовано">↪</button>
+            <button class="math-btn" onclick="insertMathSymbol('↩')" title="Крива вліво">↩</button>
+            <button class="math-btn" onclick="insertMathSymbol('↪')" title="Крива вправо">↪</button>
+            <button class="math-btn" onclick="insertMathSymbol('↫')" title="Крива вліво">↫</button>
+            <button class="math-btn" onclick="insertMathSymbol('↬')" title="Крива вправо">↬</button>
+        </div>
+
+        <div class="math-section-title">Векторні стрілки</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('↗')" title="Вектор вгору-праворуч">↗</button>
+            <button class="math-btn" onclick="insertMathSymbol('↘')" title="Вектор вниз-праворуч">↘</button>
+            <button class="math-btn" onclick="insertMathSymbol('↙')" title="Вектор вниз-ліворуч">↙</button>
+            <button class="math-btn" onclick="insertMathSymbol('↖')" title="Вектор вгору-ліворуч">↖</button>
+            <button class="math-btn" onclick="insertMathSymbol('↰')" title="Вектор вгору">↰</button>
+            <button class="math-btn" onclick="insertMathSymbol('↱')" title="Вектор вгору">↱</button>
+        </div>
+
+        <div class="math-section-title">Довгі стрілки</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('⟵')" title="Довга вліво">⟵</button>
+            <button class="math-btn" onclick="insertMathSymbol('⟶')" title="Довга вправо">⟶</button>
+            <button class="math-btn" onclick="insertMathSymbol('⟷')" title="Довга в обидві">⟷</button>
+            <button class="math-btn" onclick="insertMathSymbol('⟹')" title="Довга вправо">⟹</button>
+            <button class="math-btn" onclick="insertMathSymbol('⟸')" title="Довга вліво">⟸</button>
+            <button class="math-btn" onclick="insertMathSymbol('⟺')" title="Довга в обидві">⟺</button>
+        </div>
+    </div>
+
+    <!-- SETS -->
+    <div class="math-section" id="math-section-sets">
+        <div class="math-section-title">Множини</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('∈')" title="Належить">∈</button>
+            <button class="math-btn" onclick="insertMathSymbol('∉')" title="Не належить">∉</button>
+            <button class="math-btn" onclick="insertMathSymbol('∋')" title="Містить">∋</button>
+            <button class="math-btn" onclick="insertMathSymbol('∌')" title="Не містить">∌</button>
+        </div>
+        
+        <div class="math-section-title">Операції над множинами</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('∪')" title="Об'єднання">∪</button>
+            <button class="math-btn" onclick="insertMathSymbol('∩')" title="Перетин">∩</button>
+            <button class="math-btn" onclick="insertMathSymbol('∖')" title="Різниця">∖</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊂')" title="Підмножина">⊂</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊃')" title="Надмножина">⊃</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊆')" title="Підмножина або рівна">⊆</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊇')" title="Надмножина або рівна">⊇</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊄')" title="Не підмножина">⊄</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊅')" title="Не надмножина">⊅</button>
+        </div>
+
+        <div class="math-section-title">Спеціальні множини</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('∅')" title="Порожня множина">∅</button>
+            <button class="math-btn" onclick="insertMathSymbol('ℕ')" title="Натуральні числа">ℕ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ℤ')" title="Цілі числа">ℤ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ℚ')" title="Раціональні числа">ℚ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ℝ')" title="Дійсні числа">ℝ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ℂ')" title="Комплексні числа">ℂ</button>
+            <button class="math-btn" onclick="insertMathSymbol('ℍ')" title="Комплексні числа">ℍ</button>
+        </div>
+
+        <div class="math-section-title">Предикати</div>
+        <div class="math-btn-row">
+            <button class="math-btn" onclick="insertMathSymbol('∀')" title="Для всіх">∀</button>
+            <button class="math-btn" onclick="insertMathSymbol('∃')" title="Існує">∃</button>
+            <button class="math-btn" onclick="insertMathSymbol('∄')" title="Не існує">∄</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊢')" title="Доводить">⊢</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊨')" title="Модель">⊨</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊥')" title="Заперечення">⊥</button>
+            <button class="math-btn" onclick="insertMathSymbol('⊤')" title="Істина">⊤</button>
+        </div>
+    </div>
+
+    <!-- TEMPLATES -->
+    <div class="math-section" id="math-section-templates">
+        <div class="math-section-title">Сума та інтеграл</div>
+        <div class="math-btn-row">
+            <button class="math-btn math-template-btn" onclick="insertSummation()" title="Сума">
+                <span style="font-size: 20px;">∑</span>
+            </button>
+            <button class="math-btn math-template-btn" onclick="insertProduct()" title="Добуток">
+                <span style="font-size: 20px;">∏</span>
+            </button>
+            <button class="math-btn math-template-btn" onclick="insertIntegral()" title="Інтеграл">
+                <span style="font-size: 20px;">∫</span>
+            </button>
+            <button class="math-btn math-template-btn" onclick="insertDoubleIntegral()" title="Подвійний інтеграл">
+                <span style="font-size: 20px;">∬</span>
+            </button>
+            <button class="math-btn math-template-btn" onclick="insertTripleIntegral()" title="Потрійний інтеграл">
+                <span style="font-size: 20px;">∭</span>
+            </button>
+            <button class="math-btn math-template-btn" onclick="insertContourIntegral()" title="Контурний інтеграл">
+                <span style="font-size: 20px;">∮</span>
+            </button>
+        </div>
+
+        <div class="math-section-title">Границя</div>
+        <div class="math-btn-row">
+            <button class="math-btn math-template-btn wide" onclick="insertLimit()" title="Границя">
+                <span>lim</span>
+            </button>
+        </div>
+
+        <div class="math-section-title">Корені</div>
+        <div class="math-btn-row">
+            <button class="math-btn math-template-btn" onclick="insertSquareRoot()" title="Квадратний корінь">
+                <span>√a</span>
+            </button>
+            <button class="math-btn math-template-btn" onclick="insertCubeRoot()" title="Кубічний корінь">
+                <span>∛a</span>
+            </button>
+            <button class="math-btn math-template-btn" onclick="insertNthRoot()" title="N-тий корінь">
+                <span>ⁿ√a</span>
+            </button>
+        </div>
+
+        <div class="math-section-title">Матриці та дужки</div>
+        <div class="math-btn-row">
+            <button class="math-btn math-template-btn" onclick="insertMatrix2x2()" title="Матриця 2x2">[ ]</button>
+            <button class="math-btn math-template-btn" onclick="insertMatrix3x3()" title="Матриця 3x3">[ ]</button>
+            <button class="math-btn math-template-btn" onclick="insertBracket('(')" title="Круглі дужки">( )</button>
+            <button class="math-btn math-template-btn" onclick="insertBracket('[')" title="Квадратні дужки">[ ]</button>
+            <button class="math-btn math-template-btn" onclick="insertBracket('{')" title="Фігурні дужки">{ }</button>
+        </div>
+
+        <div class="math-section-title">Вектори</div>
+        <div class="math-btn-row">
+            <button class="math-btn math-template-btn" onclick="insertVector()" title="Вектор">v⃗</button>
+            <button class="math-btn math-template-btn" onclick="insertHat()" title="Одиничний вектор">x̂</button>
+            <button class="math-btn math-template-btn" onclick="insertBar()" title="Середнє">x̄</button>
+            <button class="math-btn math-template-btn" onclick="insertDot()" title="Точка над символом">ẋ</button>
+            <button class="math-btn math-template-btn" onclick="insertDoubleDot()" title="Дві точки">ẍ</button>
+        </div>
+
+        <div class="math-section-title">Тригонометрія</div>
+        <div class="math-btn-row">
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('sin')" title="Синус">sin</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('cos')" title="Косинус">cos</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('tan')" title="Тангенс">tan</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('cot')" title="Котангенс">cot</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('sec')" title="Секанс">sec</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('cosec')" title="Косеканс">cosec</button>
+        </div>
+        <div class="math-btn-row">
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('arcsin')" title="Арксинус">arcsin</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('arccos')" title="Арккосинус">arccos</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('arctan')" title="Арктангенс">arctan</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('sinh')" title="Синус гіперболічний">sinh</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('cosh')" title="Косинус гіперболічний">cosh</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('tanh')" title="Тангенс гіперболічний">tanh</button>
+        </div>
+
+        <div class="math-section-title">Логарифми та функції</div>
+        <div class="math-btn-row">
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('log')" title="Логарифм">log</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('ln')" title="Натуральний логарифм">ln</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('lg')" title="Десятковий логарифм">lg</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('exp')" title="Експонента">exp</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('det')" title="Визначник">det</button>
+        </div>
+        <div class="math-btn-row">
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('max')" title="Максимум">max</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('min')" title="Мінімум">min</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('sup')" title="Супремум">sup</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('inf')" title="Інфімум">inf</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('arg')" title="Аргумент">arg</button>
+            <button class="math-btn math-func-btn" onclick="insertMathSymbol('mod')" title="Модуль">mod</button>
         </div>
     </div>
 </div>
 
 <div id="zoom-display">100%</div>
 <canvas id="board"></canvas>
-
-<div id="copiedIndicator" class="copied-indicator">Скопійовано!</div>
 
 <script>
 // ============================================
@@ -931,7 +1154,6 @@ let isSelectingArea = false;
 let selectionStart = { x: 0, y: 0 };
 let selectionEnd = { x: 0, y: 0 };
 let textEditor = null;
-let editorDiv = null;
 let editingObject = null;
 let historyStack = [];
 let historyIndex = -1;
@@ -944,48 +1166,6 @@ const SMOOTHING_FACTOR = 0.5;
 let selectedShapeType = null;
 let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
-let currentFillColor = '#ff0000';
-let fillMode = false;
-let clipboardObjects = [];
-
-function copySelectedObjects() {
-    if (selectedObjects.length === 0) return;
-    clipboardObjects = JSON.parse(JSON.stringify(selectedObjects));
-    showCopiedIndicator();
-}
-
-function pasteFromClipboard(coords) {
-    if (clipboardObjects.length === 0) return;
-    saveHistory();
-    const newObjects = [];
-    clipboardObjects.forEach(obj => {
-        const newObj = JSON.parse(JSON.stringify(obj));
-        newObj.id = generateId();
-        newObj.x += 20;
-        newObj.y += 20;
-        newObj.rotation = 0;
-        if (newObj.type === 'line' || newObj.type === 'arrow') {
-            newObj.ex += 20;
-            newObj.ey += 20;
-        }
-        if (newObj.points) {
-            newObj.points = newObj.points.map(p => ({ x: p.x + 20, y: p.y + 20 }));
-        }
-        objects.push(newObj);
-        newObjects.push(newObj);
-        if (socket && socket.connected) socket.emit('new-object', newObj);
-    });
-    selectedObjects = newObjects;
-    requestDraw();
-}
-
-function showCopiedIndicator() {
-    const indicator = document.getElementById('copiedIndicator');
-    indicator.style.display = 'block';
-    setTimeout(() => {
-        indicator.style.display = 'none';
-    }, 1500);
-}
 
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
@@ -1023,26 +1203,23 @@ function saveHistory() {
 }
 
 function undo() {
-    console.log('Undo called, historyIndex:', historyIndex, 'historyStack length:', historyStack.length);
     if (historyIndex <= 0 || isUndoing) return;
     isUndoing = true;
     historyIndex--;
     const state = historyStack[historyIndex];
-    if (state) {
-        objects = JSON.parse(JSON.stringify(state.objects));
-        
-        if (state.view) {
-            scale = state.view.scale;
-            offsetX = state.view.offsetX;
-            offsetY = state.view.offsetY;
-            updateZoomDisplay();
-        }
-
-        selectedObjects = [];
-        if (textEditor) stopTextEdit(true);
-        if (socket && socket.connected) socket.emit('update-all', objects);
-        requestDraw();
+    objects = JSON.parse(JSON.stringify(state.objects));
+    
+    if (state.view) {
+        scale = state.view.scale;
+        offsetX = state.view.offsetX;
+        offsetY = state.view.offsetY;
+        updateZoomDisplay();
     }
+
+    selectedObjects = [];
+    if (textEditor) stopTextEdit(true);
+    if (socket && socket.connected) socket.emit('update-all', objects);
+    requestDraw();
     isUndoing = false;
 }
 
@@ -1069,14 +1246,669 @@ function restoreImages(objectsToRestore) {
 }
 
 // ============================================
+// МАТЕМАТИЧНА ПАЛІТРА (ФУНКЦІЇ)
+// ============================================
+
+function toggleMathPalette() {
+    const palette = document.getElementById('math-palette');
+    palette.classList.toggle('visible');
+}
+
+function switchMathTab(tabName) {
+    document.querySelectorAll('.math-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.math-section').forEach(s => s.classList.remove('active'));
+    
+    document.querySelector(`.math-tab[onclick="switchMathTab('${tabName}')"]`).classList.add('active');
+    document.getElementById(`math-section-${tabName}`).classList.add('active');
+}
+
+function getTextEditor() {
+    if (textEditor) {
+        return textEditor.querySelector('.text-edit-content');
+    }
+    return null;
+}
+
+function insertMathSymbol(symbol) {
+    const editor = getTextEditor();
+    if (!editor) {
+        // Відкриваємо текстовий блок в центрі екрану
+        if (currentTool !== 'text') {
+            setTool('text');
+        }
+        
+        const centerX = (canvas.width / 2 - offsetX) / scale;
+        const centerY = (canvas.height / 2 - offsetY) / scale;
+        const coords = { x: centerX, y: centerY };
+        
+        const existingText = [...objects].reverse().find(obj => {
+            if (obj.type === 'text') {
+                return hitTest(obj, coords.x, coords.y, 10);
+            }
+            return false;
+        });
+        
+        if (existingText) {
+            startTextEdit(existingText);
+        } else {
+            createNewText(coords);
+        }
+        
+        setTimeout(() => {
+            insertSymbolAtCursor(symbol);
+        }, 100);
+    } else {
+        insertSymbolAtCursor(symbol);
+    }
+}
+
+function insertSymbolAtCursor(symbol) {
+    const editor = getTextEditor();
+    if (!editor) return;
+    
+    const sel = window.getSelection();
+    if (!sel.rangeCount) {
+        editor.focus();
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+    
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    
+    const textNode = document.createTextNode(symbol);
+    range.insertNode(textNode);
+    
+    range.setStartAfter(textNode);
+    range.setEndAfter(textNode);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    
+    updateTextEditorSize();
+    syncEditorToObject();
+}
+
+function updateTextEditorSize() {
+    if (!textEditor) return;
+    const editorDiv = textEditor.querySelector('.text-edit-content');
+    if (!editorDiv) return;
+    
+    const rect = editorDiv.getBoundingClientRect();
+    textEditor.style.width = (rect.width + 20) + 'px';
+    textEditor.style.height = (rect.height + 10) + 'px';
+}
+
+function syncEditorToObject() {
+    if (editingObject) {
+        const editorDiv = getTextEditor();
+        if (editorDiv) {
+            editingObject.text = editorDiv.innerText;
+            if (socket && socket.connected) socket.emit('update-object', editingObject);
+        }
+    }
+}
+
+function insertFraction() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertMathSymbol('⁄');
+        return;
+    }
+    
+    const sel = window.getSelection();
+    if (!sel.rangeCount) {
+        editor.focus();
+    }
+    
+    const range = sel.getRangeAt(0);
+    
+    const fracDiv = document.createElement('div');
+    fracDiv.className = 'math-frac';
+    fracDiv.contentEditable = 'false';
+    fracDiv.style.display = 'inline-flex';
+    fracDiv.style.flexDirection = 'column';
+    fracDiv.style.verticalAlign = 'middle';
+    fracDiv.style.margin = '0 4px';
+    fracDiv.style.border = '1px dashed #9C27B0';
+    fracDiv.style.background = 'rgba(156, 39, 176, 0.1)';
+    fracDiv.style.borderRadius = '3px';
+    fracDiv.style.padding = '2px 4px';
+    
+    const numSpan = document.createElement('span');
+    numSpan.className = 'math-num';
+    numSpan.contentEditable = 'true';
+    numSpan.innerHTML = '<span class="math-placeholder" style="color:#aaa;">a</span>';
+    numSpan.style.display = 'block';
+    numSpan.style.textAlign = 'center';
+    numSpan.style.borderBottom = '2px solid currentColor';
+    numSpan.style.paddingBottom = '2px';
+    numSpan.style.marginBottom = '2px';
+    numSpan.style.minWidth = '20px';
+    
+    const denSpan = document.createElement('span');
+    denSpan.className = 'math-den';
+    denSpan.contentEditable = 'true';
+    denSpan.innerHTML = '<span class="math-placeholder" style="color:#aaa;">b</span>';
+    denSpan.style.display = 'block';
+    denSpan.style.textAlign = 'center';
+    denSpan.style.minWidth = '20px';
+    
+    fracDiv.appendChild(numSpan);
+    fracDiv.appendChild(denSpan);
+    
+    // Видаляємо placeholder перед вставкою
+    const placeholder = range.startContainer;
+    if (placeholder.nodeType === Node.TEXT_NODE && placeholder.textContent === '\u200B') {
+        placeholder.textContent = '';
+    }
+    
+    range.insertNode(fracDiv);
+    
+    // Переміщуємо курсор в чисельник
+    const newRange = document.createRange();
+    const firstText = numSpan.firstChild;
+    if (firstText && firstText.nodeType === Node.TEXT_NODE) {
+        newRange.setStart(firstText, 0);
+        newRange.setEnd(firstText, firstText.textContent.length);
+    } else {
+        newRange.selectNodeContents(numSpan);
+    }
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    
+    updateTextEditorSize();
+    syncEditorToObject();
+}
+
+function insertSummation() {
+    insertMathTemplate('summation');
+}
+
+function insertProduct() {
+    insertMathTemplate('product');
+}
+
+function insertIntegral() {
+    insertMathTemplate('integral');
+}
+
+function insertDoubleIntegral() {
+    insertMathTemplate('doubleintegral');
+}
+
+function insertTripleIntegral() {
+    insertMathTemplate('tripleintegral');
+}
+
+function insertContourIntegral() {
+    insertMathTemplate('contourintegral');
+}
+
+function insertLimit() {
+    const editor = getTextEditor();
+    if (!editor) return;
+    
+    insertSymbolAtCursor('lim');
+}
+
+function insertSquareRoot() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertMathSymbol('√');
+        setTimeout(() => insertSymbolAtCursor('a'), 50);
+        return;
+    }
+    
+    const range = window.getSelection().getRangeAt(0);
+    
+    const rootDiv = document.createElement('span');
+    rootDiv.className = 'math-root';
+    rootDiv.contentEditable = 'false';
+    rootDiv.style.display = 'inline-flex';
+    rootDiv.style.alignItems = 'center';
+    rootDiv.style.verticalAlign = 'middle';
+    rootDiv.style.border = '1px dashed #FF9800';
+    rootDiv.style.background = 'rgba(255, 152, 0, 0.1)';
+    rootDiv.style.borderRadius = '3px';
+    rootDiv.style.padding = '0 4px';
+    
+    const rootSymbol = document.createElement('span');
+    rootSymbol.style.fontSize = '1.2em';
+    rootSymbol.style.lineHeight = '1';
+    rootSymbol.style.marginRight = '2px';
+    rootSymbol.textContent = '√';
+    
+    const contentSpan = document.createElement('span');
+    contentSpan.className = 'math-root-content';
+    contentSpan.contentEditable = 'true';
+    contentSpan.innerHTML = '<span class="math-placeholder" style="color:#aaa;">a</span>';
+    contentSpan.style.display = 'inline-block';
+    contentSpan.style.borderTop = '2px solid currentColor';
+    contentSpan.style.padding = '0 2px';
+    
+    rootDiv.appendChild(rootSymbol);
+    rootDiv.appendChild(contentSpan);
+    
+    range.insertNode(rootDiv);
+    
+    const newRange = document.createRange();
+    newRange.selectNodeContents(contentSpan);
+    newRange.collapse(true);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(newRange);
+    
+    updateTextEditorSize();
+    syncEditorToObject();
+}
+
+function insertCubeRoot() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertMathSymbol('∛');
+        setTimeout(() => insertSymbolAtCursor('a'), 50);
+        return;
+    }
+    
+    insertMathSymbol('∛');
+    setTimeout(() => insertSymbolAtCursor('a'), 50);
+}
+
+function insertNthRoot() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertMathSymbol('ⁿ');
+        setTimeout(() => {
+            insertMathSymbol('√');
+            setTimeout(() => insertSymbolAtCursor('a'), 50);
+        }, 50);
+        return;
+    }
+    
+    insertMathSymbol('ⁿ');
+    setTimeout(() => {
+        insertMathSymbol('√');
+        setTimeout(() => insertSymbolAtCursor('a'), 50);
+    }, 50);
+}
+
+function insertMatrix2x2() {
+    insertMathTemplate('matrix2x2');
+}
+
+function insertMatrix3x3() {
+    insertMathTemplate('matrix3x3');
+}
+
+function insertBracket(type) {
+    const editor = getTextEditor();
+    if (!editor) return;
+    
+    let open, close;
+    if (type === '(') { open = '('; close = ')'; }
+    else if (type === '[') { open = '['; close = ']'; }
+    else if (type === '{') { open = '{'; close = '}'; }
+    else { open = '('; close = ')'; }
+    
+    const sel = window.getSelection();
+    const range = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    
+    const bracketSpan = document.createElement('span');
+    bracketSpan.className = 'math-bracket';
+    bracketSpan.contentEditable = 'false';
+    bracketSpan.style.display = 'inline-flex';
+    bracketSpan.style.alignItems = 'center';
+    bracketSpan.style.verticalAlign = 'middle';
+    bracketSpan.style.border = '1px dashed #00BCD4';
+    bracketSpan.style.background = 'rgba(0, 188, 212, 0.1)';
+    bracketSpan.style.borderRadius = '3px';
+    bracketSpan.style.padding = '4px 8px';
+    bracketSpan.style.minWidth = '40px';
+    bracketSpan.style.minHeight = '30px';
+    
+    const openSpan = document.createElement('span');
+    openSpan.textContent = open;
+    openSpan.style.marginRight = '10px';
+    
+    const contentSpan = document.createElement('span');
+    contentSpan.contentEditable = 'true';
+    contentSpan.innerHTML = '<span class="math-placeholder" style="color:#aaa;"></span>';
+    
+    const closeSpan = document.createElement('span');
+    closeSpan.textContent = close;
+    closeSpan.style.marginLeft = '10px';
+    
+    bracketSpan.appendChild(openSpan);
+    bracketSpan.appendChild(contentSpan);
+    bracketSpan.appendChild(closeSpan);
+    
+    if (range) {
+        range.insertNode(bracketSpan);
+        const newRange = document.createRange();
+        newRange.selectNodeContents(contentSpan);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+    } else {
+        editor.appendChild(bracketSpan);
+    }
+    
+    updateTextEditorSize();
+    syncEditorToObject();
+}
+
+function insertVector() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertSymbolAtCursor('v');
+        setTimeout(() => {
+            insertMathSymbol('\u20D7'); // Vector combining accent
+        }, 50);
+        return;
+    }
+    
+    insertSymbolAtCursor('v');
+    setTimeout(() => {
+        insertMathSymbol('\u20D7');
+    }, 50);
+}
+
+function insertHat() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertSymbolAtCursor('x');
+        setTimeout(() => {
+            insertMathSymbol('\u0302'); // Combining circumflex
+        }, 50);
+        return;
+    }
+    
+    insertSymbolAtCursor('x');
+    setTimeout(() => {
+        insertMathSymbol('\u0302');
+    }, 50);
+}
+
+function insertBar() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertSymbolAtCursor('x');
+        setTimeout(() => {
+            insertMathSymbol('\u0304'); // Combining overline
+        }, 50);
+        return;
+    }
+    
+    insertSymbolAtCursor('x');
+    setTimeout(() => {
+        insertMathSymbol('\u0304');
+    }, 50);
+}
+
+function insertDot() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertSymbolAtCursor('x');
+        setTimeout(() => {
+            insertMathSymbol('\u0307'); // Combining dot above
+        }, 50);
+        return;
+    }
+    
+    insertSymbolAtCursor('x');
+    setTimeout(() => {
+        insertMathSymbol('\u0307');
+    }, 50);
+}
+
+function insertDoubleDot() {
+    const editor = getTextEditor();
+    if (!editor) {
+        insertSymbolAtCursor('x');
+        setTimeout(() => {
+            insertMathSymbol('\u0308'); // Combining diaeresis
+        }, 50);
+        return;
+    }
+    
+    insertSymbolAtCursor('x');
+    setTimeout(() => {
+        insertMathSymbol('\u0308');
+    }, 50);
+}
+
+function insertMathTemplate(type) {
+    const editor = getTextEditor();
+    if (!editor) return;
+    
+    const sel = window.getSelection();
+    const range = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    
+    let template;
+    
+    switch (type) {
+        case 'summation':
+            template = createSummationTemplate();
+            break;
+        case 'product':
+            template = createProductTemplate();
+            break;
+        case 'integral':
+            template = createIntegralTemplate('∫');
+            break;
+        case 'doubleintegral':
+            template = createIntegralTemplate('∬');
+            break;
+        case 'tripleintegral':
+            template = createIntegralTemplate('∭');
+            break;
+        case 'contourintegral':
+            template = createIntegralTemplate('∮');
+            break;
+        case 'matrix2x2':
+            template = createMatrixTemplate(2);
+            break;
+        case 'matrix3x3':
+            template = createMatrixTemplate(3);
+            break;
+        default:
+            return;
+    }
+    
+    if (range) {
+        range.insertNode(template);
+        template.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+        editor.appendChild(template);
+    }
+    
+    updateTextEditorSize();
+    syncEditorToObject();
+}
+
+function createSummationTemplate() {
+    const container = document.createElement('span');
+    container.className = 'math-sum-prod';
+    container.contentEditable = 'false';
+    container.style.display = 'inline-flex';
+    container.style.flexDirection = 'column';
+    container.style.alignItems = 'center';
+    container.style.verticalAlign = 'middle';
+    container.style.border = '1px dashed #9C27B0';
+    container.style.background = 'rgba(156, 39, 176, 0.1)';
+    container.style.borderRadius = '3px';
+    container.style.padding = '2px 6px';
+    container.style.minWidth = '60px';
+    
+    const upper = document.createElement('span');
+    upper.className = 'math-sp-upper';
+    upper.contentEditable = 'true';
+    upper.innerHTML = '<span class="math-placeholder" style="color:#aaa;">n</span>';
+    upper.style.fontSize = '0.5em';
+    upper.style.lineHeight = '1';
+    upper.style.minHeight = '0.5em';
+    upper.style.marginBottom = '2px';
+    
+    const symbol = document.createElement('span');
+    symbol.className = 'math-sp-symbol';
+    symbol.textContent = '∑';
+    symbol.style.fontSize = '1.2em';
+    symbol.style.lineHeight = '1';
+    
+    const lower = document.createElement('span');
+    lower.className = 'math-sp-lower';
+    lower.contentEditable = 'true';
+    lower.innerHTML = '<span class="math-placeholder" style="color:#aaa;">i=1</span>';
+    lower.style.fontSize = '0.5em';
+    lower.style.lineHeight = '1';
+    lower.style.minHeight = '0.5em';
+    lower.style.marginTop = '2px';
+    
+    container.appendChild(upper);
+    container.appendChild(symbol);
+    container.appendChild(lower);
+    
+    return container;
+}
+
+function createProductTemplate() {
+    const container = document.createElement('span');
+    container.className = 'math-sum-prod';
+    container.contentEditable = 'false';
+    container.style.display = 'inline-flex';
+    container.style.flexDirection = 'column';
+    container.style.alignItems = 'center';
+    container.style.verticalAlign = 'middle';
+    container.style.border = '1px dashed #9C27B0';
+    container.style.background = 'rgba(156, 39, 176, 0.1)';
+    container.style.borderRadius = '3px';
+    container.style.padding = '2px 6px';
+    container.style.minWidth = '60px';
+    
+    const upper = document.createElement('span');
+    upper.className = 'math-sp-upper';
+    upper.contentEditable = 'true';
+    upper.innerHTML = '<span class="math-placeholder" style="color:#aaa;">n</span>';
+    upper.style.fontSize = '0.5em';
+    upper.style.lineHeight = '1';
+    upper.style.minHeight = '0.5em';
+    upper.style.marginBottom = '2px';
+    
+    const symbol = document.createElement('span');
+    symbol.className = 'math-sp-symbol';
+    symbol.textContent = '∏';
+    symbol.style.fontSize = '1.2em';
+    symbol.style.lineHeight = '1';
+    
+    const lower = document.createElement('span');
+    lower.className = 'math-sp-lower';
+    lower.contentEditable = 'true';
+    lower.innerHTML = '<span class="math-placeholder" style="color:#aaa;">i=1</span>';
+    lower.style.fontSize = '0.5em';
+    lower.style.lineHeight = '1';
+    lower.style.minHeight = '0.5em';
+    lower.style.marginTop = '2px';
+    
+    container.appendChild(upper);
+    container.appendChild(symbol);
+    container.appendChild(lower);
+    
+    return container;
+}
+
+function createIntegralTemplate(symbolChar) {
+    const container = document.createElement('span');
+    container.className = 'math-integral';
+    container.contentEditable = 'false';
+    container.style.display = 'inline-flex';
+    container.style.flexDirection = 'column';
+    container.style.alignItems = 'center';
+    container.style.verticalAlign = 'middle';
+    container.style.border = '1px dashed #E91E63';
+    container.style.background = 'rgba(233, 30, 99, 0.1)';
+    container.style.borderRadius = '3px';
+    container.style.padding = '2px 6px';
+    container.style.minWidth = '50px';
+    
+    const upper = document.createElement('span');
+    upper.className = 'math-int-upper';
+    upper.contentEditable = 'true';
+    upper.innerHTML = '<span class="math-placeholder" style="color:#aaa;">b</span>';
+    upper.style.display = 'block';
+    upper.style.textAlign = 'right';
+    upper.style.minHeight = '0.5em';
+    upper.style.marginBottom = '1px';
+    
+    const symbol = document.createElement('span');
+    symbol.className = 'math-int-symbol';
+    symbol.textContent = symbolChar;
+    symbol.style.fontSize = '1.4em';
+    symbol.style.lineHeight = '1';
+    
+    const lower = document.createElement('span');
+    lower.className = 'math-int-lower';
+    lower.contentEditable = 'true';
+    lower.innerHTML = '<span class="math-placeholder" style="color:#aaa;">a</span>';
+    lower.style.display = 'block';
+    lower.style.textAlign = 'right';
+    lower.style.minHeight = '0.5em';
+    lower.style.marginTop = '1px';
+    
+    container.appendChild(upper);
+    container.appendChild(symbol);
+    container.appendChild(lower);
+    
+    return container;
+}
+
+function createMatrixTemplate(size) {
+    const container = document.createElement('span');
+    container.className = 'math-matrix';
+    container.contentEditable = 'false';
+    container.style.display = 'inline-flex';
+    container.style.verticalAlign = 'middle';
+    container.style.border = '1px dashed #4CAF50';
+    container.style.background = 'rgba(76, 175, 80, 0.1)';
+    container.style.borderRadius = '3px';
+    container.style.padding = '8px 12px';
+    
+    const matrixContent = document.createElement('span');
+    matrixContent.style.display = 'inline-flex';
+    matrixContent.style.flexDirection = 'column';
+    matrixContent.style.gap = '4px';
+    
+    for (let i = 0; i < size; i++) {
+        const row = document.createElement('span');
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        
+        for (let j = 0; j < size; j++) {
+            const cell = document.createElement('span');
+            cell.contentEditable = 'true';
+            cell.innerHTML = '<span class="math-placeholder" style="color:#aaa;">·</span>';
+            cell.style.minWidth = '20px';
+            cell.style.textAlign = 'center';
+            row.appendChild(cell);
+        }
+        
+        matrixContent.appendChild(row);
+    }
+    
+    container.appendChild(matrixContent);
+    
+    return container;
+}
+
+// ============================================
 // ОБРОБКА КЛАВІШ
 // ============================================
 
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
-    
-    console.log('Keydown:', e.key, 'ctrlKey:', ctrlKey);
     
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         if (!textEditor) {
@@ -1087,25 +1919,8 @@ window.addEventListener('keydown', (e) => {
         }
     }
     
-    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        e.preventDefault();
-        copySelectedObjects();
-        return;
-    }
-    
-    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        e.preventDefault();
-        if (!textEditor) {
-            const centerX = (canvas.width / 2 - offsetX) / scale;
-            const centerY = (canvas.height / 2 - offsetY) / scale;
-            pasteFromClipboard({ x: centerX, y: centerY });
-        }
-        return;
-    }
-    
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
-        console.log('Ctrl+Z triggered');
         undo();
         return;
     }
@@ -1128,367 +1943,13 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'v' || e.key === 'V') setTool('select');
     if (e.key === 'h' || e.key === 'H') setTool('hand');
     if (e.key === 'g' || e.key === 'G') setTool('grid');
+    if (e.key === 'm' || e.key === 'M') toggleMathPalette();
 });
 
 window.addEventListener('keyup', (e) => { 
     if (e.key === 'Shift') shiftKey = false;
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
-
-// ============================================
-// МАТЕМАТИЧНІ СИМВОЛИ - ГРЕЦЬКИЙ АЛФАВІТ
-// ============================================
-
-const greekLowercase = [
-    'α', 'β', 'γ', 'δ', 'ε', 'ζ', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'π', 'ρ', 'σ', 'τ', 'υ', 'φ', 'χ', 'ψ', 'ω'
-];
-
-const greekUppercase = [
-    'Α', 'Β', 'Γ', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω'
-];
-
-function initGreekPanels() {
-    const lowerGrid = document.getElementById('greekLowercaseGrid');
-    const upperGrid = document.getElementById('greekUppercaseGrid');
-    
-    greekLowercase.forEach(letter => {
-        const btn = document.createElement('button');
-        btn.className = 'popup-btn';
-        btn.textContent = letter;
-        btn.onclick = () => insertMathSymbol(letter);
-        lowerGrid.appendChild(btn);
-    });
-    
-    greekUppercase.forEach(letter => {
-        const btn = document.createElement('button');
-        btn.className = 'popup-btn';
-        btn.textContent = letter;
-        btn.onclick = () => insertMathSymbol(letter);
-        upperGrid.appendChild(btn);
-    });
-}
-
-// ============================================
-// ВСТАВКА МАТЕМАТИЧНИХ СИМВОЛІВ В РЕДАКТОР
-// ============================================
-
-function insertMathSymbol(symbol) {
-    console.log('insertMathSymbol called:', symbol, 'textEditor:', !!textEditor, 'editorDiv:', !!editorDiv);
-    
-    if (editorDiv && textEditor) {
-        editorDiv.focus();
-        
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            
-            const textNode = document.createTextNode(symbol);
-            range.insertNode(textNode);
-            
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            selection.removeAllRanges();
-            selection.addRange(range);
-            
-            updateTextSize();
-            updateTextObject();
-        }
-    }
-    hideAllPanels();
-}
-
-function insertSum() {
-    if (editorDiv && textEditor) {
-        editorDiv.focus();
-        
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            
-            const sumDiv = document.createElement('span');
-            sumDiv.className = 'math-sum';
-            sumDiv.style.display = 'inline-flex';
-            sumDiv.style.alignItems = 'center';
-            sumDiv.style.position = 'relative';
-            sumDiv.style.fontSize = '1.2em';
-            sumDiv.style.verticalAlign = 'middle';
-            
-            const upperSpan = document.createElement('span');
-            upperSpan.className = 'math-sum-upper';
-            upperSpan.textContent = 'n';
-            upperSpan.contentEditable = 'true';
-            upperSpan.style.outline = 'none';
-            upperSpan.style.minWidth = '10px';
-            
-            const lowerSpan = document.createElement('span');
-            lowerSpan.className = 'math-sum-lower';
-            lowerSpan.textContent = 'i=1';
-            lowerSpan.contentEditable = 'true';
-            lowerSpan.style.outline = 'none';
-            lowerSpan.style.minWidth = '20px';
-            
-            const mainSpan = document.createElement('span');
-            mainSpan.className = 'math-symbol-main';
-            mainSpan.textContent = '∑';
-            
-            sumDiv.appendChild(upperSpan);
-            sumDiv.appendChild(mainSpan);
-            sumDiv.appendChild(lowerSpan);
-            
-            range.deleteContents();
-            range.insertNode(sumDiv);
-            
-            // Move cursor after the sum
-            const newRange = document.createRange();
-            newRange.setStartAfter(sumDiv);
-            newRange.setEndAfter(sumDiv);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-            
-            updateTextSize();
-            updateTextObject();
-        }
-    }
-    hideAllPanels();
-}
-
-function insertIntegral(order) {
-    if (editorDiv && textEditor) {
-        editorDiv.focus();
-        
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            
-            const intDiv = document.createElement('span');
-            intDiv.className = 'math-integral';
-            intDiv.style.display = 'inline-flex';
-            intDiv.style.alignItems = 'center';
-            intDiv.style.position = 'relative';
-            intDiv.style.fontSize = order === 1 ? '1.4em' : (order === 2 ? '1.2em' : '1em');
-            intDiv.style.verticalAlign = 'middle';
-            
-            if (order === 1) {
-                const upperSpan = document.createElement('span');
-                upperSpan.className = 'math-integral-upper';
-                upperSpan.textContent = 'b';
-                upperSpan.contentEditable = 'true';
-                upperSpan.style.outline = 'none';
-                
-                const lowerSpan = document.createElement('span');
-                lowerSpan.className = 'math-integral-lower';
-                lowerSpan.textContent = 'a';
-                lowerSpan.contentEditable = 'true';
-                lowerSpan.style.outline = 'none';
-                
-                const mainSpan = document.createElement('span');
-                mainSpan.className = 'math-symbol-main';
-                mainSpan.textContent = '∫';
-                
-                const innerSpan = document.createElement('span');
-                innerSpan.className = 'math-integral-inner';
-                innerSpan.textContent = 'dx';
-                innerSpan.contentEditable = 'true';
-                innerSpan.style.outline = 'none';
-                
-                intDiv.appendChild(upperSpan);
-                intDiv.appendChild(mainSpan);
-                intDiv.appendChild(lowerSpan);
-                intDiv.appendChild(innerSpan);
-            } else if (order === 2) {
-                const mainSpan = document.createElement('span');
-                mainSpan.className = 'math-symbol-main';
-                mainSpan.textContent = '∬';
-                
-                const innerSpan = document.createElement('span');
-                innerSpan.className = 'math-integral-inner';
-                innerSpan.textContent = 'dV';
-                innerSpan.contentEditable = 'true';
-                innerSpan.style.outline = 'none';
-                
-                intDiv.appendChild(mainSpan);
-                intDiv.appendChild(innerSpan);
-            } else {
-                const mainSpan = document.createElement('span');
-                mainSpan.className = 'math-symbol-main';
-                mainSpan.textContent = '∭';
-                
-                const innerSpan = document.createElement('span');
-                innerSpan.className = 'math-integral-inner';
-                innerSpan.textContent = 'dV';
-                innerSpan.contentEditable = 'true';
-                innerSpan.style.outline = 'none';
-                
-                intDiv.appendChild(mainSpan);
-                intDiv.appendChild(innerSpan);
-            }
-            
-            range.deleteContents();
-            range.insertNode(intDiv);
-            
-            // Move cursor after the integral
-            const newRange = document.createRange();
-            newRange.setStartAfter(intDiv);
-            newRange.setEndAfter(intDiv);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-            
-            updateTextSize();
-            updateTextObject();
-        }
-    }
-    hideAllPanels();
-}
-
-// ============================================
-// ОНОВЛЕННЯ ТЕКСТОВОГО ОБ'ЄКТА
-// ============================================
-
-function updateTextObject() {
-    if (editingObject && editorDiv) {
-        editingObject.text = editorDiv.innerText;
-        if (socket && socket.connected) socket.emit('update-object', editingObject);
-    }
-}
-
-function updateTextSize() {
-    if (!textEditor || !editorDiv) return;
-    const rect = editorDiv.getBoundingClientRect();
-    textEditor.style.width = (rect.width + 20) + 'px';
-    textEditor.style.height = (rect.height + 10) + 'px';
-}
-
-// ============================================
-// ПАНЕЛІ ТА КНОПКИ
-// ============================================
-
-const fxBtn = document.getElementById('fxToolBtn');
-const mathToolbarRow = document.getElementById('mathToolbarRow');
-const plusMinusBtn = document.getElementById('plusMinusBtn');
-const bracketsBtn = document.getElementById('bracketsBtn');
-const alphaBtn = document.getElementById('alphaBtn');
-const sigmaBtn = document.getElementById('sigmaBtn');
-const plusMinusPanel = document.getElementById('plusMinusPanel');
-const bracketsPanel = document.getElementById('bracketsPanel');
-const alphaPanel = document.getElementById('alphaPanel');
-const sigmaPanel = document.getElementById('sigmaPanel');
-
-fxBtn.addEventListener('click', () => {
-    if (currentTool === 'text') {
-        mathToolbarRow.classList.toggle('visible');
-        hideAllPanels();
-    } else {
-        setTool('text');
-    }
-});
-
-plusMinusBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    hideAllPanels();
-    plusMinusPanel.classList.add('visible');
-});
-
-bracketsBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    hideAllPanels();
-    bracketsPanel.classList.add('visible');
-});
-
-alphaBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    hideAllPanels();
-    alphaPanel.classList.add('visible');
-});
-
-sigmaBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    hideAllPanels();
-    sigmaPanel.classList.add('visible');
-});
-
-function hideAllPanels() {
-    plusMinusPanel.classList.remove('visible');
-    bracketsPanel.classList.remove('visible');
-    alphaPanel.classList.remove('visible');
-    sigmaPanel.classList.remove('visible');
-}
-
-document.addEventListener('click', (e) => {
-    if (!fxBtn.contains(e.target) && !mathToolbarRow.contains(e.target) &&
-        !plusMinusBtn.contains(e.target) && !bracketsBtn.contains(e.target) &&
-        !alphaBtn.contains(e.target) && !sigmaBtn.contains(e.target) &&
-        !plusMinusPanel.contains(e.target) && !bracketsPanel.contains(e.target) &&
-        !alphaPanel.contains(e.target) && !sigmaPanel.contains(e.target)) {
-        hideAllPanels();
-    }
-});
-
-// Initialize Greek panels
-initGreekPanels();
-
-// ============================================
-// ЗАЛИВКА
-// ============================================
-
-const fillToolBtn = document.getElementById('fillToolBtn');
-
-fillToolBtn.addEventListener('click', () => {
-    if (fillMode) {
-        fillMode = false;
-        fillToolBtn.classList.remove('fill-active');
-        setTool('select');
-    } else {
-        fillMode = true;
-        fillToolBtn.classList.add('fill-active');
-        currentTool = 'fill';
-        canvas.className = 'cursor-crosshair';
-    }
-});
-
-function performFill(x, y) {
-    const targetColor = getColorAtPoint(x, y);
-    if (!targetColor) return;
-    
-    const fillColor = currentPenColor;
-    if (colorsEqual(targetColor, fillColor)) return;
-    
-    const objectsToFill = findClosedAreas(x, y, targetColor);
-    if (objectsToFill.length > 0) {
-        saveHistory();
-        objectsToFill.forEach(obj => {
-            obj.fillColor = fillColor;
-            if (socket && socket.connected) socket.emit('update-object', obj);
-        });
-        if (socket && socket.connected) socket.emit('update-all', objects);
-        requestDraw();
-    }
-}
-
-function getColorAtPoint(x, y) {
-    const imageData = ctx.getImageData(x * scale + offsetX, y * scale + offsetY, 1, 1).data;
-    if (imageData[3] === 0) return null;
-    return `rgb(${imageData[0]}, ${imageData[1]}, ${imageData[2]})`;
-}
-
-function colorsEqual(c1, c2) {
-    return c1 === c2;
-}
-
-function findClosedAreas(x, y, targetColor) {
-    const fillableObjects = [];
-    objects.forEach(obj => {
-        if (obj.type === 'shape' || obj.type === 'rect') {
-            const bbox = getBBox(obj);
-            if (bbox) {
-                if (x >= bbox.x && x <= bbox.x + bbox.w && y >= bbox.y && y <= bbox.y + bbox.h) {
-                    fillableObjects.push(obj);
-                }
-            }
-        }
-    });
-    return fillableObjects;
-}
 
 // ============================================
 // ІНСТРУМЕНТИ ТА ПАЛІТРИ
@@ -1551,6 +2012,7 @@ rectBtn.addEventListener('click', (e) => {
 document.addEventListener('mousedown', (e) => {
     const linePalette = document.getElementById('line-palette');
     const shapePalette = document.getElementById('shapes-palette');
+    const mathPalette = document.getElementById('math-palette');
     
     if (linePalette.style.display === 'flex' && !linePalette.contains(e.target) && !lineBtn.contains(e.target)) {
         linePalette.style.display = 'none';
@@ -1559,7 +2021,114 @@ document.addEventListener('mousedown', (e) => {
     if (shapePalette.style.display === 'flex' && !shapePalette.contains(e.target) && !rectBtn.contains(e.target)) {
         shapePalette.style.display = 'none';
     }
+    
+    if (!mathPalette.contains(e.target) && !document.getElementById('mathToolBtn').contains(e.target)) {
+        // Don't hide if clicking the button
+    }
 });
+
+// Math tool button
+document.getElementById('mathToolBtn').addEventListener('click', () => {
+    toggleMathPalette();
+});
+
+// ============================================
+// ВИМІРЮВАННЯ СЕГМЕНТІВ ТЕКСТУ
+// ============================================
+
+function measureSegments(segments, baseSize, isBold) {
+    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+    const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+    
+    let totalWidth = 0;
+    let maxHeight = 0;
+    let maxAscent = 0;
+    
+    const tempCtx = canvas.getContext('2d');
+    
+    segments.forEach(s => {
+        if (s.type === 'normal') {
+            tempCtx.font = normalFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize);
+            maxAscent = Math.max(maxAscent, metrics.actualBoundingBoxAscent || baseSize * 0.8);
+        } else if (s.type === 'sup') {
+            tempCtx.font = smallFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5));
+        } else if (s.type === 'sub') {
+            tempCtx.font = smallFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.3));
+        } else if (s.type === 'frac') {
+            const numMetrics = measureSegments(s.numerator, baseSize, isBold);
+            const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            const fracWidth = Math.max(numMetrics.w, denMetrics.w);
+            const fracHeight = numMetrics.h + denMetrics.h + 6;
+            totalWidth += fracWidth;
+            maxHeight = Math.max(maxHeight, fracHeight);
+        }
+    });
+    
+    return { w: totalWidth, h: maxHeight, ascent: maxAscent };
+}
+
+// ============================================
+// КОНВЕРТАЦІЯ HTML <-> СЕГМЕНТИ
+// ============================================
+
+function htmlToSegments(html) {
+    if (!html || html.trim() === '') return [];
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const segments = [];
+    
+    function processNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (node.textContent.length > 0) {
+                segments.push({ type: 'normal', text: node.textContent });
+            }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList.contains('math-sup')) {
+                segments.push({ type: 'sup', text: node.textContent || '' });
+            } else if (node.classList.contains('math-sub')) {
+                segments.push({ type: 'sub', text: node.textContent || '' });
+            } else if (node.classList.contains('math-frac')) {
+                const numNode = node.querySelector('.math-num');
+                const denNode = node.querySelector('.math-den');
+                const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
+                const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
+                segments.push({ type: 'frac', numerator: numSegs, denominator: denSegs });
+            } else if (node.tagName === 'BR') {
+                segments.push({ type: 'normal', text: '\n' });
+            } else {
+                node.childNodes.forEach(processNode);
+            }
+        }
+    }
+    
+    Array.from(doc.body.childNodes).forEach(processNode);
+    return segments;
+}
+
+function segmentsToHtml(segments) {
+    if (!segments || segments.length === 0) return '';
+    return segments.map(s => {
+        if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
+        if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
+        if (s.type === 'frac') {
+            const numHtml = segmentsToHtml(s.numerator);
+            const denHtml = segmentsToHtml(s.denominator);
+            return `<div class="math-frac"><span class="math-num">${numHtml}</span><span class="math-den">${denHtml}</span></div>`;
+        }
+        if (s.text === '\n') return '<br>';
+        return s.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }).join('');
+}
 
 // ============================================
 // ОБЧИСЛЕННЯ РАМОК (BOUNDING BOX)
@@ -1569,6 +2138,12 @@ function getBBox(obj) {
     if (!obj) return null;
     if (obj.type === 'text') {
         const baseSize = obj.size; 
+        
+        if (obj.segments && obj.segments.length > 0) {
+            const metrics = measureSegments(obj.segments, baseSize, obj.isBold);
+            return { x: obj.x, y: obj.y - (metrics.ascent * 0.2), w: metrics.w || 2, h: metrics.h * 1.2 };
+        }
+
         ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
         const lineH = baseSize * 1.4;
         let maxW = 0;
@@ -1582,7 +2157,7 @@ function getBBox(obj) {
         
         return { x: obj.x, y: obj.y, w: maxW || 2, h: lineH * textLines.length };
     }
-    if (obj.type === 'rect' || obj.type === 'shape' || obj.type === 'matrix' || obj.type === 'determinant' || obj.type === 'system' || obj.type === 'brackets') {
+    if (obj.type === 'rect' || obj.type === 'shape') {
         return { x: obj.x, y: obj.y, w: Math.abs(obj.w), h: Math.abs(obj.h) };
     }
     if (obj.type === 'image') {
@@ -1831,6 +2406,95 @@ function draw() {
 }
 
 // ============================================
+// МАЛЮВАННЯ СЕГМЕНТОВАНОГО ТЕКСТУ
+// ============================================
+
+function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
+    let currentX = x;
+    let currentY = y;
+    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+    const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+    const lineH = baseSize * 1.4;
+    
+    segments.forEach(s => {
+        if (s.text === '\n') {
+            currentX = x;
+            currentY += lineH;
+            return;
+        }
+        
+        if (s.type === 'normal') {
+            ctx.font = normalFont;
+            ctx.fillText(s.text, currentX, currentY);
+            currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'sup') {
+            ctx.font = smallFont;
+            ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
+            currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'sub') {
+            ctx.font = smallFont;
+            ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
+            currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'frac') {
+            const numMetrics = measureSegments(s.numerator, baseSize, isBold);
+            const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            const fracW = Math.max(numMetrics.w, denMetrics.w);
+            const gap = 3;
+            const numStartX = currentX + (fracW - numMetrics.w) / 2;
+            const denStartX = currentX + (fracW - denMetrics.w) / 2;
+            const fractionCenterY = currentY - (baseSize * 0.15);
+            const lineY = fractionCenterY;
+            const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
+            const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
+            
+            ctx.font = normalFont;
+            let cx = numStartX;
+            s.numerator.forEach(seg => {
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, cx, numBaselineY);
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                }
+            });
+            
+            ctx.beginPath();
+            ctx.moveTo(currentX, lineY);
+            ctx.lineTo(currentX + fracW, lineY);
+            ctx.stroke();
+            
+            let dx = denStartX;
+            s.denominator.forEach(seg => {
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, dx, denBaselineY);
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                }
+            });
+            
+            currentX += fracW;
+        }
+    });
+}
+
+// ============================================
 // МАЛЮВАННЯ КООРДИНАТНОЇ СІТКИ
 // ============================================
 
@@ -1873,86 +2537,131 @@ function drawCoordinateGrid(obj) {
     const totalCellsX = Math.round(sw / gridSpacing);
     const totalCellsY = Math.round(sh / gridSpacing);
     
+    const centerX = sx + sw / 2;
+    const centerY = sy + sh / 2;
+    
     const cellsRight = Math.floor(totalCellsX / 2);
     const cellsLeft = totalCellsX - cellsRight;
     const cellsUp = Math.floor(totalCellsY / 2);
     const cellsDown = totalCellsY - cellsUp;
     
-    const originX = sx + cellsRight * gridSpacing;
-    const originY = sy + cellsUp * gridSpacing;
-    
     ctx.strokeStyle = axisColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(sx, originY);
-    ctx.lineTo(sx + sw, originY);
+    ctx.moveTo(sx, centerY);
+    ctx.lineTo(sx + sw, centerY);
     ctx.stroke();
     
     ctx.beginPath();
-    ctx.moveTo(originX, sy + sh);
-    ctx.lineTo(originX, sy);
+    ctx.moveTo(centerX, sy + sh);
+    ctx.lineTo(centerX, sy);
     ctx.stroke();
     
     const arrowSize = 8;
     ctx.beginPath();
-    ctx.moveTo(sx + sw, originY);
-    ctx.lineTo(sx + sw - arrowSize, originY - arrowSize);
-    ctx.moveTo(sx + sw, originY);
-    ctx.lineTo(sx + sw - arrowSize, originY + arrowSize);
+    ctx.moveTo(sx + sw, centerY);
+    ctx.lineTo(sx + sw - arrowSize, centerY - arrowSize);
+    ctx.moveTo(sx + sw, centerY);
+    ctx.lineTo(sx + sw - arrowSize, centerY + arrowSize);
     ctx.stroke();
     
     ctx.beginPath();
-    ctx.moveTo(originX, sy);
-    ctx.lineTo(originX - arrowSize, sy + arrowSize);
-    ctx.moveTo(originX, sy);
-    ctx.lineTo(originX + arrowSize, sy + arrowSize);
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX - arrowSize, sy + arrowSize);
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX + arrowSize, sy + arrowSize);
     ctx.stroke();
     
     ctx.fillStyle = axisColor;
     ctx.font = 'bold 16px Segoe UI';
-    ctx.fillText('X', sx + sw - 15, originY - 15);
-    ctx.fillText('Y', originX + 12, sy + 18);
+    ctx.fillText('X', sx + sw - 15, centerY - 15);
+    ctx.fillText('Y', centerX + 12, sy + 18);
     
     ctx.font = '12px Segoe UI';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     
     for (let i = 1; i <= cellsRight; i++) {
-        const x = originX + i * gridSpacing;
+        const x = centerX + i * gridSpacing;
         if (x >= sx + 10 && x <= sx + sw - 10) {
-            ctx.fillText(i.toString(), x, originY + 6);
+            ctx.fillText(i.toString(), x, centerY + 6);
         }
     }
     
+    ctx.textAlign = 'center';
     for (let i = 1; i <= cellsLeft; i++) {
-        const x = originX - i * gridSpacing;
+        const x = centerX - i * gridSpacing;
         if (x >= sx + 10 && x <= sx + sw - 10) {
-            ctx.fillText((-i).toString(), x, originY + 6);
+            ctx.fillText((-i).toString(), x, centerY + 6);
         }
     }
     
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let i = 1; i <= cellsUp; i++) {
-        const y = originY - i * gridSpacing;
+        const y = centerY - i * gridSpacing;
         if (y >= sy + 10 && y <= sy + sh - 10) {
-            ctx.fillText(i.toString(), originX - 6, y);
+            ctx.fillText(i.toString(), centerX - 6, y);
         }
     }
     
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
     for (let i = 1; i <= cellsDown; i++) {
-        const y = originY + i * gridSpacing;
+        const y = centerY + i * gridSpacing;
         if (y >= sy + 10 && y <= sy + sh - 10) {
-            ctx.fillText((-i).toString(), originX - 6, y);
+            ctx.fillText((-i).toString(), centerX - 6, y);
         }
     }
     
     ctx.font = 'bold 12px Segoe UI';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
-    ctx.fillText('0', originX - 6, originY + 6);
+    ctx.fillText('0', centerX - 6, centerY + 6);
     
     ctx.restore();
+}
+
+// ============================================
+// МАЛЮВАННЯ ПЛАВНИХ ЛІНІЙ
+// ============================================
+
+function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
+    if (points.length === 0) return;
+    
+    if (points.length === 1) {
+        const p = points[0];
+        ctx.beginPath();
+        ctx.arc(p.x * scaleX + offsetX, p.y * scaleX + offsetY, 1, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+    }
+    
+    if (points.length === 2) {
+        const p0 = points[0];
+        const p1 = points[1];
+        ctx.beginPath();
+        ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+        ctx.lineTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY);
+        ctx.stroke();
+        return;
+    }
+    
+    ctx.beginPath();
+    const p0 = points[0];
+    ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+    
+    for (let i = 1; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        ctx.quadraticCurveTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY, midX * scaleX + offsetX, midY * scaleX + offsetY);
+    }
+    
+    const lastPoint = points[points.length - 1];
+    ctx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
+    ctx.stroke();
 }
 
 // ============================================
@@ -1984,7 +2693,8 @@ function drawObject(obj, isTemp = false) {
     
     if (obj.type === 'pen') {
         if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
-        drawSmoothPath(ctx, [{x: obj.x, y: obj.y}, ...obj.points]);
+        const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
+        drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
     } else if (obj.type === 'line' || obj.type === 'arrow') {
         const ex = obj.ex * scale + offsetX;
         const ey = obj.ey * scale + offsetY;
@@ -2005,10 +2715,6 @@ function drawObject(obj, isTemp = false) {
     } else if (obj.type === 'rect') {
         const w = obj.w * scale;
         const h = obj.h * scale;
-        if (obj.fillColor) {
-            ctx.fillStyle = obj.fillColor;
-            ctx.fillRect(sx, sy, w, h);
-        }
         ctx.strokeRect(sx, sy, w, h);
     } else if (obj.type === 'shape') {
         const w = obj.w * scale;
@@ -2089,60 +2795,17 @@ function drawObject(obj, isTemp = false) {
             ctx.bezierCurveTo(sx, sy + h, cx, sy + h * 1.2, sx + w, sy + h);
             ctx.bezierCurveTo(sx + w, cy, sx + w, sy, cx, sy);
             ctx.closePath();
-        } else if (obj.shapeType === 'parabola') {
-            const steps = 50;
-            const a = 0.01;
-            const centerY = sy + h / 2;
-            
-            ctx.beginPath();
-            for (let i = 0; i <= steps; i++) {
-                const t = i / steps;
-                const px = sx + t * w;
-                const py = centerY - a * (t - 0.5) * (t - 0.5) * w * w + a * w * w * 0.25;
-                if (i === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
-            }
-        } else if (obj.shapeType === 'hyperbola') {
-            const steps = 50;
-            const a = 0.02;
-            const b = 0.02;
-            
-            ctx.beginPath();
-            for (let i = 0; i <= steps; i++) {
-                const t = (i / steps) * 2 - 1;
-                const px = sx + w / 2 + t * w / 2;
-                const denom = t * t - 1;
-                if (Math.abs(denom) > 0.1) {
-                    const py = sy + h / 4 - (b / a) * Math.sqrt(1 + a * a * t * t) * h / 4;
-                    if (i === 0) ctx.moveTo(px, py);
-                    else ctx.lineTo(px, py);
-                }
-            }
-            
-            ctx.moveTo(sx, sy + h * 0.75);
-            for (let i = 0; i <= steps; i++) {
-                const t = (i / steps) * 2 - 1;
-                const px = sx + w / 2 + t * w / 2;
-                const denom = t * t - 1;
-                if (Math.abs(denom) > 0.1) {
-                    const py = sy + h * 0.75 + (b / a) * Math.sqrt(1 + a * a * t * t) * h / 4;
-                    if (i === 0) ctx.moveTo(px, py);
-                    else ctx.lineTo(px, py);
-                }
-            }
         }
         
-        if (obj.fillColor) {
-            ctx.fillStyle = obj.fillColor;
-            ctx.fill();
-        }
         ctx.stroke();
     } else if (obj.type === 'text') {
         ctx.fillStyle = obj.color || '#000';
         ctx.textBaseline = 'alphabetic';
         const baseSize = obj.size * scale;
         
-        if (obj.text && obj.text.trim() !== '') {
+        if (obj.segments && obj.segments.length > 0) {
+            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
+        } else if (obj.text && obj.text.trim() !== '') {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const textLines = obj.text.split('\n');
             const lineH = baseSize * 1.4;
@@ -2171,44 +2834,6 @@ function drawObject(obj, isTemp = false) {
         }
     }
     ctx.restore();
-}
-
-function drawSmoothPath(ctx, points) {
-    if (points.length === 0) return;
-    
-    if (points.length === 1) {
-        const p = points[0];
-        ctx.beginPath();
-        ctx.arc(p.x * scale + offsetX, p.y * scale + offsetY, 1, 0, Math.PI * 2);
-        ctx.fill();
-        return;
-    }
-    
-    if (points.length === 2) {
-        const p0 = points[0];
-        const p1 = points[1];
-        ctx.beginPath();
-        ctx.moveTo(p0.x * scale + offsetX, p0.y * scale + offsetY);
-        ctx.lineTo(p1.x * scale + offsetX, p1.y * scale + offsetY);
-        ctx.stroke();
-        return;
-    }
-    
-    ctx.beginPath();
-    const p0 = points[0];
-    ctx.moveTo(p0.x * scale + offsetX, p0.y * scale + offsetY);
-    
-    for (let i = 1; i < points.length - 1; i++) {
-        const p1 = points[i];
-        const p2 = points[i + 1];
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
-        ctx.quadraticCurveTo(p1.x * scale + offsetX, p1.y * scale + offsetY, midX * scale + offsetX, midY * scale + offsetY);
-    }
-    
-    const lastPoint = points[points.length - 1];
-    ctx.lineTo(lastPoint.x * scale + offsetX, lastPoint.y * scale + offsetY);
-    ctx.stroke();
 }
 
 // ============================================
@@ -2264,24 +2889,25 @@ function startTextEdit(obj) {
     rotHandle.dataset.handle = 'rotate';
     wrapper.appendChild(rotHandle);
     
-    editorDiv = document.createElement('div');
+    const editorDiv = document.createElement('div');
     editorDiv.className = 'text-edit-content';
     editorDiv.contentEditable = true;
     editorDiv.style.color = obj.color;
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    if (obj.text && obj.text.trim() !== '') {
-        editorDiv.textContent = obj.text;
+    if (obj.segments && obj.segments.length > 0) {
+        editorDiv.innerHTML = segmentsToHtml(obj.segments);
+    } else if (obj.text && obj.text.trim() !== '') {
+        const lines = obj.text.split('\n');
+        editorDiv.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
     } else {
-        editorDiv.innerHTML = '<br>';
+        editorDiv.innerHTML = '<div><br></div>';
     }
     
     wrapper.appendChild(editorDiv);
     document.body.appendChild(wrapper);
     textEditor = wrapper;
-    
-    mathToolbarRow.classList.add('visible');
     
     function updateSize() {
         if (!editorDiv) return;
@@ -2298,15 +2924,199 @@ function startTextEdit(obj) {
         
         const range = document.createRange();
         const sel = window.getSelection();
-        range.selectNodeContents(editorDiv);
-        range.collapse(false);
+        
+        const lastDiv = editorDiv.lastElementChild;
+        if (lastDiv) {
+            range.selectNodeContents(lastDiv);
+            range.collapse(false);
+        } else {
+            range.selectNodeContents(editorDiv);
+            range.collapse(false);
+        }
+        
         sel.removeAllRanges();
         sel.addRange(range);
     }, 50);
     
+    editorDiv.addEventListener('keydown', (e) => {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        const node = range.startContainer;
+
+        if (e.key === '/') {
+            e.preventDefault();
+            const numeratorContent = collectNumeratorContent(range, editorDiv);
+            insertFractionEditor(editorDiv, numeratorContent);
+            updateSize();
+            return;
+        }
+
+        if (e.key === '^' || e.key === '_') {
+            e.preventDefault();
+            const type = e.key === '^' ? 'sup' : 'sub';
+            insertMathField(editorDiv, type);
+            updateSize();
+            return;
+        }
+        
+        if (e.key === 'ArrowRight') {
+            let parent = node.parentElement;
+            
+            if (parent && parent.classList.contains('math-den')) {
+                e.preventDefault();
+                const frac = parent.parentElement;
+                const nextSibling = frac.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+            
+            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+            
+            if (isAtEnd && parent) {
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const denSpan = parent.parentElement.querySelector('.math-den');
+                    if (denSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(denSpan);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const nextSibling = parent.nextSibling;
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+            }
+        }
+        
+        if (e.key === 'ArrowLeft') {
+            let parent = node.parentElement;
+            let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
+                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
+            
+            if (isAtStart && parent) {
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const numSpan = parent.parentElement.querySelector('.math-num');
+                    if (numSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(numSpan);
+                        newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const prevSibling = frac.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(prevSibling);
+                            newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        frac.parentNode.insertBefore(textNode, frac);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const prevSibling = parent.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(prevSibling);
+                            newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+            }
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.execCommand('insertLineBreak');
+            updateSize();
+            return;
+        }
+
+        if (e.key === 'Escape') { 
+            stopTextEdit(true); 
+        }
+    });
+    
     editorDiv.addEventListener('input', () => {
         updateSize();
-        updateTextObject();
+        if (editingObject) {
+            editingObject.text = editorDiv.innerText;
+            editingObject.segments = htmlToSegments(editorDiv.innerHTML);
+            if (socket && socket.connected) socket.emit('update-object', editingObject);
+        }
     });
     
     editorDiv.addEventListener('blur', () => {
@@ -2321,7 +3131,7 @@ function startTextEdit(obj) {
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
             e.stopPropagation();
-            startTextResize(obj, h.dataset.handle, e, wrapper);
+            startTextResize(obj, h.dataset.handle, e, wrapper, editorDiv);
         });
     });
     
@@ -2333,27 +3143,197 @@ function startTextEdit(obj) {
     });
 }
 
+function insertMathField(editorDiv, type) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+    const span = document.createElement('span');
+    span.className = type === 'sup' ? 'math-sup' : 'math-sub';
+    span.textContent = '\u200B'; 
+    
+    range.deleteContents();
+    range.insertNode(span);
+    
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    newRange.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+}
+
+function insertFractionEditor(editorDiv, numeratorContent) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+    
+    const fracDiv = document.createElement('div');
+    fracDiv.className = 'math-frac';
+    fracDiv.style.display = 'inline-flex';
+    fracDiv.style.flexDirection = 'column';
+    fracDiv.style.verticalAlign = 'middle';
+    
+    const numSpan = document.createElement('span');
+    numSpan.className = 'math-num';
+    
+    if (numeratorContent) {
+        if (typeof numeratorContent === 'string') {
+            numSpan.textContent = numeratorContent;
+        } else {
+            numSpan.appendChild(numeratorContent);
+        }
+    } else {
+        numSpan.textContent = '\u200B';
+    }
+    
+    const denSpan = document.createElement('span');
+    denSpan.className = 'math-den';
+    denSpan.textContent = '\u200B';
+    
+    fracDiv.appendChild(numSpan);
+    fracDiv.appendChild(denSpan);
+    
+    range.deleteContents();
+    range.insertNode(fracDiv);
+    
+    const hasNumeratorContent = numSpan.textContent && numSpan.textContent.trim() !== '' && numSpan.textContent !== '\u200B';
+
+    const newRange = document.createRange();
+    if (hasNumeratorContent) {
+        newRange.selectNodeContents(denSpan);
+        newRange.collapse(true);
+    } else {
+        newRange.selectNodeContents(numSpan);
+        newRange.collapse(false);
+    }
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+}
+
+function collectNumeratorContent(range, editorDiv) {
+    let currentNode = range.startContainer;
+    let currentOffset = range.startOffset;
+    const fragment = document.createDocumentFragment();
+    const separatorChars = /[+\-*/:><=\s]/;
+    let hasContent = false;
+    
+    let nodeBeforeCursor = null;
+    
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+        if (currentOffset === 0) {
+            nodeBeforeCursor = currentNode.previousSibling;
+        }
+    } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+        if (currentOffset > 0) {
+            nodeBeforeCursor = currentNode.childNodes[currentOffset - 1];
+        }
+    }
+
+    while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
+        nodeBeforeCursor = nodeBeforeCursor.previousSibling;
+    }
+
+    if (nodeBeforeCursor && nodeBeforeCursor.classList && 
+        (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
+        
+        let baseNode = nodeBeforeCursor.previousSibling;
+        while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
+            baseNode = baseNode.previousSibling;
+        }
+
+        if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
+            const baseText = baseNode.textContent.trim();
+            if (baseText.length > 0) {
+                let lastSepIndex = -1;
+                for (let i = baseText.length - 1; i >= 0; i--) {
+                    if (separatorChars.test(baseText[i])) {
+                        lastSepIndex = i;
+                        break;
+                    }
+                }
+                
+                if (lastSepIndex === -1) {
+                    const textNode = document.createTextNode(baseText);
+                    fragment.insertBefore(textNode, fragment.firstChild);
+                    hasContent = true;
+                    baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
+                } else {
+                    const numeratorText = baseText.substring(lastSepIndex + 1);
+                    if (numeratorText.trim().length > 0) {
+                        const textNode = document.createTextNode(numeratorText);
+                        fragment.insertBefore(textNode, fragment.firstChild);
+                        hasContent = true;
+                        baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
+                    }
+                }
+            }
+        }
+        
+        fragment.appendChild(nodeBeforeCursor);
+        hasContent = true;
+    }
+    
+    if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
+        const textBefore = currentNode.textContent.substring(0, currentOffset);
+        
+        let lastSepIndex = -1;
+        for (let i = textBefore.length - 1; i >= 0; i--) {
+            if (separatorChars.test(textBefore[i])) {
+                lastSepIndex = i;
+                break;
+            }
+        }
+
+        let startOffset = 0;
+        if (lastSepIndex !== -1) {
+            startOffset = lastSepIndex + 1;
+        }
+
+        if (currentOffset > startOffset) {
+            const numeratorText = textBefore.substring(startOffset);
+            if (numeratorText.trim().length > 0) {
+                const textNode = document.createTextNode(numeratorText);
+                fragment.appendChild(textNode);
+                hasContent = true;
+                currentNode.textContent = textBefore.substring(0, startOffset) + currentNode.textContent.substring(currentOffset);
+                range.setStart(currentNode, startOffset);
+            }
+        }
+    }
+
+    if (!hasContent) return null;
+    return fragment;
+}
+
 // ============================================
 // ЗАВЕРШЕННЯ РЕДАГУВАННЯ ТЕКСТУ
 // ============================================
 
 function stopTextEdit(cancel = false) {
     if (!textEditor) return;
-    
+    const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
+        
+        const html = editorDiv.innerHTML;
+        const segments = htmlToSegments(html);
+        
+        if (segments && segments.length > 0) {
+            editingObject.segments = segments;
+        } else {
+            delete editingObject.segments;
+        }
+        
         editingObject.text = editorDiv.innerText;
+        
         if (socket && socket.connected) socket.emit('update-object', editingObject);
     }
-    
     if (textEditor.parentNode) {
         document.body.removeChild(textEditor);
     }
     textEditor = null;
-    editorDiv = null;
     editingObject = null;
-    mathToolbarRow.classList.remove('visible');
-    hideAllPanels();
     requestDraw();
 }
 
@@ -2361,12 +3341,14 @@ function stopTextEdit(cancel = false) {
 // ЗМІНА РОЗМІРУ ТЕКСТУ
 // ============================================
 
-function startTextResize(obj, handle, e, wrapper) {
+function startTextResize(obj, handle, e, wrapper, editorDiv) {
     isResizing = true;
     resizeHandle = handle;
     const coords = getCoords(e);
     dragStartX = coords.x;
     dragStartY = coords.y;
+    const bbox = getBBox(obj);
+    startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: bbox.w, h: bbox.h };
     const startFontSize = obj.size;
     
     const onMove = (e) => {
@@ -2385,8 +3367,9 @@ function startTextResize(obj, handle, e, wrapper) {
         }
         
         obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
+        
         editorDiv.style.fontSize = (obj.size * scale) + 'px';
-        updateTextSize();
+        updateTextEditorSize();
         requestDraw();
     };
     
@@ -2410,6 +3393,7 @@ function startTextDrag(obj, e, wrapper) {
     const coords = getCoords(e);
     dragStartX = coords.x - obj.x;
     dragStartY = coords.y - obj.y;
+    const editorDiv = wrapper.querySelector('.text-edit-content');
     editorDiv.style.cursor = 'grabbing';
     
     const onMove = (e) => {
@@ -2462,6 +3446,37 @@ canvas.addEventListener('mousedown', (e) => {
     
     const coords = getCoords(e);
     
+    if (textEditor && editingObject) {
+        const clickedText = [...objects].reverse().find(obj => {
+            if (obj.type === 'text' && obj !== editingObject) {
+                return hitTest(obj, coords.x, coords.y, 2);
+            }
+            return false;
+        });
+        
+        if (clickedText) {
+            saveHistory();
+            const editorDiv = textEditor.querySelector('.text-edit-content');
+            const html = editorDiv.innerHTML;
+            const segments = htmlToSegments(html);
+            if (segments && segments.length > 0) {
+                editingObject.segments = segments;
+            } else {
+                delete editingObject.segments;
+            }
+            editingObject.text = editorDiv.innerText;
+            
+            if (textEditor.parentNode) {
+                document.body.removeChild(textEditor);
+            }
+            textEditor = null;
+            
+            startTextEdit(clickedText);
+            requestDraw();
+            return;
+        }
+    }
+    
     if (textEditor) { 
         stopTextEdit(); 
         selectedObjects = [];
@@ -2474,35 +3489,27 @@ canvas.addEventListener('mousedown', (e) => {
         return;
     }
 
-    if (currentTool === 'fill') {
-        performFill(coords.x, coords.y);
-        return;
-    }
-
-    if (currentTool === 'text') {
-        const existingText = [...objects].reverse().find(obj => {
-            if (obj.type === 'text') {
-                return hitTest(obj, coords.x, coords.y, 2);
-            }
-            return false;
-        });
-        
-        if (existingText) {
-            startTextEdit(existingText);
-            requestDraw();
-            return;
-        }
-        createNewText(coords);
-        return;
-    }
-
-    if (currentTool === 'grid') {
-        startDrawing(coords);
-        return;
-    }
-
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
+        else if (currentTool === 'text') {
+            const existingText = [...objects].reverse().find(obj => {
+                if (obj.type === 'text') {
+                    return hitTest(obj, coords.x, coords.y, 2);
+                }
+                return false;
+            });
+            
+            if (existingText) {
+                startTextEdit(existingText);
+                requestDraw();
+                return;
+            }
+            createNewText(coords);
+        }
+        else if (currentTool === 'grid') {
+            startDrawing(coords);
+            return;
+        }
         else startDrawing(coords);
         return;
     }
@@ -2576,10 +3583,6 @@ canvas.addEventListener('mousemove', (e) => {
     } else if (currentTool === 'line' || currentTool === 'arrow' || currentTool === 'shape' || currentTool === 'rect') {
         canvas.style.cursor = 'crosshair';
     } else if (currentTool === 'grid') {
-        canvas.style.cursor = 'crosshair';
-    } else if (currentTool === 'text') {
-        canvas.style.cursor = 'text';
-    } else if (currentTool === 'fill') {
         canvas.style.cursor = 'crosshair';
     } else canvas.style.cursor = 'crosshair';
     
@@ -2968,27 +3971,17 @@ function createNewText(coords) {
 
 function setTool(tool) {
     currentTool = tool;
-    fillMode = false;
-    document.getElementById('fillToolBtn').classList.remove('fill-active');
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
     if (tool !== 'select' && selectedObjects.length > 0) { selectedObjects = []; requestDraw(); }
     
-    if (tool === 'select') {
-        canvas.className = 'cursor-default';
-        mathToolbarRow.classList.remove('visible');
-        hideAllPanels();
-    }
+    if (tool === 'select') canvas.className = 'cursor-default';
     else if (tool === 'hand') canvas.className = 'cursor-grab';
     else if (tool === 'eraser') canvas.className = 'cursor-eraser';
     else if (tool === 'pen') canvas.className = 'cursor-pencil';
     else if (tool === 'line' || tool === 'arrow' || tool === 'shape' || tool === 'rect') canvas.className = 'cursor-crosshair';
     else if (tool === 'grid') canvas.className = 'cursor-grid';
-    else if (tool === 'text') {
-        canvas.className = 'cursor-text';
-        mathToolbarRow.classList.add('visible');
-    }
-    else if (tool === 'fill') canvas.className = 'cursor-crosshair';
+    else if (tool === 'text') canvas.className = 'cursor-text';
     else canvas.className = 'cursor-crosshair';
 }
 
@@ -3109,7 +4102,6 @@ socket.on('init-history', (h) => {
     restoreImages(objects);
     historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
     historyIndex = 0;
-    console.log('Initialized history, historyStack length:', historyStack.length);
     requestDraw();
 });
 
