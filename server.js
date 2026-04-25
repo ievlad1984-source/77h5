@@ -9,12 +9,11 @@ const io = require('socket.io')(http, {
     maxHttpBufferSize: 1e8
 });
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 
 const PORT = process.env.PORT || 3000;
+const MAX_OPERATION_LOG = 500; // Максимум операцій в журналі
 
 // Зберігаємо повну історію операцій для кожної дошки
-// Структура: { objects: Map<id, object>, operations: [{type, objectId, data, timestamp, userId}] }
 const boardsData = {};
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -38,244 +37,197 @@ function getBoardState(boardId) {
         boardsData[boardId] = {
             objects: {},
             lastOperationId: 0,
-            operationLog: []
+            operationLog: [],
+            version: 0 // Для виявлення конфліктів
         };
         console.log(`[SERVER] Створено нову дошку: ${boardId}`);
     }
     return boardsData[boardId];
 }
 
-// Отримання об'єктів у форматі масиву
-function getObjectsArray(boardId) {
-    const board = getBoardState(boardId);
-    return Object.values(board.objects);
-}
-
-// Перевірка конфліктів
-function checkConflicts(existingObj, newObj) {
-    // Перевіряємо чи об'єкт змінився з моменту останньої синхронізації
-    if (existingObj.lastModified && newObj.lastModified) {
-        return existingObj.lastModified > newObj.lastSyncedAt;
-    }
-    return false;
-}
-
 io.on('connection', (socket) => {
     const boardId = socket.handshake.query.boardId || 'main';
-    const userId = uuidv4();
-    
     socket.join(boardId);
     socket.boardId = boardId;
-    socket.userId = userId;
     
     const board = getBoardState(boardId);
     
-    console.log(`[SERVER] Користувач ${userId} підключився до кімнати: ${boardId}`);
+    console.log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
     console.log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
 
     // Відправляємо повний стан при підключенні
     socket.emit('full-sync', {
-        objects: getObjectsArray(boardId),
-        lastOperationId: board.lastOperationId
-    });
-
-    // Обробка інкрементальної синхронізації
-    socket.on('sync', (data) => {
-        const { lastKnownOperationId } = data;
-        
-        // Відправляємо тільки операції, які клієнт ще не має
-        const newOperations = board.operationLog.filter(op => op.id > lastKnownOperationId);
-        
-        socket.emit('operations-batch', {
-            operations: newOperations,
-            currentOperationId: board.lastOperationId
-        });
+        objects: Object.values(board.objects),
+        lastOperationId: board.lastOperationId,
+        version: board.version
     });
 
     // Додавання нового об'єкта
     socket.on('object:add', (obj) => {
-        if (!obj.id) {
-            obj.id = uuidv4();
+        if (!obj || !obj.id) {
+            console.warn('[SERVER] Спроба додати об\'єкт без ID');
+            return;
         }
-        obj.createdBy = userId;
-        obj.createdAt = Date.now();
-        obj.lastModified = obj.createdAt;
         
+        // Перевіряємо чи об'єкт вже існує
+        if (board.objects[obj.id]) {
+            console.warn(`[SERVER] Об'єкт ${obj.id} вже існує, оновлюємо`);
+            board.objects[obj.id] = { ...board.objects[obj.id], ...obj };
+        } else {
+            board.objects[obj.id] = obj;
+        }
+        
+        board.version++;
         board.lastOperationId++;
+        
         const operation = {
             id: board.lastOperationId,
             type: 'add',
             objectId: obj.id,
-            data: obj,
+            data: board.objects[obj.id],
             timestamp: Date.now(),
-            userId: userId
+            userId: socket.id,
+            version: board.version
         };
-        board.operationLog.push(operation);
-        board.objects[obj.id] = obj;
         
-        // Розсилаємо всім іншим
+        board.operationLog.push(operation);
+        
+        // Обмежуємо розмір журналу
+        if (board.operationLog.length > MAX_OPERATION_LOG) {
+            board.operationLog = board.operationLog.slice(-MAX_OPERATION_LOG / 2);
+        }
+        
+        // Розсилаємо всім ІНШИМ користувачам (НЕ відправнику)
         socket.to(boardId).emit('operation', operation);
         
-        console.log(`[SERVER] Додано об'єкт ${obj.id} в ${boardId}. Всього об'єктів: ${Object.keys(board.objects).length}`);
+        console.log(`[SERVER] Додано об'єкт ${obj.id}. Всього: ${Object.keys(board.objects).length}`);
     });
 
-    // Оновлення існуючого об'єкта (інкрементальне)
+    // Оновлення існуючого об'єкта
     socket.on('object:update', (obj) => {
-        if (!obj.id) return;
+        if (!obj || !obj.id) return;
         
-        const existingObj = board.objects[obj.id];
-        
-        // Якщо об'єкта немає - створюємо
-        if (!existingObj) {
-            board.lastOperationId++;
-            obj.createdBy = userId;
-            obj.createdAt = Date.now();
-            obj.lastModified = Date.now();
-            
-            const operation = {
-                id: board.lastOperationId,
-                type: 'add',
-                objectId: obj.id,
-                data: obj,
-                timestamp: Date.now(),
-                userId: userId
-            };
-            board.operationLog.push(operation);
-            board.objects[obj.id] = obj;
-            
-            socket.to(boardId).emit('operation', operation);
+        // Якщо об'єкта немає - повідомляємо клієнту
+        if (!board.objects[obj.id]) {
+            console.warn(`[SERVER] Об'єкт ${obj.id} не знайдено для оновлення`);
+            // Можливо, клієнт має застарілі дані - відправляємо йому повну синхронізацію
+            socket.emit('request-full-sync');
             return;
         }
         
-        // Оновлюємо об'єкт злиттям полів (не повна заміна)
-        const mergedObj = {
-            ...existingObj,
+        // Оновлюємо об'єкт
+        board.objects[obj.id] = { 
+            ...board.objects[obj.id], 
             ...obj,
-            id: obj.id, // Зберігаємо ID
             lastModified: Date.now()
         };
         
+        board.version++;
         board.lastOperationId++;
+        
         const operation = {
             id: board.lastOperationId,
             type: 'update',
             objectId: obj.id,
-            data: mergedObj,
+            data: board.objects[obj.id],
             timestamp: Date.now(),
-            userId: userId,
-            changedFields: Object.keys(obj).filter(k => existingObj[k] !== obj[k])
+            userId: socket.id,
+            version: board.version
         };
-        board.operationLog.push(operation);
-        board.objects[obj.id] = mergedObj;
         
-        // Розсилаємо всім іншим
+        board.operationLog.push(operation);
+        
+        if (board.operationLog.length > MAX_OPERATION_LOG) {
+            board.operationLog = board.operationLog.slice(-MAX_OPERATION_LOG / 2);
+        }
+        
+        // Розсилаємо всім ІНШИМ
         socket.to(boardId).emit('operation', operation);
         
-        console.log(`[SERVER] Оновлено об'єкт ${obj.id} в ${boardId}`);
+        console.log(`[SERVER] Оновлено об'єкт ${obj.id}`);
     });
 
     // Видалення об'єкта
     socket.on('object:delete', (objectId) => {
         if (!objectId) return;
         
-        const existingObj = board.objects[objectId];
-        if (!existingObj) return;
+        if (!board.objects[objectId]) {
+            console.warn(`[SERVER] Об'єкт ${objectId} не знайдено для видалення`);
+            return;
+        }
         
+        delete board.objects[objectId];
+        
+        board.version++;
         board.lastOperationId++;
+        
         const operation = {
             id: board.lastOperationId,
             type: 'delete',
             objectId: objectId,
-            data: { id: objectId },
             timestamp: Date.now(),
-            userId: userId
+            userId: socket.id,
+            version: board.version
         };
-        board.operationLog.push(operation);
-        delete board.objects[objectId];
         
-        // Розсилаємо всім іншим
+        board.operationLog.push(operation);
+        
+        if (board.operationLog.length > MAX_OPERATION_LOG) {
+            board.operationLog = board.operationLog.slice(-MAX_OPERATION_LOG / 2);
+        }
+        
+        // Розсилаємо всім ІНШИМ
         socket.to(boardId).emit('operation', operation);
         
-        console.log(`[SERVER] Видалено об'єкт ${objectId} з ${boardId}`);
-    });
-
-    // Пакетне оновлення (для undo/redo та масових операцій)
-    socket.on('batch-operation', (batch) => {
-        const { operations } = batch;
-        const results = [];
-        
-        operations.forEach(op => {
-            board.lastOperationId++;
-            const operation = {
-                id: board.lastOperationId,
-                ...op,
-                timestamp: Date.now(),
-                userId: userId
-            };
-            
-            switch (op.type) {
-                case 'add':
-                    if (!board.objects[op.data.id]) {
-                        op.data.createdBy = userId;
-                        op.data.createdAt = operation.timestamp;
-                        op.data.lastModified = operation.timestamp;
-                        board.objects[op.data.id] = op.data;
-                    }
-                    break;
-                case 'update':
-                    if (board.objects[op.data.id]) {
-                        board.objects[op.data.id] = {
-                            ...board.objects[op.data.id],
-                            ...op.data,
-                            lastModified: operation.timestamp
-                        };
-                    }
-                    break;
-                case 'delete':
-                    delete board.objects[op.data.id];
-                    break;
-            }
-            
-            board.operationLog.push(operation);
-            results.push(operation);
-        });
-        
-        // Розсилаємо всім іншим
-        socket.to(boardId).emit('batch-operation', { operations: results });
+        console.log(`[SERVER] Видалено об'єкт ${objectId}. Залишилось: ${Object.keys(board.objects).length}`);
     });
 
     // Запит повної синхронізації
     socket.on('request-full-sync', () => {
+        const board = getBoardState(boardId);
         socket.emit('full-sync', {
-            objects: getObjectsArray(boardId),
-            lastOperationId: board.lastOperationId
+            objects: Object.values(board.objects),
+            lastOperationId: board.lastOperationId,
+            version: board.version
+        });
+        console.log(`[SERVER] Надіслано повну синхронізацію для ${socket.id}`);
+    });
+
+    // Запит інкрементальної синхронізації (тільки нові операції)
+    socket.on('sync', (data) => {
+        const board = getBoardState(boardId);
+        const { lastKnownOperationId } = data || {};
+        
+        // Відправляємо тільки операції після того, що клієнт знає
+        const newOperations = board.operationLog.filter(op => op.id > (lastKnownOperationId || 0));
+        
+        socket.emit('operations-batch', {
+            operations: newOperations,
+            currentOperationId: board.lastOperationId,
+            currentVersion: board.version
         });
     });
 
     // Видалення всієї дошки
     socket.on('delete-board', () => {
+        const board = getBoardState(boardId);
         board.objects = {};
+        board.version++;
         board.lastOperationId++;
-        board.operationLog.push({
-            id: board.lastOperationId,
-            type: 'clear',
-            timestamp: Date.now(),
-            userId: userId
-        });
+        board.operationLog = [];
         
-        io.in(boardId).emit('board-cleared');
-        console.log(`[SERVER] Дошку ${boardId} очищено`);
+        // Розсилаємо ВСІМ включаючи відправника (щоб він теж очистив)
+        io.in(boardId).emit('board-cleared', { version: board.version });
+        console.log(`[SERVER] Дошку ${boardId} очищено користувачем ${socket.id}`);
     });
 
     socket.on('disconnect', () => {
-        console.log(`[SERVER] Користувач ${userId} відключився від кімнати: ${boardId}`);
+        console.log(`[SERVER] Користувач ${socket.id} відключився від кімнати: ${boardId}`);
     });
 });
 
 http.listen(PORT, () => {
     console.log('========================================');
     console.log(`СЕРВЕР ЗАПУЩЕНО: http://localhost:${PORT}`);
-    console.log(`Для створення нової кімнати додайте /назва в кінець URL`);
-    console.log(`Наприклад: http://localhost:${PORT}/room123`);
     console.log('========================================');
 });
