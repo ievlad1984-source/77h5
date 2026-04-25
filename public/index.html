@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Математична Дошка Pro</title>
-    <script src="/socket.io/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -12,148 +11,200 @@
             box-sizing: border-box;
         }
         
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            height: 100%; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #ffffff; 
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #ffffff;
         }
         
+        /* Toolbar */
         #toolbar {
-            position: absolute; 
-            top: 15px; 
-            left: 15px; 
-            background: white; 
-            padding: 10px 12px;
-            display: flex; 
-            gap: 6px; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-            z-index: 1000; 
-            align-items: center; 
-            flex-wrap: wrap; 
-            max-width: 95vw;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 8px 10px;
+            display: flex;
+            gap: 4px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            align-items: center;
+            flex-wrap: wrap;
+            max-width: 98vw;
         }
 
-        .tool-btn { 
-            padding: 8px 12px; 
-            cursor: pointer; 
-            border: 1px solid #e0e0e0; 
-            background: #fff; 
-            border-radius: 6px; 
-            font-size: 14px; 
-            transition: all 0.2s;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
+        .tool-btn {
+            padding: 8px 10px;
+            cursor: pointer;
+            border: 1px solid #e0e0e0;
+            background: #fff;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
             user-select: none;
-            position: relative;
         }
         
-        .tool-btn:hover { 
-            background: #f0f7ff; 
-            border-color: #007bff; 
+        .tool-btn:hover {
+            background: #f0f7ff;
+            border-color: #007bff;
         }
-        .tool-btn.active { 
-            background: #007bff; 
-            color: white; 
-            border-color: #0056b3; 
+        .tool-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #0056b3;
         }
         
         .tool-btn.math-btn {
-            background: #f8f0ff;
-            border-color: #9C27B0;
-            color: #9C27B0;
+            background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+            color: white;
+            border: none;
             font-weight: bold;
         }
-        
         .tool-btn.math-btn:hover {
-            background: #9C27B0;
-            color: white;
+            background: linear-gradient(135deg, #7B1FA2, #9C27B0);
+        }
+        .tool-btn.math-btn.active {
+            background: linear-gradient(135deg, #6A1B9A, #4A148C);
         }
         
-        .tool-btn.math-btn.active {
-            background: #7B1FA2;
-            color: white;
+        .tool-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .separator {
+            width: 1px;
+            height: 28px;
+            background: #ddd;
+            margin: 0 6px;
+        }
+        
+        .color-picker-wrapper {
+            position: relative;
         }
         
         .color-picker-btn {
             width: 32px;
             height: 32px;
             border: 2px solid #e0e0e0;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             background-color: #000000;
             transition: all 0.2s;
-            position: relative;
         }
         .color-picker-btn:hover {
             transform: scale(1.1);
             border-color: #007bff;
         }
-
-        input[type="color"] { 
-            border: none; 
-            width: 0; 
-            height: 0; 
-            overflow: hidden; 
-            padding: 0; 
-            position: absolute; 
-        }
-        input[type="range"] { 
-            cursor: pointer; 
-        }
-        .separator { 
-            width: 1px; 
-            height: 25px; 
-            background: #ddd; 
-            margin: 0 5px; 
+        
+        input[type="color"] {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
         }
         
-        canvas { 
-            display: block; 
-            touch-action: none; 
-            background: #ffffff; 
+        .size-slider {
+            width: 80px;
+            cursor: pointer;
         }
         
+        /* Users panel */
+        #users-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            font-size: 12px;
+        }
+        
+        .user-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+        }
+        
+        .user-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        /* Zoom display */
+        #zoom-display {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(255,255,255,0.95);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            cursor: pointer;
+        }
+        
+        /* Board info */
+        #board-info {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(255,255,255,0.95);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        
+        /* Canvas */
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+        
+        /* Cursors */
         .cursor-default { cursor: default !important; }
         .cursor-crosshair { cursor: crosshair !important; }
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
-        .cursor-eraser { cursor: cell !important; }
         .cursor-text { cursor: text !important; }
-        .cursor-pencil { 
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>') 0 24, auto !important; 
+        .cursor-pencil {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="%23000" d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>') 0 24, auto;
         }
-        .cursor-grid { 
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>') 0 24, auto !important; 
-        }
-
-        /* MATH PALETTE STYLES */
+        .cursor-eraser { cursor: cell !important; }
         
+        /* Math palette */
         #math-palette {
             position: absolute;
-            top: 70px;
-            left: 15px;
-            width: 450px;
+            top: 60px;
+            left: 10px;
+            width: 480px;
+            max-height: 75vh;
             background: white;
             border: 1px solid #ddd;
             border-radius: 12px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
             z-index: 1001;
             display: none;
             flex-direction: column;
-            padding: 0;
-            max-height: 75vh;
             overflow: hidden;
         }
-
-        #math-palette.visible {
-            display: flex;
-        }
-
+        #math-palette.visible { display: flex; }
+        
         .math-header {
             display: flex;
             justify-content: space-between;
@@ -161,16 +212,10 @@
             padding: 10px 15px;
             background: linear-gradient(135deg, #9C27B0, #7B1FA2);
             color: white;
-            border-radius: 12px 12px 0 0;
         }
-
-        .math-header h3 {
-            font-size: 14px;
-            font-weight: 600;
-            margin: 0;
-        }
-
-        .math-close-btn {
+        .math-header h3 { font-size: 14px; margin: 0; }
+        
+        .math-close {
             width: 28px;
             height: 28px;
             border: none;
@@ -182,903 +227,841 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s;
         }
-
-        .math-close-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        .math-tab-bar {
+        .math-close:hover { background: rgba(255,255,255,0.3); }
+        
+        .math-tabs {
             display: flex;
             gap: 4px;
-            padding: 10px 15px;
+            padding: 10px;
             background: #f5f5f5;
-            border-bottom: 1px solid #eee;
             overflow-x: auto;
+            border-bottom: 1px solid #eee;
         }
-
         .math-tab {
-            padding: 8px 14px;
+            padding: 6px 12px;
             border: none;
             background: white;
             border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
-            transition: all 0.2s;
             white-space: nowrap;
-            color: #333;
         }
-
-        .math-tab:hover {
-            background: #e8e8e8;
-        }
-
-        .math-tab.active {
-            background: #9C27B0;
-            color: white;
-        }
-
+        .math-tab:hover { background: #e8e8e8; }
+        .math-tab.active { background: #9C27B0; color: white; }
+        
         .math-content {
-            padding: 15px;
+            padding: 12px;
             overflow-y: auto;
             max-height: calc(75vh - 120px);
         }
-
-        .math-section {
-            display: none;
-        }
-
-        .math-section.active {
-            display: block;
-        }
-
+        
+        .math-section { display: none; }
+        .math-section.active { display: block; }
+        
         .math-section-title {
-            font-size: 11px;
+            font-size: 10px;
             color: #888;
-            margin-bottom: 8px;
-            margin-top: 12px;
+            margin: 10px 0 6px;
             font-weight: 600;
             text-transform: uppercase;
         }
-
-        .math-section-title:first-child {
-            margin-top: 0;
+        .math-section-title:first-child { margin-top: 0; }
+        
+        .math-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 4px;
         }
-
+        
         .math-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 38px;
-            height: 38px;
-            padding: 0 8px;
-            margin: 3px;
+            min-width: 36px;
+            height: 34px;
+            padding: 0 6px;
             border: 1px solid #e0e0e0;
             background: #fff;
-            border-radius: 6px;
+            border-radius: 5px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 15px;
             font-family: 'Times New Roman', serif;
-            transition: all 0.15s;
+            transition: all 0.1s;
         }
-
         .math-btn:hover {
             background: #f3e5f5;
             border-color: #9C27B0;
-            transform: scale(1.05);
         }
-
         .math-btn:active {
             background: #9C27B0;
             color: white;
         }
-
-        .math-btn.wide {
-            min-width: 65px;
-            font-size: 14px;
-        }
-
+        .math-btn.wide { min-width: 55px; font-size: 13px; }
         .math-btn.func {
-            min-width: 55px;
-            font-size: 13px;
-            font-family: 'Times New Roman', serif;
+            min-width: 50px;
+            font-size: 12px;
             font-style: italic;
         }
-
-        .math-btn-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-            margin-bottom: 6px;
-        }
-
+        
         .greek-grid {
             display: grid;
             grid-template-columns: repeat(6, 1fr);
             gap: 4px;
         }
-
         .greek-grid .math-btn {
-            min-width: 42px;
-            font-size: 18px;
+            min-width: 38px;
+            font-size: 17px;
         }
-
-        /* Text editor styles */
-        .text-edit-wrapper {
+        
+        /* Latex input panel */
+        #latex-panel {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            z-index: 1002;
+            display: none;
+            width: 400px;
+        }
+        #latex-panel.visible { display: block; }
+        
+        #latex-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #9C27B0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: 'Times New Roman', serif;
+            outline: none;
+        }
+        #latex-input:focus { border-color: #7B1FA2; }
+        
+        #latex-preview {
+            margin-top: 10px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            min-height: 50px;
+            font-size: 20px;
+            text-align: center;
+        }
+        
+        .latex-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .latex-buttons button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .latex-insert {
+            background: #9C27B0;
+            color: white;
+        }
+        .latex-cancel {
+            background: #eee;
+            color: #333;
+        }
+        
+        /* Text editor overlay */
+        .text-editor-overlay {
             position: absolute;
             z-index: 2000;
             border: 2px dashed #4CAF50;
-            background: transparent;
-            box-sizing: border-box;
-            min-width: 100px;
-            padding: 5px;
-            user-select: none; 
-        }
-
-        .text-edit-content {
-            outline: none;
-            background: rgba(255, 255, 255, 0.95);
-            border: none;
+            background: rgba(255,255,255,0.97);
             border-radius: 4px;
-            font-size: 20px;
-            font-family: 'Segoe UI', sans-serif;
-            color: #333;
-            white-space: pre !important;
-            overflow: visible;
-            display: inline-block;
-            box-sizing: border-box;
-            line-height: 1.4;
-            min-width: 50px;
-            max-width: none !important;
-            width: auto !important;
-            cursor: text;
-            vertical-align: baseline;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-
-        .math-bracket {
+        
+        .math-input-area {
+            outline: none;
+            padding: 8px 12px;
+            font-size: 20px;
+            line-height: 1.4;
+            min-width: 100px;
+            min-height: 40px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        /* Math rendering styles */
+        .math-frac {
             display: inline-flex;
+            flex-direction: column;
             align-items: center;
             vertical-align: middle;
-            border: 1px dashed #00BCD4;
-            background: rgba(0, 188, 212, 0.1);
-            border-radius: 3px;
-            padding: 4px 8px;
-            min-width: 40px;
-            min-height: 30px;
-            content-editable: false;
+            margin: 0 3px;
         }
-
-        .math-placeholder {
-            color: #ccc;
+        .math-frac-num {
+            border-bottom: 2px solid currentColor;
+            padding: 0 4px 2px;
         }
-
-        .handle {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #4CAF50;
-            border: 1px solid white;
-            border-radius: 2px;
-            z-index: 2001;
-            cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        .math-frac-den {
+            padding: 2px 4px 0;
         }
-        .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
-        .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
-        .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
-        .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
         
-        .rotate-handle {
+        .math-sup {
+            display: inline-block;
+            vertical-align: super;
+            font-size: 0.7em;
+            margin-left: 1px;
+        }
+        
+        .math-sub {
+            display: inline-block;
+            vertical-align: sub;
+            font-size: 0.7em;
+            margin-left: 1px;
+        }
+        
+        .math-sqrt {
+            display: inline-block;
+            position: relative;
+        }
+        .math-sqrt:before {
+            content: '√';
             position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 10px;
-            height: 10px;
-            background: #2196F3;
-            border: 2px solid white;
-            border-radius: 50%;
-            cursor: alias;
-            z-index: 2001;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            left: -12px;
         }
-
-        #zoom-display { 
-            position: absolute; 
-            bottom: 20px; 
-            right: 20px; 
-            background: rgba(255,255,255,0.9); 
-            padding: 8px 15px; 
-            border-radius: 20px; 
-            font-weight: bold; 
-            font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-            z-index: 1000; 
-            border: 1px solid #ddd;
+        
+        .math-int {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 4px;
         }
-
+        
+        .math-sum {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 4px;
+        }
+        
+        /* Shapes palette */
         #shapes-palette {
             position: absolute;
-            top: 70px;
-            left: 15px;
-            width: 220px;
+            top: 60px;
+            left: 10px;
+            width: 200px;
             background: white;
             border: 1px solid #ddd;
-            border-radius: 8px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
             z-index: 1001;
             display: none;
-            flex-direction: column;
             padding: 10px;
         }
-
-        .shape-grid {
+        #shapes-palette.visible { display: block; }
+        
+        .shapes-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
+            gap: 6px;
         }
-
-        .shape-item {
-            width: 42px;
-            height: 42px;
+        
+        .shape-btn {
+            width: 40px;
+            height: 40px;
             border: 1px solid #eee;
-            border-radius: 4px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s;
+            background: #fafafa;
         }
-
-        .shape-item:hover {
+        .shape-btn:hover {
             background: #f0f7ff;
             border-color: #007bff;
         }
-
-        .shape-item svg {
+        .shape-btn svg {
             width: 24px;
             height: 24px;
             stroke: #333;
             stroke-width: 2;
             fill: none;
         }
+        
+        /* Context menu */
+        #context-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            z-index: 2000;
+            padding: 4px 0;
+            display: none;
+            min-width: 150px;
+        }
+        
+        .context-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .context-item:hover { background: #f5f5f5; }
+        .context-item.danger { color: #dc3545; }
+        .context-separator {
+            height: 1px;
+            background: #eee;
+            margin: 4px 0;
+        }
+        
+        /* Notifications */
+        #notifications {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .notification {
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Loading overlay */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #9C27B0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
 
-<div id="toolbar">
-    <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️ Вибір</button>
-    <button class="tool-btn" data-tool="hand" title="Рука (H)">✋ Рука</button>
-    <button class="tool-btn" data-tool="pen" title="Олівець (P)">✏️ Олівець</button>
-    <button class="tool-btn" data-tool="line" title="Лінія (L)">📏 Лінія</button>
-    <button class="tool-btn" data-tool="rect" title="Фігури">⬜ Фігури</button>
-    <button class="tool-btn" data-tool="grid" title="Сітка (G)">📊 Сітка</button>
-    <button class="tool-btn" data-tool="text" title="Текст (T)">Т Текст</button>
-    
-    <!-- МАТЕМАТИЧНА КНОПКА -->
-    <button class="tool-btn math-btn" id="mathToolBtn" title="Математичні символи (M)">
-        <span style="font-size: 18px;">∑</span> Математика
-    </button>
-    
-    <button class="tool-btn" data-tool="eraser" title="Ластик (E)">🧹 Ластик</button>
-    <div class="separator"></div>
-    <div class="color-picker-btn" id="colorPickerBtn" title="Колір"></div>
-    <input type="color" id="colorPickerInput" value="#000000">
-    <div class="separator"></div>
-    <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
-    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">🗑️</button>
+<!-- Loading overlay -->
+<div id="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Завантаження дошки...</div>
 </div>
 
-<!-- МАТЕМАТИЧНА ПАНЕЛЬ -->
+<!-- Toolbar -->
+<div id="toolbar">
+    <button class="tool-btn active" data-tool="select" title="Вибір (V)">
+        <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+    </button>
+    <button class="tool-btn" data-tool="hand" title="Рука (H)">
+        <svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2m-2 0v10a2 2 0 0 0 2 2 2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L14 5.5l-4.5 4.5-2.79-2.79a2 2 0 0 0-2.83 0 2 2 0 0 0 0 2.83l4 4a2 2 0 0 0 2.83 0L15 8.5"/></svg>
+    </button>
+    
+    <div class="separator"></div>
+    
+    <button class="tool-btn" data-tool="pen" title="Олівець (P)">
+        <svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+    </button>
+    <button class="tool-btn" data-tool="line" title="Лінія (L)">
+        <svg viewBox="0 0 24 24"><line x1="5" y1="19" x2="19" y2="5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tool-btn" data-tool="arrow" title="Стрілка">
+        <svg viewBox="0 0 24 24"><line x1="5" y1="19" x2="19" y2="5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><polyline points="10,5 19,5 19,14" fill="none" stroke="currentColor" stroke-width="3"/></svg>
+    </button>
+    <button class="tool-btn" data-tool="rect" id="shapes-btn" title="Фігури (R)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+    </button>
+    
+    <div class="separator"></div>
+    
+    <button class="tool-btn" data-tool="text" title="Текст (T)">
+        <span style="font-size: 18px; font-weight: bold;">T</span>
+    </button>
+    
+    <button class="tool-btn math-btn" id="math-btn" title="Математика (M)">
+        <span style="font-size: 18px;">∑</span>
+    </button>
+    
+    <button class="tool-btn" data-tool="eraser" title="Ластик (E)">
+        <svg viewBox="0 0 24 24"><path d="M20 20H7L3 16l10-10 7 7-3.5 3.5a2 2 0 0 0 2.83 2.83L20 16.5V20z"/></svg>
+    </button>
+    
+    <div class="separator"></div>
+    
+    <div class="color-picker-wrapper">
+        <div class="color-picker-btn" id="color-btn" title="Колір"></div>
+        <input type="color" id="color-input" value="#000000">
+    </div>
+    
+    <input type="range" class="size-slider" id="size-slider" min="1" max="20" value="3" title="Товщина">
+    
+    <div class="separator"></div>
+    
+    <button class="tool-btn" onclick="undo()" title="Скасувати (Ctrl+Z)">
+        <svg viewBox="0 0 24 24"><path d="M3 10h10a5 5 0 0 1 5 5v2M3 10l4-4M3 10l4 4"/></svg>
+    </button>
+    <button class="tool-btn" onclick="redo()" title="Повторити (Ctrl+Shift+Z)">
+        <svg viewBox="0 0 24 24"><path d="M21 10H11a5 5 0 0 0-5 5v2M21 10l-4-4M21 10l-4 4"/></svg>
+    </button>
+    
+    <div class="separator"></div>
+    
+    <button class="tool-btn" onclick="zoomIn()" title="Збільшити">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <button class="tool-btn" onclick="zoomOut()" title="Зменшити">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <button class="tool-btn" onclick="resetZoom()" title="Скинути">
+        <svg viewBox="0 0 24 24"><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
+    
+    <div class="separator"></div>
+    
+    <button class="tool-btn" onclick="exportPNG()" title="Зберегти PNG">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </button>
+    <button class="tool-btn" onclick="clearBoard()" title="Очистити" style="color: #dc3545;">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    </button>
+</div>
+
+<!-- Users panel -->
+<div id="users-panel">
+    <div id="users-list"></div>
+</div>
+
+<!-- Board info -->
+<div id="board-info">
+    <span id="board-url"></span>
+    <button onclick="copyBoardLink()" style="margin-left: 8px; padding: 2px 8px; cursor: pointer;">📋</button>
+</div>
+
+<!-- Zoom display -->
+<div id="zoom-display" onclick="resetZoom()">100%</div>
+
+<!-- Shapes palette -->
+<div id="shapes-palette">
+    <div class="shapes-grid">
+        <div class="shape-btn" onclick="selectShape('rect')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div>
+        <div class="shape-btn" onclick="selectShape('circle')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></div>
+        <div class="shape-btn" onclick="selectShape('triangle')"><svg viewBox="0 0 24 24"><path d="M12 3L22 21H2Z"/></svg></div>
+        <div class="shape-btn" onclick="selectShape('diamond')"><svg viewBox="0 0 24 24"><path d="M12 2L22 12L12 22L2 12Z"/></svg></div>
+        <div class="shape-btn" onclick="selectShape('pentagon')"><svg viewBox="0 0 24 24"><path d="M12 2L22 9L18 21H6L2 9Z"/></svg></div>
+        <div class="shape-btn" onclick="selectShape('hexagon')"><svg viewBox="0 0 24 24"><path d="M7 2L17 2L22 12L17 22L7 22L2 12Z"/></svg></div>
+        <div class="shape-btn" onclick="selectShape('star')"><svg viewBox="0 0 24 24"><path d="M12 2L15 9L22 9L16 14L18 21L12 17L6 21L8 14L2 9L9 9Z"/></svg></div>
+        <div class="shape-btn" onclick="selectShape('arrow-up')"><svg viewBox="0 0 24 24"><path d="M12 2L19 12H5L12 2Z"/></svg></div>
+    </div>
+</div>
+
+<!-- Math palette -->
 <div id="math-palette">
     <div class="math-header">
         <h3>📐 Математичні символи</h3>
-        <button class="math-close-btn" onclick="toggleMathPalette()">×</button>
+        <button class="math-close" onclick="toggleMathPalette()">×</button>
     </div>
-    
-    <div class="math-tab-bar">
+    <div class="math-tabs">
         <button class="math-tab active" onclick="switchMathTab('basic')">⌨️ Основні</button>
         <button class="math-tab" onclick="switchMathTab('greek')">α Грецькі</button>
         <button class="math-tab" onclick="switchMathTab('operators')">⟨⟩ Оператори</button>
         <button class="math-tab" onclick="switchMathTab('arrows')">→ Стрілки</button>
         <button class="math-tab" onclick="switchMathTab('sets')">⊂ Множини</button>
         <button class="math-tab" onclick="switchMathTab('templates')">📝 Шаблони</button>
+        <button class="math-tab" onclick="switchMathTab('latex')">🎯 LaTeX</button>
     </div>
-
     <div class="math-content">
-        <!-- ОСНОВНІ -->
-        <div class="math-section active" id="math-section-basic">
+        <!-- Basic -->
+        <div class="math-section active" id="math-basic">
             <div class="math-section-title">Арифметика</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('+')">+</button>
-                <button class="math-btn" onclick="insertMathSymbol('−')">−</button>
-                <button class="math-btn" onclick="insertMathSymbol('×')">×</button>
-                <button class="math-btn" onclick="insertMathSymbol('÷')">÷</button>
-                <button class="math-btn" onclick="insertMathSymbol('±')">±</button>
-                <button class="math-btn" onclick="insertMathSymbol('·')">·</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('+')">+</button>
+                <button class="math-btn" onclick="insertMath('−')">−</button>
+                <button class="math-btn" onclick="insertMath('×')">×</button>
+                <button class="math-btn" onclick="insertMath('÷')">÷</button>
+                <button class="math-btn" onclick="insertMath('±')">±</button>
+                <button class="math-btn" onclick="insertMath('·')">·</button>
             </div>
-            
             <div class="math-section-title">Степені</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('²')">x²</button>
-                <button class="math-btn" onclick="insertMathSymbol('³')">x³</button>
-                <button class="math-btn" onclick="insertMathSymbol('ⁿ')">xⁿ</button>
-                <button class="math-btn" onclick="insertMathSymbol('⁻¹')">x⁻¹</button>
-                <button class="math-btn" onclick="insertMathSymbol('⁴')">x⁴</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('²')">x²</button>
+                <button class="math-btn" onclick="insertMath('³')">x³</button>
+                <button class="math-btn" onclick="insertMath('⁴')">x⁴</button>
+                <button class="math-btn" onclick="insertMath('ⁿ')">xⁿ</button>
+                <button class="math-btn" onclick="insertMath('⁻¹')">x⁻¹</button>
+                <button class="math-btn" onclick="insertMath('°')">°</button>
             </div>
-            
             <div class="math-section-title">Корені</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('√')">√</button>
-                <button class="math-btn" onclick="insertMathSymbol('∛')">∛</button>
-                <button class="math-btn" onclick="insertMathSymbol('∜')">∜</button>
-                <button class="math-btn" onclick="insertMathSymbol('ⁿ')" style="font-size:12px;">ⁿ√</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('√')">√</button>
+                <button class="math-btn" onclick="insertMath('∛')">∛</button>
+                <button class="math-btn" onclick="insertMath('∜')">∜</button>
+                <button class="math-btn" onclick="insertMath('ⁿ√')" style="font-size:12px;">ⁿ√x</button>
             </div>
-            
-            <div class="math-section-title">Дроби</div>
-            <div class="math-btn-row">
-                <button class="math-btn wide" onclick="insertFraction()">a/b</button>
+            <div class="math-section-title">Дроби та індекси</div>
+            <div class="math-row">
+                <button class="math-btn wide" onclick="insertTemplate('frac')">a/b</button>
+                <button class="math-btn" onclick="insertMath('₀')">₀</button>
+                <button class="math-btn" onclick="insertMath('₁')">₁</button>
+                <button class="math-btn" onclick="insertMath('₂')">₂</button>
+                <button class="math-btn" onclick="insertMath('₃')">₃</button>
+                <button class="math-btn" onclick="insertMath('ₙ')">ₙ</button>
             </div>
-            
-            <div class="math-section-title">Індекси</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('₀')">₀</button>
-                <button class="math-btn" onclick="insertMathSymbol('₁')">₁</button>
-                <button class="math-btn" onclick="insertMathSymbol('₂')">₂</button>
-                <button class="math-btn" onclick="insertMathSymbol('₃')">₃</button>
-                <button class="math-btn" onclick="insertMathSymbol('₄')">₄</button>
-                <button class="math-btn" onclick="insertMathSymbol('ₙ')">ₙ</button>
-            </div>
-            
             <div class="math-section-title">Константи</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('∞')">∞</button>
-                <button class="math-btn" onclick="insertMathSymbol('π')">π</button>
-                <button class="math-btn" onclick="insertMathSymbol('e')">e</button>
-                <button class="math-btn" onclick="insertMathSymbol('φ')">φ</button>
-                <button class="math-btn" onclick="insertMathSymbol('%')">%</button>
-                <button class="math-btn" onclick="insertMathSymbol('°')">°</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('∞')">∞</button>
+                <button class="math-btn" onclick="insertMath('π')">π</button>
+                <button class="math-btn" onclick="insertMath('τ')">τ</button>
+                <button class="math-btn" onclick="insertMath('e')">e</button>
+                <button class="math-btn" onclick="insertMath('φ')">φ</button>
+                <button class="math-btn" onclick="insertMath('ℯ')">ℯ</button>
             </div>
         </div>
-
-        <!-- ГРЕЦЬКІ -->
-        <div class="math-section" id="math-section-greek">
+        
+        <!-- Greek -->
+        <div class="math-section" id="math-greek">
             <div class="math-section-title">Малі літери</div>
             <div class="greek-grid">
-                <button class="math-btn" onclick="insertMathSymbol('α')">α</button>
-                <button class="math-btn" onclick="insertMathSymbol('β')">β</button>
-                <button class="math-btn" onclick="insertMathSymbol('γ')">γ</button>
-                <button class="math-btn" onclick="insertMathSymbol('δ')">δ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ε')">ε</button>
-                <button class="math-btn" onclick="insertMathSymbol('ζ')">ζ</button>
-                <button class="math-btn" onclick="insertMathSymbol('η')">η</button>
-                <button class="math-btn" onclick="insertMathSymbol('θ')">θ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ι')">ι</button>
-                <button class="math-btn" onclick="insertMathSymbol('κ')">κ</button>
-                <button class="math-btn" onclick="insertMathSymbol('λ')">λ</button>
-                <button class="math-btn" onclick="insertMathSymbol('μ')">μ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ν')">ν</button>
-                <button class="math-btn" onclick="insertMathSymbol('ξ')">ξ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ο')">ο</button>
-                <button class="math-btn" onclick="insertMathSymbol('π')">π</button>
-                <button class="math-btn" onclick="insertMathSymbol('ρ')">ρ</button>
-                <button class="math-btn" onclick="insertMathSymbol('σ')">σ</button>
-                <button class="math-btn" onclick="insertMathSymbol('τ')">τ</button>
-                <button class="math-btn" onclick="insertMathSymbol('υ')">υ</button>
-                <button class="math-btn" onclick="insertMathSymbol('φ')">φ</button>
-                <button class="math-btn" onclick="insertMathSymbol('χ')">χ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ψ')">ψ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ω')">ω</button>
+                <button class="math-btn" onclick="insertMath('α')">α</button>
+                <button class="math-btn" onclick="insertMath('β')">β</button>
+                <button class="math-btn" onclick="insertMath('γ')">γ</button>
+                <button class="math-btn" onclick="insertMath('δ')">δ</button>
+                <button class="math-btn" onclick="insertMath('ε')">ε</button>
+                <button class="math-btn" onclick="insertMath('ζ')">ζ</button>
+                <button class="math-btn" onclick="insertMath('η')">η</button>
+                <button class="math-btn" onclick="insertMath('θ')">θ</button>
+                <button class="math-btn" onclick="insertMath('ι')">ι</button>
+                <button class="math-btn" onclick="insertMath('κ')">κ</button>
+                <button class="math-btn" onclick="insertMath('λ')">λ</button>
+                <button class="math-btn" onclick="insertMath('μ')">μ</button>
+                <button class="math-btn" onclick="insertMath('ν')">ν</button>
+                <button class="math-btn" onclick="insertMath('ξ')">ξ</button>
+                <button class="math-btn" onclick="insertMath('ο')">ο</button>
+                <button class="math-btn" onclick="insertMath('π')">π</button>
+                <button class="math-btn" onclick="insertMath('ρ')">ρ</button>
+                <button class="math-btn" onclick="insertMath('σ')">σ</button>
+                <button class="math-btn" onclick="insertMath('τ')">τ</button>
+                <button class="math-btn" onclick="insertMath('υ')">υ</button>
+                <button class="math-btn" onclick="insertMath('φ')">φ</button>
+                <button class="math-btn" onclick="insertMath('χ')">χ</button>
+                <button class="math-btn" onclick="insertMath('ψ')">ψ</button>
+                <button class="math-btn" onclick="insertMath('ω')">ω</button>
             </div>
-            
             <div class="math-section-title">Великі літери</div>
             <div class="greek-grid">
-                <button class="math-btn" onclick="insertMathSymbol('Γ')">Γ</button>
-                <button class="math-btn" onclick="insertMathSymbol('Δ')">Δ</button>
-                <button class="math-btn" onclick="insertMathSymbol('Θ')">Θ</button>
-                <button class="math-btn" onclick="insertMathSymbol('Λ')">Λ</button>
-                <button class="math-btn" onclick="insertMathSymbol('Ξ')">Ξ</button>
-                <button class="math-btn" onclick="insertMathSymbol('Π')">Π</button>
-                <button class="math-btn" onclick="insertMathSymbol('Σ')">Σ</button>
-                <button class="math-btn" onclick="insertMathSymbol('Φ')">Φ</button>
-                <button class="math-btn" onclick="insertMathSymbol('Ψ')">Ψ</button>
-                <button class="math-btn" onclick="insertMathSymbol('Ω')">Ω</button>
+                <button class="math-btn" onclick="insertMath('Γ')">Γ</button>
+                <button class="math-btn" onclick="insertMath('Δ')">Δ</button>
+                <button class="math-btn" onclick="insertMath('Θ')">Θ</button>
+                <button class="math-btn" onclick="insertMath('Λ')">Λ</button>
+                <button class="math-btn" onclick="insertMath('Ξ')">Ξ</button>
+                <button class="math-btn" onclick="insertMath('Π')">Π</button>
+                <button class="math-btn" onclick="insertMath('Σ')">Σ</button>
+                <button class="math-btn" onclick="insertMath('Φ')">Φ</button>
+                <button class="math-btn" onclick="insertMath('Ψ')">Ψ</button>
+                <button class="math-btn" onclick="insertMath('Ω')">Ω</button>
             </div>
         </div>
-
-        <!-- ОПЕРАТОРИ -->
-        <div class="math-section" id="math-section-operators">
+        
+        <!-- Operators -->
+        <div class="math-section" id="math-operators">
             <div class="math-section-title">Порівняння</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('=')">=</button>
-                <button class="math-btn" onclick="insertMathSymbol('≠')">≠</button>
-                <button class="math-btn" onclick="insertMathSymbol('≈')">≈</button>
-                <button class="math-btn" onclick="insertMathSymbol('≡')">≡</button>
-                <button class="math-btn" onclick="insertMathSymbol('≅')">≅</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('=')">=</button>
+                <button class="math-btn" onclick="insertMath('≠')">≠</button>
+                <button class="math-btn" onclick="insertMath('≈')">≈</button>
+                <button class="math-btn" onclick="insertMath('≡')">≡</button>
+                <button class="math-btn" onclick="insertMath('≅')">≅</button>
+                <button class="math-btn" onclick="insertMath('≃')">≃</button>
             </div>
-            
             <div class="math-section-title">Нерівності</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('<')">&lt;</button>
-                <button class="math-btn" onclick="insertMathSymbol('>')">&gt;</button>
-                <button class="math-btn" onclick="insertMathSymbol('≤')">≤</button>
-                <button class="math-btn" onclick="insertMathSymbol('≥')">≥</button>
-                <button class="math-btn" onclick="insertMathSymbol('≪')">≪</button>
-                <button class="math-btn" onclick="insertMathSymbol('≫')">≫</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('<')">&lt;</button>
+                <button class="math-btn" onclick="insertMath('>')">&gt;</button>
+                <button class="math-btn" onclick="insertMath('≤')">≤</button>
+                <button class="math-btn" onclick="insertMath('≥')">≥</button>
+                <button class="math-btn" onclick="insertMath('≪')">≪</button>
+                <button class="math-btn" onclick="insertMath('≫')">≫</button>
             </div>
-            
             <div class="math-section-title">Логічні</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('∧')">∧</button>
-                <button class="math-btn" onclick="insertMathSymbol('∨')">∨</button>
-                <button class="math-btn" onclick="insertMathSymbol('¬')">¬</button>
-                <button class="math-btn" onclick="insertMathSymbol('⊕')">⊕</button>
-                <button class="math-btn" onclick="insertMathSymbol('⊗')">⊗</button>
-            </div>
-            
-            <div class="math-section-title">Пропорції</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('∝')">∝</button>
-                <button class="math-btn" onclick="insertMathSymbol('∶')">∶</button>
-                <button class="math-btn" onclick="insertMathSymbol('/')">/</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('∧')">∧</button>
+                <button class="math-btn" onclick="insertMath('∨')">∨</button>
+                <button class="math-btn" onclick="insertMath('¬')">¬</button>
+                <button class="math-btn" onclick="insertMath('⊕')">⊕</button>
+                <button class="math-btn" onclick="insertMath('⊗')">⊗</button>
+                <button class="math-btn" onclick="insertMath('⊻')">⊻</button>
             </div>
         </div>
-
-        <!-- СТРІЛКИ -->
-        <div class="math-section" id="math-section-arrows">
+        
+        <!-- Arrows -->
+        <div class="math-section" id="math-arrows">
             <div class="math-section-title">Базові</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('→')">→</button>
-                <button class="math-btn" onclick="insertMathSymbol('←')">←</button>
-                <button class="math-btn" onclick="insertMathSymbol('↑')">↑</button>
-                <button class="math-btn" onclick="insertMathSymbol('↓')">↓</button>
-                <button class="math-btn" onclick="insertMathSymbol('↔')">↔</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('→')">→</button>
+                <button class="math-btn" onclick="insertMath('←')">←</button>
+                <button class="math-btn" onclick="insertMath('↑')">↑</button>
+                <button class="math-btn" onclick="insertMath('↓')">↓</button>
+                <button class="math-btn" onclick="insertMath('↔')">↔</button>
+                <button class="math-btn" onclick="insertMath('↕')">↕</button>
             </div>
-            
             <div class="math-section-title">Логічні</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('⇒')">⇒</button>
-                <button class="math-btn" onclick="insertMathSymbol('⇐')">⇐</button>
-                <button class="math-btn" onclick="insertMathSymbol('⇔')">⇔</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('⇒')">⇒</button>
+                <button class="math-btn" onclick="insertMath('⇐')">⇐</button>
+                <button class="math-btn" onclick="insertMath('⇔')">⇔</button>
+                <button class="math-btn" onclick="insertMath('⇑')">⇑</button>
+                <button class="math-btn" onclick="insertMath('⇓')">⇓</button>
             </div>
-            
             <div class="math-section-title">Спеціальні</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('↦')">↦</button>
-                <button class="math-btn" onclick="insertMathSymbol('↩')">↩</button>
-                <button class="math-btn" onclick="insertMathSymbol('↪')">↪</button>
-                <button class="math-btn" onclick="insertMathSymbol('↵')">↵</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('↦')">↦</button>
+                <button class="math-btn" onclick="insertMath('↤')">↤</button>
+                <button class="math-btn" onclick="insertMath('↩')">↩</button>
+                <button class="math-btn" onclick="insertMath('↪')">↪</button>
+                <button class="math-btn" onclick="insertMath('↵')">↵</button>
+                <button class="math-btn" onclick="insertMath('↲')">↲</button>
             </div>
         </div>
-
-        <!-- МНОЖИНИ -->
-        <div class="math-section" id="math-section-sets">
+        
+        <!-- Sets -->
+        <div class="math-section" id="math-sets">
             <div class="math-section-title">Приналежність</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('∈')">∈</button>
-                <button class="math-btn" onclick="insertMathSymbol('∉')">∉</button>
-                <button class="math-btn" onclick="insertMathSymbol('∋')">∋</button>
-                <button class="math-btn" onclick="insertMathSymbol('∌')">∌</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('∈')">∈</button>
+                <button class="math-btn" onclick="insertMath('∉')">∉</button>
+                <button class="math-btn" onclick="insertMath('∋')">∋</button>
+                <button class="math-btn" onclick="insertMath('∌')">∌</button>
             </div>
-            
             <div class="math-section-title">Операції</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('∪')">∪</button>
-                <button class="math-btn" onclick="insertMathSymbol('∩')">∩</button>
-                <button class="math-btn" onclick="insertMathSymbol('∖')">∖</button>
-                <button class="math-btn" onclick="insertMathSymbol('⊂')">⊂</button>
-                <button class="math-btn" onclick="insertMathSymbol('⊃')">⊃</button>
-                <button class="math-btn" onclick="insertMathSymbol('⊆')">⊆</button>
-                <button class="math-btn" onclick="insertMathSymbol('⊇')">⊇</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('∪')">∪</button>
+                <button class="math-btn" onclick="insertMath('∩')">∩</button>
+                <button class="math-btn" onclick="insertMath('∖')">∖</button>
+                <button class="math-btn" onclick="insertMath('⊂')">⊂</button>
+                <button class="math-btn" onclick="insertMath('⊃')">⊃</button>
+                <button class="math-btn" onclick="insertMath('⊆')">⊆</button>
+                <button class="math-btn" onclick="insertMath('⊇')">⊇</button>
             </div>
-            
             <div class="math-section-title">Множини чисел</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('∅')">∅</button>
-                <button class="math-btn" onclick="insertMathSymbol('ℕ')">ℕ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ℤ')">ℤ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ℚ')">ℚ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ℝ')">ℝ</button>
-                <button class="math-btn" onclick="insertMathSymbol('ℂ')">ℂ</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('∅')">∅</button>
+                <button class="math-btn" onclick="insertMath('ℕ')">ℕ</button>
+                <button class="math-btn" onclick="insertMath('ℤ')">ℤ</button>
+                <button class="math-btn" onclick="insertMath('ℚ')">ℚ</button>
+                <button class="math-btn" onclick="insertMath('ℝ')">ℝ</button>
+                <button class="math-btn" onclick="insertMath('ℂ')">ℂ</button>
             </div>
-            
             <div class="math-section-title">Квантори</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('∀')">∀</button>
-                <button class="math-btn" onclick="insertMathSymbol('∃')">∃</button>
-                <button class="math-btn" onclick="insertMathSymbol('∄')">∄</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('∀')">∀</button>
+                <button class="math-btn" onclick="insertMath('∃')">∃</button>
+                <button class="math-btn" onclick="insertMath('∄')">∄</button>
+                <button class="math-btn" onclick="insertMath('⊢')">⊢</button>
+                <button class="math-btn" onclick="insertMath('⊨')">⊨</button>
             </div>
         </div>
-
-        <!-- ШАБЛОНИ -->
-        <div class="math-section" id="math-section-templates">
+        
+        <!-- Templates -->
+        <div class="math-section" id="math-templates">
             <div class="math-section-title">Сума та інтеграли</div>
-            <div class="math-btn-row">
-                <button class="math-btn" onclick="insertMathSymbol('∑')">∑</button>
-                <button class="math-btn" onclick="insertMathSymbol('∏')">∏</button>
-                <button class="math-btn" onclick="insertMathSymbol('∫')">∫</button>
-                <button class="math-btn" onclick="insertMathSymbol('∬')">∬</button>
-                <button class="math-btn" onclick="insertMathSymbol('∭')">∭</button>
-                <button class="math-btn" onclick="insertMathSymbol('∮')">∮</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertTemplate('sum')">∑</button>
+                <button class="math-btn" onclick="insertTemplate('prod')">∏</button>
+                <button class="math-btn" onclick="insertTemplate('int')">∫</button>
+                <button class="math-btn" onclick="insertTemplate('iint')">∬</button>
+                <button class="math-btn" onclick="insertTemplate('iiint')">∭</button>
+                <button class="math-btn" onclick="insertTemplate('oint')">∮</button>
             </div>
-            
+            <div class="math-section-title">Границя</div>
+            <div class="math-row">
+                <button class="math-btn wide" onclick="insertTemplate('lim')">lim</button>
+            </div>
             <div class="math-section-title">Функції</div>
-            <div class="math-btn-row">
-                <button class="math-btn func" onclick="insertMathSymbol('sin')">sin</button>
-                <button class="math-btn func" onclick="insertMathSymbol('cos')">cos</button>
-                <button class="math-btn func" onclick="insertMathSymbol('tan')">tan</button>
-                <button class="math-btn func" onclick="insertMathSymbol('log')">log</button>
-                <button class="math-btn func" onclick="insertMathSymbol('ln')">ln</button>
+            <div class="math-row">
+                <button class="math-btn func" onclick="insertMath('sin')">sin</button>
+                <button class="math-btn func" onclick="insertMath('cos')">cos</button>
+                <button class="math-btn func" onclick="insertMath('tan')">tan</button>
+                <button class="math-btn func" onclick="insertMath('cot')">cot</button>
             </div>
-            <div class="math-btn-row">
-                <button class="math-btn func" onclick="insertMathSymbol('lim')">lim</button>
-                <button class="math-btn func" onclick="insertMathSymbol('max')">max</button>
-                <button class="math-btn func" onclick="insertMathSymbol('min')">min</button>
-                <button class="math-btn func" onclick="insertMathSymbol('sup')">sup</button>
-                <button class="math-btn func" onclick="insertMathSymbol('inf')">inf</button>
+            <div class="math-row">
+                <button class="math-btn func" onclick="insertMath('log')">log</button>
+                <button class="math-btn func" onclick="insertMath('ln')">ln</button>
+                <button class="math-btn func" onclick="insertMath('exp')">exp</button>
+                <button class="math-btn func" onclick="insertMath('lim')">lim</button>
             </div>
-            
             <div class="math-section-title">Дужки</div>
-            <div class="math-btn-row">
-                <button class="math-btn wide" onclick="insertBracket('(')">( )</button>
-                <button class="math-btn wide" onclick="insertBracket('[')">[ ]</button>
-                <button class="math-btn wide" onclick="insertBracket('{')">{ }</button>
+            <div class="math-row">
+                <button class="math-btn" onclick="insertMath('(')">(</button>
+                <button class="math-btn" onclick="insertMath(')')">)</button>
+                <button class="math-btn" onclick="insertMath('[')">[</button>
+                <button class="math-btn" onclick="insertMath(']')">]</button>
+                <button class="math-btn" onclick="insertMath('{')">{</button>
+                <button class="math-btn" onclick="insertMath('}')">}</button>
+            </div>
+        </div>
+        
+        <!-- LaTeX -->
+        <div class="math-section" id="math-latex">
+            <div class="math-section-title">Введення LaTeX</div>
+            <div style="margin-bottom: 10px;">
+                <input type="text" id="latex-input" placeholder="Введіть LaTeX, напр.: x^2 + \frac{1}{2}" style="width: 100%; padding: 10px; border: 2px solid #9C27B0; border-radius: 8px; font-size: 14px; font-family: monospace;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <div id="latex-preview" style="min-height: 40px; padding: 10px; background: #f9f9f9; border-radius: 8px; font-size: 18px;"></div>
+            </div>
+            <div class="math-row">
+                <button class="math-btn wide" onclick="insertLatexInput()">Вставити</button>
+                <button class="math-btn wide" onclick="previewLatex()">Попередній перегляд</button>
+            </div>
+            <div class="math-section-title">Приклади</div>
+            <div class="math-row">
+                <button class="math-btn func" onclick="setLatexExample('x^2')">x^2</button>
+                <button class="math-btn func" onclick="setLatexExample('\\frac{a}{b}')">\frac{a}{b}</button>
+                <button class="math-btn func" onclick="setLatexExample('\\sqrt{x}')">\sqrt{x}</button>
+                <button class="math-btn func" onclick="setLatexExample('\\int_0^1 x dx')">\int</button>
+            </div>
+            <div class="math-row">
+                <button class="math-btn func" onclick="setLatexExample('\\sum_{i=1}^n')">\sum</button>
+                <button class="math-btn func" onclick="setLatexExample('\\lim_{x\\to\\infty}')">\lim</button>
+                <button class="math-btn func" onclick="setLatexExample('\\alpha \\beta \\gamma')">αβγ</button>
             </div>
         </div>
     </div>
 </div>
 
-<div id="shapes-palette">
-    <div class="shape-grid">
-        <div class="shape-item" onclick="selectShape('rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" /></svg></div>
-        <div class="shape-item" onclick="selectShape('circle')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg></div>
-        <div class="shape-item" onclick="selectShape('triangle')"><svg viewBox="0 0 24 24"><path d="M12 3 L22 21 L2 21 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('diamond')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 12 L12 22 L2 12 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('pentagon')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 9 L18 21 L6 21 L2 9 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('hexagon')"><svg viewBox="0 0 24 24"><path d="M7 2 L17 2 L22 12 L17 22 L7 22 L2 12 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('star')"><svg viewBox="0 0 24 24"><path d="M12 2 L15 9 L22 9 L16 14 L18 21 L12 17 L6 21 L8 14 L2 9 L9 9 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('heart')"><svg viewBox="0 0 24 24"><path d="M12 21 C12 21 2 14 2 8 C2 5 5 2 8 2 C10 2 12 4 12 4 C12 4 14 2 16 2 C19 2 22 5 22 8 C22 14 12 21 12 21 Z" /></svg></div>
+<!-- LaTeX input panel -->
+<div id="latex-panel">
+    <input type="text" id="latex-input-global" placeholder="Введіть LaTeX формулу..." style="width: 100%; padding: 12px; border: 2px solid #9C27B0; border-radius: 8px; font-size: 15px;">
+    <div id="latex-preview-global" style="margin-top: 10px; padding: 15px; background: #f9f9f9; border-radius: 8px; min-height: 40px;"></div>
+    <div class="latex-buttons">
+        <button class="latex-insert" onclick="insertLatexFormula()">Вставити</button>
+        <button class="latex-cancel" onclick="closeLatexPanel()">Скасувати</button>
     </div>
 </div>
 
-<div id="zoom-display">100%</div>
+<!-- Context menu -->
+<div id="context-menu">
+    <div class="context-item" onclick="copySelection()">📋 Копіювати</div>
+    <div class="context-item" onclick="pasteSelection()">📋 Вставити</div>
+    <div class="context-separator"></div>
+    <div class="context-item" onclick="bringToFront()">⬆️ На передній план</div>
+    <div class="context-item" onclick="sendToBack()">⬇️ На задній план</div>
+    <div class="context-separator"></div>
+    <div class="context-item danger" onclick="deleteSelection()">🗑️ Видалити</div>
+</div>
+
+<!-- Notifications -->
+<div id="notifications"></div>
+
+<!-- Canvas -->
 <canvas id="board"></canvas>
 
+<script src="/socket.io/socket.io.js"></script>
 <script>
 // ============================================
-// ІНІЦІАЛІЗАЦІЯ
+// MATH BOARD PRO - Головний код
 // ============================================
-const boardId = window.location.pathname.replace('/', '') || 'main';
-let socket;
-try {
-    socket = io({ query: { boardId } });
-} catch (e) {
-    socket = { emit: () => {}, on: () => {}, connected: false };
-}
 
+// Отримуємо ID дошки з URL
+const boardId = window.location.pathname.replace('/', '') || 'main';
+
+// Підключення до Socket.io
+const socket = io({ query: { boardId } });
+
+// Canvas
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
-let objects = [];
+// Налаштування
+let scale = 1.0;
+let offsetX = 0;
+let offsetY = 0;
 let currentTool = 'select';
-let selectedObjects = []; 
-let isDragging = false, isResizing = false;
-let isDrawing = false, currentPath = null;
+let currentColor = '#000000';
+let currentSize = 3;
+let selectedShapeType = 'rect';
+
+// Об'єкти на дошці
+let objects = [];
+let selectedObjects = [];
+
+// Стани малювання
+let isDrawing = false;
+let isDragging = false;
+let isPanning = false;
+let isSelecting = false;
+let currentPath = null;
+let selectionBox = null;
 let dragStartX, dragStartY;
-let startResizeState = {};
-let shiftKey = false;
-let isSelectingArea = false;
-let selectionStart = { x: 0, y: 0 };
-let selectionEnd = { x: 0, y: 0 };
+let startState = null;
+
+// Редактор тексту
 let textEditor = null;
 let editingObject = null;
+
+// Буфер обміну
+let clipboard = [];
+
+// Історія
 let historyStack = [];
 let historyIndex = -1;
-let isUndoing = false;
-let needsRedraw = false;
-let animationFrameId = null;
-let scale = 1.0, offsetX = 0, offsetY = 0;
 const MAX_HISTORY = 50;
-const SMOOTHING_FACTOR = 0.5;
-let selectedShapeType = null;
-let currentPenColor = '#000000';
 
-function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
-}
+// Користувачі
+let users = new Map();
+let myUserId = null;
+let myUser = null;
 
-// ============================================
-// МАТЕМАТИЧНА ПАЛІТРА
-// ============================================
-
-let mathPaletteVisible = false;
-
-function toggleMathPalette() {
-    mathPaletteVisible = !mathPaletteVisible;
-    const palette = document.getElementById('math-palette');
-    const btn = document.getElementById('mathToolBtn');
-    
-    if (mathPaletteVisible) {
-        palette.style.display = 'flex';
-        btn.classList.add('active');
-    } else {
-        palette.style.display = 'none';
-        btn.classList.remove('active');
-    }
-}
-
-function switchMathTab(tabName) {
-    document.querySelectorAll('.math-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.math-section').forEach(s => s.classList.remove('active'));
-    
-    document.querySelector(`.math-tab[onclick="switchMathTab('${tabName}')"]`).classList.add('active');
-    document.getElementById(`math-section-${tabName}`).classList.add('active');
-}
-
-function getTextEditor() {
-    if (textEditor) {
-        return textEditor.querySelector('.text-edit-content');
-    }
-    return null;
-}
-
-function insertMathSymbol(symbol) {
-    const editor = getTextEditor();
-    if (!editor) {
-        // Відкриваємо текстовий блок
-        if (currentTool !== 'text') {
-            setTool('text');
-        }
-        
-        const centerX = (canvas.width / 2 - offsetX) / scale;
-        const centerY = (canvas.height / 2 - offsetY) / scale;
-        
-        const existingText = [...objects].reverse().find(obj => {
-            if (obj.type === 'text') {
-                return hitTest(obj, centerX, centerY, 10);
-            }
-            return false;
-        });
-        
-        if (existingText) {
-            startTextEdit(existingText);
-        } else {
-            createNewText({ x: centerX, y: centerY });
-        }
-        
-        setTimeout(() => {
-            insertSymbolAtCursor(symbol);
-        }, 100);
-    } else {
-        insertSymbolAtCursor(symbol);
-    }
-}
-
-function insertSymbolAtCursor(symbol) {
-    const editor = getTextEditor();
-    if (!editor) return;
-    
-    const sel = window.getSelection();
-    if (!sel.rangeCount) {
-        editor.focus();
-        const range = document.createRange();
-        range.selectNodeContents(editor);
-        range.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(range);
-    }
-    
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-    
-    const textNode = document.createTextNode(symbol);
-    range.insertNode(textNode);
-    
-    range.setStartAfter(textNode);
-    range.setEndAfter(textNode);
-    sel.removeAllRanges();
-    sel.addRange(range);
-    
-    updateTextEditorSize();
-    syncEditorToObject();
-}
-
-function updateTextEditorSize() {
-    if (!textEditor) return;
-    const editorDiv = textEditor.querySelector('.text-edit-content');
-    if (!editorDiv) return;
-    
-    const rect = editorDiv.getBoundingClientRect();
-    textEditor.style.width = (rect.width + 20) + 'px';
-    textEditor.style.height = (rect.height + 10) + 'px';
-}
-
-function syncEditorToObject() {
-    if (editingObject) {
-        const editorDiv = getTextEditor();
-        if (editorDiv) {
-            editingObject.text = editorDiv.innerText;
-            if (socket && socket.connected) socket.emit('update-object', editingObject);
-        }
-    }
-}
-
-function insertFraction() {
-    const editor = getTextEditor();
-    if (!editor) {
-        insertMathSymbol('⁄');
-        return;
-    }
-    
-    const sel = window.getSelection();
-    if (!sel.rangeCount) {
-        editor.focus();
-    }
-    
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-    
-    // Створюємо простий текстовий дріб
-    const span = document.createElement('span');
-    span.contentEditable = 'false';
-    span.style.cssText = 'display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 4px; font-size: 0.7em; line-height: 1;';
-    
-    const num = document.createElement('span');
-    num.textContent = 'a';
-    num.style.cssText = 'border-bottom: 1px solid currentColor; padding: 0 4px;';
-    
-    const den = document.createElement('span');
-    den.textContent = 'b';
-    den.style.cssText = 'padding: 0 4px;';
-    
-    span.appendChild(num);
-    span.appendChild(den);
-    
-    range.insertNode(span);
-    
-    // Переміщуємо курсор після дробу
-    const newRange = document.createRange();
-    newRange.setStartAfter(span);
-    newRange.setEndAfter(span);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    
-    updateTextEditorSize();
-    syncEditorToObject();
-}
-
-function insertBracket(type) {
-    const editor = getTextEditor();
-    if (!editor) return;
-    
-    let open, close;
-    if (type === '(') { open = '('; close = ')'; }
-    else if (type === '[') { open = '['; close = ']'; }
-    else if (type === '{') { open = '{'; close = '}'; }
-    
-    insertSymbolAtCursor(open);
-    setTimeout(() => {
-        insertSymbolAtCursor(close);
-    }, 10);
-}
+// Видалення loading
+setTimeout(() => {
+    document.getElementById('loading').style.display = 'none';
+}, 500);
 
 // ============================================
-// КЛАВІШІ
+// ІНИЦІАЛІЗАЦІЯ
 // ============================================
-
-window.addEventListener('keydown', (e) => { 
-    if (e.key === 'Shift') shiftKey = true; 
-    
-    if ((e.ctrlKey || e.metaKey) && e.key === 'a' && !textEditor) {
-        e.preventDefault();
-        selectedObjects = [...objects];
-        requestDraw();
-        return;
-    }
-    
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault();
-        undo();
-        return;
-    }
-    
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedObjects.length > 0 && !textEditor) {
-            e.preventDefault();
-            saveHistory();
-            selectedObjects.forEach(obj => {
-                objects = objects.filter(o => o !== obj);
-            });
-            selectedObjects = [];
-            if (socket && socket.connected) socket.emit('update-all', objects);
-            requestDraw();
-            return;
-        }
-    }
-    
-    // Гарячі клавіші інструментів
-    const key = e.key.toLowerCase();
-    if (key === 'v') setTool('select');
-    if (key === 'h') setTool('hand');
-    if (key === 'p') setTool('pen');
-    if (key === 'l') setTool('line');
-    if (key === 'g') setTool('grid');
-    if (key === 't') setTool('text');
-    if (key === 'e') setTool('eraser');
-    
-    // M - математична панель
-    if (key === 'm' && !textEditor) {
-        e.preventDefault();
-        toggleMathPalette();
-    }
-    
-    // Escape - закрити панель
-    if (e.key === 'Escape') {
-        if (mathPaletteVisible) {
-            toggleMathPalette();
-        }
-    }
-});
-
-window.addEventListener('keyup', (e) => { 
-    if (e.key === 'Shift') shiftKey = false;
-});
-
-// ============================================
-// МАЛЮВАННЯ
-// ============================================
-
-function requestDraw() {
-    if (!needsRedraw) {
-        needsRedraw = true;
-        animationFrameId = requestAnimationFrame(() => {
-            draw();
-            needsRedraw = false;
-        });
-    }
-}
-
-function saveHistory() {
-    if (isUndoing) return;
-    if (historyIndex < historyStack.length - 1) {
-        historyStack = historyStack.slice(0, historyIndex + 1);
-    }
-    const state = {
-        objects: JSON.parse(JSON.stringify(objects)),
-        view: { scale, offsetX, offsetY }
-    };
-    historyStack.push(state);
-    if (historyStack.length > MAX_HISTORY) {
-        historyStack.shift();
-    } else {
-        historyIndex++;
-    }
-}
-
-function undo() {
-    if (historyIndex <= 0 || isUndoing) return;
-    isUndoing = true;
-    historyIndex--;
-    const state = historyStack[historyIndex];
-    objects = JSON.parse(JSON.stringify(state.objects));
-    
-    if (state.view) {
-        scale = state.view.scale;
-        offsetX = state.view.offsetX;
-        offsetY = state.view.offsetY;
-        updateZoomDisplay();
-    }
-
-    selectedObjects = [];
-    if (textEditor) stopTextEdit(true);
-    requestDraw();
-    isUndoing = false;
-}
-
-function updateZoomDisplay() {
-    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
-}
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -1088,15 +1071,352 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// Показуємо URL дошки
+document.getElementById('board-url').textContent = window.location.href;
+
+function copyBoardLink() {
+    navigator.clipboard.writeText(window.location.href);
+    showNotification('Посилання скопійовано!');
+}
+
+// ============================================
+// SOCKET.IO
+// ============================================
+
+socket.on('connect', () => {
+    console.log('Підключено до сервера');
+});
+
+socket.on('init', (data) => {
+    myUserId = data.userId;
+    myUser = data.user;
+    objects = data.board.objects || [];
+    users = new Map(data.users.map(u => [u.id, u]));
+    
+    // Відновлюємо зображення
+    objects.forEach(obj => {
+        if (obj.type === 'image' && obj.src) {
+            const img = new Image();
+            img.src = obj.src;
+            img.onload = () => {
+                obj._img = img;
+                requestDraw();
+            };
+        }
+    });
+    
+    saveHistory();
+    updateUsersPanel();
+    requestDraw();
+});
+
+socket.on('user-joined', (user) => {
+    users.set(user.id, user);
+    updateUsersPanel();
+    showNotification(`${user.name} приєднався`);
+});
+
+socket.on('user-left', (userId) => {
+    const user = users.get(userId);
+    if (user) {
+        showNotification(`${user.name} вийшов`);
+    }
+    users.delete(userId);
+    updateUsersPanel();
+});
+
+socket.on('object:added', (obj) => {
+    objects.push(obj);
+    if (obj.type === 'image' && obj.src) {
+        const img = new Image();
+        img.src = obj.src;
+        img.onload = () => {
+            obj._img = img;
+            requestDraw();
+        };
+    }
+    requestDraw();
+});
+
+socket.on('object:updated', (updatedObj) => {
+    const index = objects.findIndex(o => o.id === updatedObj.id);
+    if (index !== -1) {
+        objects[index] = updatedObj;
+        requestDraw();
+    }
+});
+
+socket.on('object:deleted', (objId) => {
+    objects = objects.filter(o => o.id !== objId);
+    selectedObjects = selectedObjects.filter(o => o.id !== objId);
+    requestDraw();
+});
+
+socket.on('board:cleared', () => {
+    objects = [];
+    selectedObjects = [];
+    requestDraw();
+    showNotification('Дошку очищено');
+});
+
+socket.on('cursor:moved', (data) => {
+    // Можна відображати курсори інших користувачів
+    requestDraw();
+});
+
+// ============================================
+// МАТЕМАТИЧНА ПАЛІТРА
+// ============================================
+
+let mathPaletteVisible = false;
+
+function toggleMathPalette() {
+    mathPaletteVisible = !mathPaletteVisible;
+    document.getElementById('math-palette').classList.toggle('visible', mathPaletteVisible);
+    document.getElementById('math-btn').classList.toggle('active', mathPaletteVisible);
+}
+
+function switchMathTab(tab) {
+    document.querySelectorAll('.math-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.math-section').forEach(s => s.classList.remove('active'));
+    
+    document.querySelector(`.math-tab[onclick="switchMathTab('${tab}')"]`).classList.add('active');
+    document.getElementById(`math-${tab}`).classList.add('active');
+}
+
+function insertMath(symbol) {
+    if (textEditor) {
+        insertTextAtCursor(symbol);
+        return;
+    }
+    
+    // Якщо текстовий об'єкт не активний - відкриваємо панель вводу
+    openLatexPanel(symbol);
+}
+
+function insertTextAtCursor(text) {
+    if (!textEditor) return;
+    
+    const sel = window.getSelection();
+    if (!sel.rangeCount) {
+        textEditor.focus();
+    }
+    
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.setEndAfter(node);
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
+
+function insertTemplate(type) {
+    // Тут можна вставити шаблон через LaTeX панель
+    if (type === 'frac') {
+        openLatexPanel('\\frac{a}{b}');
+    } else if (type === 'sum') {
+        openLatexPanel('\\sum_{i=1}^{n}');
+    } else if (type === 'prod') {
+        openLatexPanel('\\prod_{i=1}^{n}');
+    } else if (type === 'int') {
+        openLatexPanel('\\int_{a}^{b}');
+    } else if (type === 'iint') {
+        openLatexPanel('\\iint');
+    } else if (type === 'iiint') {
+        openLatexPanel('\\iiint');
+    } else if (type === 'oint') {
+        openLatexPanel('\\oint');
+    } else if (type === 'lim') {
+        openLatexPanel('\\lim_{x \\to a}');
+    }
+}
+
+function openLatexPanel(defaultText = '') {
+    const panel = document.getElementById('latex-panel');
+    const input = document.getElementById('latex-input-global');
+    const preview = document.getElementById('latex-preview-global');
+    
+    panel.classList.add('visible');
+    input.value = defaultText;
+    preview.innerHTML = latexToHtml(defaultText);
+    
+    input.focus();
+}
+
+function closeLatexPanel() {
+    document.getElementById('latex-panel').classList.remove('visible');
+}
+
+function insertLatexFormula() {
+    const input = document.getElementById('latex-input-global');
+    const text = input.value;
+    
+    // Створюємо текстовий об'єкт з LaTeX
+    const coords = screenToCanvas(window.innerWidth / 2, window.innerHeight / 2);
+    const obj = {
+        id: generateId(),
+        type: 'text',
+        x: coords.x,
+        y: coords.y,
+        text: text,
+        latex: text,
+        color: currentColor,
+        size: 24,
+        isBold: false
+    };
+    
+    objects.push(obj);
+    saveHistory();
+    socket.emit('object:add', obj);
+    requestDraw();
+    
+    closeLatexPanel();
+    input.value = '';
+}
+
+// LaTeX до HTML конвертація
+function latexToHtml(latex) {
+    if (!latex) return '';
+    
+    let html = latex
+        // Степені
+        .replace(/\^(\d)/g, '<sup>$1</sup>')
+        .replace(/\^{([^}]+)}/g, '<sup>$1</sup>')
+        // Індекси
+        .replace(/_(\d)/g, '<sub>$1</sub>')
+        .replace(/_{([^}]+)}/g, '<sub>$1</sub>')
+        // Дроби
+        .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '<span class="math-frac"><span class="math-frac-num">$1</span><span class="math-frac-den">$2</span></span>')
+        // Корені
+        .replace(/\\sqrt\{([^}]+)\}/g, '√($1)')
+        .replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, '<sup>$1</sup>√($2)')
+        // Інтеграли
+        .replace(/\\int/g, '∫')
+        .replace(/\\iint/g, '∬')
+        .replace(/\\iiint/g, '∭')
+        .replace(/\\oint/g, '∮')
+        // Сума та добуток
+        .replace(/\\sum/g, '∑')
+        .replace(/\\prod/g, '∏')
+        // Греки
+        .replace(/\\alpha/g, 'α')
+        .replace(/\\beta/g, 'β')
+        .replace(/\\gamma/g, 'γ')
+        .replace(/\\delta/g, 'δ')
+        .replace(/\\epsilon/g, 'ε')
+        .replace(/\\theta/g, 'θ')
+        .replace(/\\lambda/g, 'λ')
+        .replace(/\\mu/g, 'μ')
+        .replace(/\\pi/g, 'π')
+        .replace(/\\sigma/g, 'σ')
+        .replace(/\\phi/g, 'φ')
+        .replace(/\\omega/g, 'ω')
+        .replace(/\\Omega/g, 'Ω')
+        .replace(/\\Sigma/g, 'Σ')
+        .replace(/\\Delta/g, 'Δ')
+        // Функції
+        .replace(/\\sin/g, 'sin')
+        .replace(/\\cos/g, 'cos')
+        .replace(/\\tan/g, 'tan')
+        .replace(/\\cot/g, 'cot')
+        .replace(/\\log/g, 'log')
+        .replace(/\\ln/g, 'ln')
+        .replace(/\\lim/g, 'lim')
+        .replace(/\\exp/g, 'exp')
+        // Інші
+        .replace(/\\infty/g, '∞')
+        .replace(/\\to/g, '→')
+        .replace(/\\rightarrow/g, '→')
+        .replace(/\\leftarrow/g, '←')
+        .replace(/\\pm/g, '±')
+        .replace(/\\times/g, '×')
+        .replace(/\\div/g, '÷')
+        .replace(/\\cdot/g, '·')
+        // Множини
+        .replace(/\\in/g, '∈')
+        .replace(/\\notin/g, '∉')
+        .replace(/\\subset/g, '⊂')
+        .replace(/\\subseteq/g, '⊆')
+        .replace(/\\cup/g, '∪')
+        .replace(/\\cap/g, '∩')
+        .replace(/\\emptyset/g, '∅')
+        .replace(/\\mathbb\{N\}/g, 'ℕ')
+        .replace(/\\mathbb\{Z\}/g, 'ℤ')
+        .replace(/\\mathbb\{R\}/g, 'ℝ')
+        .replace(/\\mathbb\{Q\}/g, 'ℚ')
+        .replace(/\\mathbb\{C\}/g, 'ℂ')
+        // Логічні
+        .replace(/\\forall/g, '∀')
+        .replace(/\\exists/g, '∃')
+        .replace(/\\land/g, '∧')
+        .replace(/\\lor/g, '∨')
+        .replace(/\\neg/g, '¬')
+        // Текст
+        .replace(/\\text\{([^}]+)\}/g, '$1')
+        .replace(/\\quad/g, ' ')
+        .replace(/\\,/g, ' ');
+    
+    return html;
+}
+
+// ============================================
+// РИСУВАННЯ
+// ============================================
+
+function requestDraw() {
+    draw();
+}
+
+function draw() {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Малюємо сітку
+    drawGrid();
+    
+    // Малюємо об'єкти
+    objects.forEach(obj => drawObject(obj));
+    
+    // Малюємо поточний шлях
+    if (currentPath) {
+        drawObject(currentPath);
+    }
+    
+    // Малюємо виділення
+    if (selectedObjects.length > 0) {
+        drawSelection();
+    }
+    
+    // Малюємо рамку виділення
+    if (selectionBox) {
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = '#007bff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(
+            selectionBox.x * scale + offsetX,
+            selectionBox.y * scale + offsetY,
+            selectionBox.w * scale,
+            selectionBox.h * scale
+        );
+        ctx.setLineDash([]);
+    }
+    
+    // Малюємо курсори інших користувачів
+    drawUserCursors();
+}
+
 function drawGrid() {
     const step = 20 * scale;
     const startX = offsetX % step;
     const startY = offsetY % step;
     
-    ctx.beginPath();
     ctx.strokeStyle = '#f0f0f0';
     ctx.lineWidth = 1;
     
+    ctx.beginPath();
     for (let x = startX; x < canvas.width; x += step) {
         ctx.moveTo(x, 0);
         ctx.lineTo(x, canvas.height);
@@ -1108,73 +1428,22 @@ function drawGrid() {
     ctx.stroke();
 }
 
-function draw() {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    drawGrid();
-    
-    objects.forEach(obj => drawObject(obj));
-    
-    if (isDrawing && currentPath) drawObject(currentPath, true);
-    
-    if (selectedObjects.length > 0 && currentTool === 'select' && !textEditor) {
-        drawSelection();
-    }
-    
-    drawMarqueeSelection();
-}
-
-function drawSelection() {
-    if (selectedObjects.length === 0) return;
-    
-    const bbox = getGroupBBox(selectedObjects);
-    if (!bbox) return;
-    
-    const sx = bbox.x * scale + offsetX;
-    const sy = bbox.y * scale + offsetY;
-    const sw = bbox.w * scale;
-    const sh = bbox.h * scale;
-    
-    if (sw < 5 || sh < 5) return;
-    
-    ctx.save();
-    ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = '#4CAF50';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(sx, sy, sw, sh);
-    ctx.restore();
-}
-
-function drawMarqueeSelection() {
-    if (!isSelectingArea) return;
-    
-    const x1 = selectionStart.x * scale + offsetX;
-    const y1 = selectionStart.y * scale + offsetY;
-    const x2 = selectionEnd.x * scale + offsetX;
-    const y2 = selectionEnd.y * scale + offsetY;
-    
-    ctx.save();
-    ctx.fillStyle = 'rgba(0, 123, 255, 0.15)';
-    ctx.strokeStyle = '#007bff';
-    ctx.lineWidth = 1;
-    ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
-    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-    ctx.restore();
-}
-
 function drawObject(obj) {
     ctx.save();
-    const sx = obj.x * scale + offsetX;
-    const sy = obj.y * scale + offsetY;
-    
-    ctx.lineWidth = (obj.width || 2) * scale;
     ctx.strokeStyle = obj.color || '#000';
     ctx.fillStyle = obj.color || '#000';
+    ctx.lineWidth = (obj.width || 2) * scale;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    const x = obj.x * scale + offsetX;
+    const y = obj.y * scale + offsetY;
     
     if (obj.type === 'pen') {
-        if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
+        if (!obj.points || obj.points.length === 0) {
+            ctx.restore();
+            return;
+        }
         ctx.beginPath();
         ctx.moveTo(obj.x * scale + offsetX, obj.y * scale + offsetY);
         obj.points.forEach(p => {
@@ -1183,21 +1452,69 @@ function drawObject(obj) {
         ctx.stroke();
     } else if (obj.type === 'line') {
         ctx.beginPath();
-        ctx.moveTo(sx, sy);
+        ctx.moveTo(x, y);
         ctx.lineTo(obj.ex * scale + offsetX, obj.ey * scale + offsetY);
         ctx.stroke();
+    } else if (obj.type === 'arrow') {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(obj.ex * scale + offsetX, obj.ey * scale + offsetY);
+        ctx.stroke();
+        
+        // Малюємо наконечник
+        const angle = Math.atan2(obj.ey - obj.y, obj.ex - obj.x);
+        const len = 15;
+        ctx.beginPath();
+        ctx.moveTo(obj.ex * scale + offsetX, obj.ey * scale + offsetY);
+        ctx.lineTo(
+            obj.ex * scale + offsetX - len * Math.cos(angle - Math.PI / 6),
+            obj.ey * scale + offsetY - len * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.moveTo(obj.ex * scale + offsetX, obj.ey * scale + offsetY);
+        ctx.lineTo(
+            obj.ex * scale + offsetX - len * Math.cos(angle + Math.PI / 6),
+            obj.ey * scale + offsetY - len * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.stroke();
     } else if (obj.type === 'rect') {
-        ctx.strokeRect(sx, sy, obj.w * scale, obj.h * scale);
+        ctx.strokeRect(x, y, obj.w * scale, obj.h * scale);
     } else if (obj.type === 'shape') {
         drawShape(obj);
     } else if (obj.type === 'text') {
         ctx.fillStyle = obj.color || '#000';
         ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size * scale}px 'Segoe UI', sans-serif`;
-        ctx.fillText(obj.text || '', sx, sy + obj.size * scale);
-    } else if (obj.type === 'grid') {
-        drawCoordinateGrid(obj);
+        
+        // Конвертуємо LaTeX в HTML для відображення
+        if (obj.latex) {
+            const html = latexToHtml(obj.latex);
+            drawMathText(obj.text || obj.latex, x, y + obj.size * scale * 0.8);
+        } else {
+            ctx.fillText(obj.text || '', x, y + obj.size * scale * 0.8);
+        }
+    } else if (obj.type === 'image' && obj._img) {
+        ctx.drawImage(obj._img, x, y, obj.w * scale, obj.h * scale);
     }
+    
     ctx.restore();
+}
+
+function drawMathText(text, x, y) {
+    // Спрощене малювання математичного тексту
+    const html = latexToHtml(text);
+    
+    // Створюємо тимчасовий span для вимірювання
+    const span = document.createElement('span');
+    span.style.cssText = `font-size: ${24 * scale}px; font-family: 'Segoe UI'; white-space: pre;`;
+    span.innerHTML = html;
+    document.body.appendChild(span);
+    
+    const w = span.offsetWidth;
+    const h = span.offsetHeight;
+    
+    // Малюємо за допомогою fillText
+    ctx.fillText(text, x, y);
+    
+    document.body.removeChild(span);
 }
 
 function drawShape(obj) {
@@ -1209,107 +1526,107 @@ function drawShape(obj) {
     
     ctx.beginPath();
     
-    if (obj.shapeType === 'circle') {
-        ctx.ellipse(cx, cy, minDim/2, minDim/2, 0, 0, Math.PI * 2);
-    } else if (obj.shapeType === 'triangle') {
-        ctx.moveTo(cx, obj.y * scale + offsetY);
-        ctx.lineTo(obj.x * scale + offsetX + w, obj.y * scale + offsetY + h);
-        ctx.lineTo(obj.x * scale + offsetX, obj.y * scale + offsetY + h);
-        ctx.closePath();
-    } else if (obj.shapeType === 'diamond') {
-        ctx.moveTo(cx, obj.y * scale + offsetY);
-        ctx.lineTo(obj.x * scale + offsetX + w, cy);
-        ctx.lineTo(cx, obj.y * scale + offsetY + h);
-        ctx.lineTo(obj.x * scale + offsetX, cy);
-        ctx.closePath();
-    } else if (obj.shapeType === 'pentagon') {
-        const r = minDim / 2;
-        for (let i = 0; i < 5; i++) {
-            const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
-            const px = cx + r * Math.cos(angle);
-            const py = cy + r * Math.sin(angle);
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-    } else if (obj.shapeType === 'hexagon') {
-        const r = minDim / 2;
-        for (let i = 0; i < 6; i++) {
-            const angle = (i * 2 * Math.PI / 6) - Math.PI / 2;
-            const px = cx + r * Math.cos(angle);
-            const py = cy + r * Math.sin(angle);
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-    } else if (obj.shapeType === 'star') {
-        const r = minDim / 2;
-        const innerR = r * 0.4;
-        for (let i = 0; i < 10; i++) {
-            const angle = (i * Math.PI / 5) - Math.PI / 2;
-            const rad = (i % 2 === 0) ? r : innerR;
-            const px = cx + rad * Math.cos(angle);
-            const py = cy + rad * Math.sin(angle);
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-    } else if (obj.shapeType === 'heart') {
-        ctx.moveTo(cx, obj.y * scale + offsetY + h * 0.2);
-        ctx.bezierCurveTo(cx, obj.y * scale + offsetY, obj.x * scale + offsetX, obj.y * scale + offsetY, obj.x * scale + offsetX, cy);
-        ctx.bezierCurveTo(obj.x * scale + offsetX, obj.y * scale + offsetY + h, cx, obj.y * scale + offsetY + h * 1.2, obj.x * scale + offsetX + w, obj.y * scale + offsetY + h);
-        ctx.bezierCurveTo(obj.x * scale + offsetX + w, cy, obj.x * scale + offsetX + w, obj.y * scale + offsetY, cx, obj.y * scale + offsetY);
-        ctx.closePath();
+    switch (obj.shapeType) {
+        case 'circle':
+            ctx.ellipse(cx, cy, minDim / 2, minDim / 2, 0, 0, Math.PI * 2);
+            break;
+        case 'triangle':
+            ctx.moveTo(cx, obj.y * scale + offsetY);
+            ctx.lineTo(obj.x * scale + offsetX + w, obj.y * scale + offsetY + h);
+            ctx.lineTo(obj.x * scale + offsetX, obj.y * scale + offsetY + h);
+            ctx.closePath();
+            break;
+        case 'diamond':
+            ctx.moveTo(cx, obj.y * scale + offsetY);
+            ctx.lineTo(obj.x * scale + offsetX + w, cy);
+            ctx.lineTo(cx, obj.y * scale + offsetY + h);
+            ctx.lineTo(obj.x * scale + offsetX, cy);
+            ctx.closePath();
+            break;
+        case 'pentagon':
+            const r5 = minDim / 2;
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+                const px = cx + r5 * Math.cos(angle);
+                const py = cy + r5 * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            break;
+        case 'hexagon':
+            const r6 = minDim / 2;
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * 2 * Math.PI / 6) - Math.PI / 2;
+                const px = cx + r6 * Math.cos(angle);
+                const py = cy + r6 * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            break;
+        case 'star':
+            const r = minDim / 2;
+            const r2 = r * 0.4;
+            for (let i = 0; i < 10; i++) {
+                const angle = (i * Math.PI / 5) - Math.PI / 2;
+                const rad = (i % 2 === 0) ? r : r2;
+                const px = cx + rad * Math.cos(angle);
+                const py = cy + rad * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            break;
+        case 'arrow-up':
+            ctx.moveTo(cx, obj.y * scale + offsetY);
+            ctx.lineTo(obj.x * scale + offsetX + w, obj.y * scale + offsetY + h * 0.7);
+            ctx.lineTo(cx + w * 0.3, obj.y * scale + offsetY + h * 0.7);
+            ctx.lineTo(cx, obj.y * scale + offsetY + h);
+            ctx.lineTo(cx - w * 0.3, obj.y * scale + offsetY + h * 0.7);
+            ctx.lineTo(obj.x * scale + offsetX, obj.y * scale + offsetY + h * 0.7);
+            ctx.closePath();
+            break;
+        default:
+            ctx.strokeRect(obj.x * scale + offsetX, obj.y * scale + offsetY, w, h);
+            return;
     }
     
     ctx.stroke();
 }
 
-function drawCoordinateGrid(obj) {
-    const sx = obj.x * scale + offsetX;
-    const sy = obj.y * scale + offsetY;
-    const sw = obj.w * scale;
-    const sh = obj.h * scale;
+function drawSelection() {
+    const bbox = getGroupBBox(selectedObjects);
+    if (!bbox) return;
     
-    ctx.save();
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(sx, sy, sw, sh);
-    ctx.strokeStyle = '#ddd';
-    ctx.strokeRect(sx, sy, sw, sh);
+    const x = bbox.x * scale + offsetX;
+    const y = bbox.y * scale + offsetY;
+    const w = bbox.w * scale;
+    const h = bbox.h * scale;
     
-    const spacing = 40;
-    ctx.strokeStyle = '#eee';
-    for (let x = 0; x <= sw; x += spacing) {
-        ctx.beginPath();
-        ctx.moveTo(sx + x, sy);
-        ctx.lineTo(sx + x, sy + sh);
-        ctx.stroke();
-    }
-    for (let y = 0; y <= sh; y += spacing) {
-        ctx.beginPath();
-        ctx.moveTo(sx, sy + y);
-        ctx.lineTo(sx + sw, sy + y);
-        ctx.stroke();
-    }
-    
-    const cx = sx + sw / 2;
-    const cy = sy + sh / 2;
-    
-    ctx.strokeStyle = '#000';
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = '#4CAF50';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(sx, cy);
-    ctx.lineTo(sx + sw, cy);
-    ctx.moveTo(cx, sy);
-    ctx.lineTo(cx, sy + sh);
-    ctx.stroke();
-    
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 14px Segoe UI';
-    ctx.fillText('X', sx + sw - 12, cy - 8);
-    ctx.fillText('Y', cx + 8, sy + 14);
-    
-    ctx.restore();
+    ctx.strokeRect(x, y, w, h);
+    ctx.setLineDash([]);
+}
+
+function drawUserCursors() {
+    users.forEach((user, userId) => {
+        if (userId === myUserId) return;
+        
+        const cx = user.cursor.x * scale + offsetX;
+        const cy = user.cursor.y * scale + offsetY;
+        
+        ctx.fillStyle = user.color;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fff';
+        ctx.font = '11px Segoe UI';
+        ctx.fillText(user.name, cx + 10, cy + 4);
+    });
 }
 
 // ============================================
@@ -1318,28 +1635,44 @@ function drawCoordinateGrid(obj) {
 
 function getBBox(obj) {
     if (!obj) return null;
+    
     if (obj.type === 'text') {
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size}px 'Segoe UI', sans-serif`;
-        const w = ctx.measureText(obj.text || '').width;
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${obj.size}px 'Segoe UI'`;
+        const w = ctx.measureText(obj.text || obj.latex || '').width;
         return { x: obj.x, y: obj.y, w: w || 2, h: obj.size * 1.4 };
     }
-    if (obj.type === 'rect' || obj.type === 'shape' || obj.type === 'grid') {
+    if (obj.type === 'rect' || obj.type === 'shape') {
         return { x: obj.x, y: obj.y, w: Math.abs(obj.w), h: Math.abs(obj.h) };
     }
-    if (obj.type === 'line') {
-        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
+    if (obj.type === 'line' || obj.type === 'arrow') {
+        return {
+            x: Math.min(obj.x, obj.ex),
+            y: Math.min(obj.y, obj.ey),
+            w: Math.abs(obj.ex - obj.x),
+            h: Math.abs(obj.ey - obj.y)
+        };
     }
     if (obj.type === 'pen') {
         if (!obj.points || obj.points.length === 0) return { x: obj.x, y: obj.y, w: 0, h: 0 };
         const xs = [obj.x, ...obj.points.map(p => p.x)];
         const ys = [obj.y, ...obj.points.map(p => p.y)];
-        return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+        return {
+            x: Math.min(...xs),
+            y: Math.min(...ys),
+            w: Math.max(...xs) - Math.min(...xs),
+            h: Math.max(...ys) - Math.min(...ys)
+        };
     }
+    if (obj.type === 'image') {
+        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
+    }
+    
     return { x: obj.x, y: obj.y, w: 0, h: 0 };
 }
 
 function getGroupBBox(objs) {
     if (!objs || objs.length === 0) return null;
+    
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     
     objs.forEach(obj => {
@@ -1355,116 +1688,133 @@ function getGroupBBox(objs) {
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-function hitTest(obj, mx, my, padding = 0) {
+function hitTest(obj, mx, my) {
     const bbox = getBBox(obj);
     if (!bbox) return false;
-    return mx >= bbox.x - padding && mx <= bbox.x + bbox.w + padding && 
-           my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
+    return mx >= bbox.x - 5 && mx <= bbox.x + bbox.w + 5 &&
+           my >= bbox.y - 5 && my <= bbox.y + bbox.h + 5;
 }
 
 // ============================================
-// CANVAS EVENTS
+// КООРДИНАТИ
 // ============================================
 
-function getCoords(e) {
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { 
-        x: (clientX - offsetX) / scale, 
-        y: (clientY - offsetY) / scale,
-        rawX: clientX, 
-        rawY: clientY 
+function screenToCanvas(sx, sy) {
+    return {
+        x: (sx - offsetX) / scale,
+        y: (sy - offsetY) / scale
     };
 }
 
-canvas.addEventListener('dblclick', (e) => {
-    const coords = getCoords(e);
-    
-    const clickedObj = [...objects].reverse().find(obj => {
-        if (obj.type === 'text') {
-            return hitTest(obj, coords.x, coords.y, 5);
-        }
-        return false;
-    });
+function canvasToScreen(cx, cy) {
+    return {
+        x: cx * scale + offsetX,
+        y: cy * scale + offsetY
+    };
+}
 
-    if (clickedObj) {
-        e.preventDefault();
-        startTextEdit(clickedObj);
-    }
-});
+// ============================================
+// ПОДІЇ МИШІ
+// ============================================
 
 canvas.addEventListener('mousedown', (e) => {
-    const coords = getCoords(e);
+    const coords = screenToCanvas(e.clientX, e.clientY);
     
-    if (textEditor) { 
-        stopTextEdit(); 
-        selectedObjects = [];
-        requestDraw();
-        return; 
+    if (currentTool === 'hand') {
+        isPanning = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        canvas.className = 'cursor-grabbing';
+        return;
+    }
+    
+    if (currentTool === 'text') {
+        const clickedObj = objects.find(obj => obj.type === 'text' && hitTest(obj, coords.x, coords.y));
+        if (clickedObj) {
+            startTextEdit(clickedObj);
+        } else {
+            createText(coords);
+        }
+        return;
     }
     
     if (currentTool === 'select') {
-        const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 3));
+        const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
         
         if (clickedObj) {
             if (!selectedObjects.includes(clickedObj)) {
-                if (!shiftKey) selectedObjects = [];
-                selectedObjects.push(clickedObj);
+                selectedObjects = [clickedObj];
             }
             
             isDragging = true;
             dragStartX = coords.x;
             dragStartY = coords.y;
             
-            startResizeState = selectedObjects.map(o => ({
+            startState = selectedObjects.map(o => ({
                 obj: o,
                 x: o.x, y: o.y,
                 ex: o.ex, ey: o.ey,
                 points: o.points ? JSON.parse(JSON.stringify(o.points)) : null
             }));
-            
-            requestDraw();
         } else {
             selectedObjects = [];
-            isSelectingArea = true;
+            isSelecting = true;
+            selectionBox = { x: coords.x, y: coords.y, w: 0, h: 0 };
             selectionStart = { x: coords.x, y: coords.y };
-            selectionEnd = { x: coords.x, y: coords.y };
-            requestDraw();
         }
-    } else if (currentTool === 'hand') {
-        isDragging = true;
-        dragStartX = coords.rawX;
-        dragStartY = coords.rawY;
-    } else if (currentTool === 'text') {
-        const existingText = [...objects].reverse().find(obj => {
-            if (obj.type === 'text') {
-                return hitTest(obj, coords.x, coords.y, 3);
-            }
-            return false;
-        });
         
-        if (existingText) {
-            startTextEdit(existingText);
-        } else {
-            createNewText(coords);
+        requestDraw();
+        return;
+    }
+    
+    // Інструменти малювання
+    if (['pen', 'line', 'arrow', 'rect', 'shape'].includes(currentTool)) {
+        isDrawing = true;
+        currentPath = {
+            id: generateId(),
+            type: currentTool === 'shape' ? 'shape' : currentTool,
+            color: currentColor,
+            width: currentSize,
+            x: coords.x, y: coords.y,
+            ex: coords.x, ey: coords.y,
+            w: 0, h: 0
+        };
+        
+        if (currentTool === 'pen') {
+            currentPath.points = [];
         }
-    } else {
-        startDrawing(coords);
+        if (currentTool === 'shape') {
+            currentPath.shapeType = selectedShapeType;
+        }
+    }
+    
+    if (currentTool === 'eraser') {
+        eraseAt(coords.x, coords.y);
     }
 });
 
 canvas.addEventListener('mousemove', (e) => {
-    const coords = getCoords(e);
+    const coords = screenToCanvas(e.clientX, e.clientY);
     
-    if (!isDragging && !isDrawing && !isSelectingArea) return;
+    // Відправляємо позицію курсора
+    socket.emit('cursor:move', coords);
     
-    if (isDragging && selectedObjects.length > 0 && currentTool === 'select') {
+    if (isPanning) {
+        offsetX += e.clientX - dragStartX;
+        offsetY += e.clientY - dragStartY;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        requestDraw();
+        return;
+    }
+    
+    if (isDragging && selectedObjects.length > 0) {
         const dx = coords.x - dragStartX;
         const dy = coords.y - dragStartY;
         
-        startResizeState.forEach(state => {
+        startState.forEach(state => {
             const o = state.obj;
-            if (o.type === 'line') {
+            if (o.type === 'line' || o.type === 'arrow') {
                 o.x = state.x + dx;
                 o.y = state.y + dy;
                 o.ex = state.ex + dx;
@@ -1473,284 +1823,140 @@ canvas.addEventListener('mousemove', (e) => {
                 o.x = state.x + dx;
                 o.y = state.y + dy;
                 o.points = state.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
-            } else {
+            } else if (o.type === 'shape') {
+                o.x = state.x + dx;
+                o.y = state.y + dy;
+            } else if (o.type === 'rect') {
+                o.x = state.x + dx;
+                o.y = state.y + dy;
+            } else if (o.type === 'text') {
+                o.x = state.x + dx;
+                o.y = state.y + dy;
+            } else if (o.type === 'image') {
                 o.x = state.x + dx;
                 o.y = state.y + dy;
             }
         });
+        
         requestDraw();
-    } else if (isDragging && currentTool === 'hand') {
-        offsetX += coords.rawX - dragStartX;
-        offsetY += coords.rawY - dragStartY;
-        dragStartX = coords.rawX;
-        dragStartY = coords.rawY;
+        return;
+    }
+    
+    if (isSelecting && selectionBox) {
+        selectionBox.w = coords.x - selectionStart.x;
+        selectionBox.h = coords.y - selectionStart.y;
         requestDraw();
-    } else if (isSelectingArea) {
-        selectionEnd = { x: coords.x, y: coords.y };
-        requestDraw();
-    } else if (isDrawing && currentPath) {
+        return;
+    }
+    
+    if (isDrawing && currentPath) {
         if (currentPath.type === 'pen') {
-            const lastPoint = currentPath.points.length > 0 
-                ? currentPath.points[currentPath.points.length - 1] 
-                : { x: currentPath.x, y: currentPath.y };
-            
-            const dist = Math.hypot(coords.x - lastPoint.x, coords.y - lastPoint.y);
-            if (dist > 2 / scale) {
-                currentPath.points.push({ x: coords.x, y: coords.y });
-            }
-        } else if (currentPath.type === 'line') {
+            currentPath.points.push({ x: coords.x, y: coords.y });
+        } else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
             currentPath.ex = coords.x;
             currentPath.ey = coords.y;
         } else if (currentPath.type === 'rect' || currentPath.type === 'shape') {
             currentPath.w = coords.x - currentPath.x;
             currentPath.h = coords.y - currentPath.y;
-        } else if (currentPath.type === 'grid') {
-            currentPath.w = coords.x - currentPath.x;
-            currentPath.h = coords.y - currentPath.y;
         }
+        
         requestDraw();
+    }
+    
+    if (currentTool === 'eraser' && e.buttons === 1) {
+        eraseAt(coords.x, coords.y);
     }
 });
 
 canvas.addEventListener('mouseup', () => {
-    if (isSelectingArea) {
-        isSelectingArea = false;
+    if (isPanning) {
+        isPanning = false;
+        canvas.className = currentTool === 'hand' ? 'cursor-grab' : 'cursor-default';
+        return;
+    }
+    
+    if (isDragging && selectedObjects.length > 0) {
+        saveHistory();
+        selectedObjects.forEach(obj => {
+            socket.emit('object:update', obj);
+        });
+        isDragging = false;
+        return;
+    }
+    
+    if (isSelecting && selectionBox) {
+        // Виділяємо об'єкти в рамці
+        const minX = Math.min(selectionBox.x, selectionBox.x + selectionBox.w);
+        const maxX = Math.max(selectionBox.x, selectionBox.x + selectionBox.w);
+        const minY = Math.min(selectionBox.y, selectionBox.y + selectionBox.h);
+        const maxY = Math.max(selectionBox.y, selectionBox.y + selectionBox.h);
         
-        const minX = Math.min(selectionStart.x, selectionEnd.x);
-        const maxX = Math.max(selectionStart.x, selectionEnd.x);
-        const minY = Math.min(selectionStart.y, selectionEnd.y);
-        const maxY = Math.max(selectionStart.y, selectionEnd.y);
-        
-        const newSelection = objects.filter(obj => {
+        selectedObjects = objects.filter(obj => {
             const bbox = getBBox(obj);
             if (!bbox) return false;
-            return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
+            return bbox.x >= minX && bbox.x + bbox.w <= maxX &&
+                   bbox.y >= minY && bbox.y + bbox.h <= maxY;
         });
         
-        if (newSelection.length > 0) {
-            selectedObjects = [...newSelection];
-        }
+        selectionBox = null;
+        isSelecting = false;
         requestDraw();
         return;
     }
     
     if (isDrawing && currentPath) {
         if (currentPath.type === 'pen' && currentPath.points.length > 1) {
-            saveHistory();
             objects.push(currentPath);
+            saveHistory();
+            socket.emit('object:add', currentPath);
         } else if (currentPath.type === 'line') {
-            if (Math.abs(currentPath.ex - currentPath.x) > 2) {
-                saveHistory();
-                objects.push(currentPath);
-            }
+            objects.push(currentPath);
+            saveHistory();
+            socket.emit('object:add', currentPath);
+        } else if (currentPath.type === 'arrow') {
+            objects.push(currentPath);
+            saveHistory();
+            socket.emit('object:add', currentPath);
         } else if (currentPath.type === 'rect') {
-            if (Math.abs(currentPath.w) > 5 && Math.abs(currentPath.h) > 5) {
-                saveHistory();
+            if (Math.abs(currentPath.w) > 5 || Math.abs(currentPath.h) > 5) {
                 objects.push(currentPath);
+                saveHistory();
+                socket.emit('object:add', currentPath);
             }
         } else if (currentPath.type === 'shape') {
-            if (Math.abs(currentPath.w) > 5 && Math.abs(currentPath.h) > 5) {
-                currentPath.shapeType = selectedShapeType;
-                saveHistory();
+            if (Math.abs(currentPath.w) > 5 || Math.abs(currentPath.h) > 5) {
                 objects.push(currentPath);
-            }
-        } else if (currentPath.type === 'grid') {
-            if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
                 saveHistory();
-                objects.push(currentPath);
+                socket.emit('object:add', currentPath);
             }
         }
-        isDrawing = false;
+        
         currentPath = null;
+        isDrawing = false;
         requestDraw();
     }
+});
+
+canvas.addEventListener('dblclick', (e) => {
+    const coords = screenToCanvas(e.clientX, e.clientY);
+    const clickedObj = objects.find(obj => obj.type === 'text' && hitTest(obj, coords.x, coords.y));
     
-    if (isDragging && selectedObjects.length > 0) {
-        saveHistory();
-        isDragging = false;
-    } else if (isDragging) {
-        isDragging = false;
+    if (clickedObj) {
+        startTextEdit(clickedObj);
     }
 });
 
-// ============================================
-// TOOLS
-// ============================================
-
-function startDrawing(coords) {
-    isDrawing = true;
-    currentPath = {
-        id: generateId(),
-        type: currentTool,
-        color: currentPenColor,
-        width: 3,
-        x: coords.x, y: coords.y, ex: coords.x, ey: coords.y,
-        w: 0, h: 0
-    };
-    
-    if (currentTool === 'pen') currentPath.points = [];
-    if (currentTool === 'shape') currentPath.shapeType = selectedShapeType;
-}
-
-function setTool(tool) {
-    currentTool = tool;
-    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
-    if (tool !== 'select' && selectedObjects.length > 0) { 
-        selectedObjects = []; 
-        requestDraw(); 
-    }
-    
-    // Закриваємо панель при зміні інструменту
-    if (mathPaletteVisible) {
-        toggleMathPalette();
-    }
-    
-    // Закриваємо shapes palette
-    document.getElementById('shapes-palette').style.display = 'none';
-    
-    // Курсори
-    if (tool === 'select') canvas.className = 'cursor-default';
-    else if (tool === 'hand') canvas.className = 'cursor-grab';
-    else if (tool === 'eraser') canvas.className = 'cursor-eraser';
-    else if (tool === 'pen') canvas.className = 'cursor-pencil';
-    else if (tool === 'text') canvas.className = 'cursor-text';
-    else if (tool === 'grid') canvas.className = 'cursor-grid';
-    else canvas.className = 'cursor-crosshair';
-}
-
-function selectShape(type) {
-    selectedShapeType = type;
-    currentTool = 'shape';
-    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('rectToolBtn')?.classList.add('active');
-    document.getElementById('shapes-palette').style.display = 'none';
-    canvas.className = 'cursor-crosshair';
-}
-
-document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
-    btn.onclick = () => {
-        if (btn.dataset.tool === 'rect') {
-            const palette = document.getElementById('shapes-palette');
-            palette.style.display = palette.style.display === 'flex' ? 'none' : 'flex';
-        } else {
-            setTool(btn.dataset.tool);
-        }
-    }
-});
-
-// ============================================
-// TEXT EDITOR
-// ============================================
-
-function createNewText(coords) {
-    const obj = {
-        id: generateId(),
-        type: 'text', 
-        x: coords.x, 
-        y: coords.y, 
-        text: '', 
-        color: currentPenColor,
-        size: 20, 
-        isBold: false,
-        rotation: 0
-    };
-    saveHistory();
-    objects.push(obj); 
-    selectedObjects = [obj];
-    requestDraw();
-    startTextEdit(obj);
-}
-
-function startTextEdit(obj) {
-    if (textEditor) stopTextEdit();
-    
-    editingObject = obj;
-    selectedObjects = [];
-    requestDraw();
-    
-    const bbox = getBBox(obj);
-    const screenX = bbox.x * scale + offsetX;
-    const screenY = bbox.y * scale + offsetY;
-    
-    const wrapper = document.createElement('div');
-    wrapper.className = 'text-edit-wrapper';
-    wrapper.style.left = (screenX - 5) + 'px';
-    wrapper.style.top = (screenY - 5) + 'px';
-    
-    const editorDiv = document.createElement('div');
-    editorDiv.className = 'text-edit-content';
-    editorDiv.contentEditable = true;
-    editorDiv.style.color = obj.color;
-    editorDiv.style.fontSize = (obj.size * scale) + 'px';
-    editorDiv.innerHTML = obj.text || '';
-    
-    wrapper.appendChild(editorDiv);
-    document.body.appendChild(wrapper);
-    textEditor = wrapper;
-    
-    setTimeout(() => {
-        editorDiv.focus();
-    }, 50);
-    
-    editorDiv.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { 
-            stopTextEdit(); 
-        }
-    });
-    
-    editorDiv.addEventListener('input', () => {
-        updateTextEditorSize();
-        if (editingObject) {
-            editingObject.text = editorDiv.innerText;
-            if (socket && socket.connected) socket.emit('update-object', editingObject);
-        }
-    });
-    
-    editorDiv.addEventListener('blur', () => {
-        setTimeout(() => {
-            if (textEditor && document.activeElement !== editorDiv) {
-                stopTextEdit();
-            }
-        }, 100);
-    });
-    
-    editorDiv.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-    });
-}
-
-function stopTextEdit(cancel = false) {
-    if (!textEditor) return;
-    const editorDiv = textEditor.querySelector('.text-edit-content');
-    if (!cancel && editingObject) {
-        saveHistory();
-        editingObject.text = editorDiv.innerText;
-        if (socket && socket.connected) socket.emit('update-object', editingObject);
-    }
-    if (textEditor.parentNode) {
-        document.body.removeChild(textEditor);
-    }
-    textEditor = null;
-    editingObject = null;
-    requestDraw();
-}
-
-// ============================================
-// ZOOM
-// ============================================
-
+// Коліщатко миші - масштаб
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const oldScale = scale;
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
     scale *= delta;
-    scale = Math.min(Math.max(scale, 0.2), 5.0);
+    scale = Math.min(Math.max(scale, 0.1), 10);
     
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
     
     const mx = (mouseX - offsetX) / oldScale;
     const my = (mouseY - offsetY) / oldScale;
@@ -1762,70 +1968,729 @@ canvas.addEventListener('wheel', (e) => {
     requestDraw();
 }, { passive: false });
 
+// Клавіша пробіл - тимчасова рука
+let spacePressed = false;
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !spacePressed && !textEditor) {
+        e.preventDefault();
+        spacePressed = true;
+        canvas.className = 'cursor-grab';
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+        spacePressed = false;
+        setTool(currentTool);
+    }
+});
+
 // ============================================
-// BUTTONS
+// КОНТЕКСТНЕ МЕНЮ
 // ============================================
 
-document.getElementById('clearBtn').onclick = () => { 
-    if(confirm("Очистити дошку?")) {
-        saveHistory();
-        objects = []; 
-        selectedObjects = [];
-        if (textEditor) stopTextEdit();
+canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    
+    const coords = screenToCanvas(e.clientX, e.clientY);
+    const menu = document.getElementById('context-menu');
+    
+    const clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y));
+    if (clickedObj && !selectedObjects.includes(clickedObj)) {
+        selectedObjects = [clickedObj];
         requestDraw();
     }
-};
-
-function createNewBoard() { 
-    const newId = Math.random().toString(36).substr(2, 9);
-    window.location.href = '/' + newId; 
-}
-
-const colorPickerBtn = document.getElementById('colorPickerBtn');
-const colorPickerInput = document.getElementById('colorPickerInput');
-
-colorPickerBtn.addEventListener('click', () => {
-    colorPickerInput.click();
-});
-
-colorPickerInput.addEventListener('input', (e) => {
-    currentPenColor = e.target.value;
-    colorPickerBtn.style.backgroundColor = e.target.value;
-});
-
-// Math tool button
-document.getElementById('mathToolBtn').addEventListener('click', () => {
-    toggleMathPalette();
-});
-
-// Close palette when clicking outside
-document.addEventListener('click', (e) => {
-    const palette = document.getElementById('math-palette');
-    const btn = document.getElementById('mathToolBtn');
     
-    if (mathPaletteVisible && 
-        !palette.contains(e.target) && 
-        !btn.contains(e.target)) {
-        toggleMathPalette();
+    menu.style.display = 'block';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+});
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#context-menu')) {
+        document.getElementById('context-menu').style.display = 'none';
+    }
+    
+    // Закриття математичної панелі при кліку поза нею
+    if (!e.target.closest('#math-palette') && !e.target.closest('#math-btn')) {
+        mathPaletteVisible = false;
+        document.getElementById('math-palette').classList.remove('visible');
+        document.getElementById('math-btn').classList.remove('active');
     }
 });
 
+function copySelection() {
+    clipboard = selectedObjects.map(o => JSON.parse(JSON.stringify(o)));
+    showNotification('Скопійовано ' + clipboard.length + ' об\'єктів');
+    document.getElementById('context-menu').style.display = 'none';
+}
+
+function pasteSelection() {
+    if (clipboard.length === 0) return;
+    
+    const offset = 20;
+    clipboard.forEach(obj => {
+        const newObj = JSON.parse(JSON.stringify(obj));
+        newObj.id = generateId();
+        newObj.x += offset;
+        newObj.y += offset;
+        if (newObj.ex !== undefined) {
+            newObj.ex += offset;
+            newObj.ey += offset;
+        }
+        if (newObj.points) {
+            newObj.points = newObj.points.map(p => ({ x: p.x + offset, y: p.y + offset }));
+        }
+        
+        objects.push(newObj);
+        saveHistory();
+        socket.emit('object:add', newObj);
+    });
+    
+    selectedObjects = objects.slice(-clipboard.length);
+    clipboard = clipboard.map(o => {
+        const newObj = JSON.parse(JSON.stringify(o));
+        newObj.x += offset;
+        newObj.y += offset;
+        return newObj;
+    });
+    
+    requestDraw();
+    showNotification('Вставлено ' + clipboard.length + ' об\'єктів');
+    document.getElementById('context-menu').style.display = 'none';
+}
+
+function bringToFront() {
+    selectedObjects.forEach(obj => {
+        const index = objects.indexOf(obj);
+        if (index !== -1) {
+            objects.splice(index, 1);
+            objects.push(obj);
+        }
+    });
+    saveHistory();
+    requestDraw();
+    document.getElementById('context-menu').style.display = 'none';
+}
+
+function sendToBack() {
+    selectedObjects.forEach(obj => {
+        const index = objects.indexOf(obj);
+        if (index !== -1) {
+            objects.splice(index, 1);
+            objects.unshift(obj);
+        }
+    });
+    saveHistory();
+    requestDraw();
+    document.getElementById('context-menu').style.display = 'none';
+}
+
+function deleteSelection() {
+    if (selectedObjects.length === 0) return;
+    
+    selectedObjects.forEach(obj => {
+        objects = objects.filter(o => o.id !== obj.id);
+        socket.emit('object:delete', obj.id);
+    });
+    
+    selectedObjects = [];
+    saveHistory();
+    requestDraw();
+    document.getElementById('context-menu').style.display = 'none';
+}
+
 // ============================================
-// SOCKET.IO
+// ТЕКСТОВИЙ РЕДАКТОР
 // ============================================
 
-socket.on('init-history', (h) => { 
-    objects = h || [];
-    historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
-    historyIndex = 0;
+function createText(coords) {
+    const obj = {
+        id: generateId(),
+        type: 'text',
+        x: coords.x,
+        y: coords.y,
+        text: '',
+        color: currentColor,
+        size: 24,
+        isBold: false
+    };
+    
+    objects.push(obj);
+    selectedObjects = [obj];
+    requestDraw();
+    startTextEdit(obj);
+}
+
+function startTextEdit(obj) {
+    if (textEditor) stopTextEdit();
+    
+    editingObject = obj;
+    selectedObjects = [];
+    
+    const screenPos = canvasToScreen(obj.x, obj.y);
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'text-editor-overlay';
+    wrapper.style.left = (screenPos.x - 5) + 'px';
+    wrapper.style.top = (screenPos.y - 5) + 'px';
+    
+    const editor = document.createElement('div');
+    editor.className = 'math-input-area';
+    editor.contentEditable = true;
+    editor.style.color = obj.color;
+    editor.style.fontSize = (obj.size * scale) + 'px';
+    editor.innerHTML = obj.latex ? latexToHtml(obj.latex) : (obj.text || '');
+    
+    wrapper.appendChild(editor);
+    document.body.appendChild(wrapper);
+    textEditor = wrapper;
+    
+    setTimeout(() => {
+        editor.focus();
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }, 50);
+    
+    editor.addEventListener('input', () => {
+        obj.text = editor.innerText;
+        obj.latex = editor.innerText;
+    });
+    
+    editor.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            stopTextEdit();
+        }
+    });
+    
+    editor.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (textEditor) stopTextEdit();
+        }, 100);
+    });
+}
+
+function stopTextEdit() {
+    if (!textEditor) return;
+    
+    const editor = textEditor.querySelector('.math-input-area');
+    
+    if (editingObject) {
+        editingObject.text = editor.innerText;
+        editingObject.latex = editor.innerText;
+        saveHistory();
+        socket.emit('object:update', editingObject);
+    }
+    
+    document.body.removeChild(textEditor);
+    textEditor = null;
+    editingObject = null;
+    requestDraw();
+}
+
+// ============================================
+// ЛАСТИК
+// ============================================
+
+function eraseAt(x, y) {
+    const radius = 20 / scale;
+    let changed = false;
+    
+    for (let i = objects.length - 1; i >= 0; i--) {
+        const obj = objects[i];
+        
+        if (obj.type === 'pen') {
+            const points = [{ x: obj.x, y: obj.y }, ...obj.points];
+            for (let p of points) {
+                if (Math.hypot(p.x - x, p.y - y) < radius) {
+                    objects.splice(i, 1);
+                    socket.emit('object:delete', obj.id);
+                    changed = true;
+                    break;
+                }
+            }
+        } else if (obj.type === 'text' || obj.type === 'rect' || obj.type === 'shape') {
+            const bbox = getBBox(obj);
+            if (bbox && x >= bbox.x - 10 && x <= bbox.x + bbox.w + 10 &&
+                y >= bbox.y - 10 && y <= bbox.y + bbox.h + 10) {
+                objects.splice(i, 1);
+                socket.emit('object:delete', obj.id);
+                changed = true;
+            }
+        } else if (obj.type === 'line' || obj.type === 'arrow') {
+            const dist = distToSegment(x, y, obj.x, obj.y, obj.ex, obj.ey);
+            if (dist < radius) {
+                objects.splice(i, 1);
+                socket.emit('object:delete', obj.id);
+                changed = true;
+            }
+        }
+    }
+    
+    if (changed) requestDraw();
+}
+
+function distToSegment(px, py, x1, y1, x2, y2) {
+    const A = px - x1;
+    const B = py - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    if (lenSq !== 0) param = dot / lenSq;
+    
+    let xx, yy;
+    if (param < 0) { xx = x1; yy = y1; }
+    else if (param > 1) { xx = x2; yy = y2; }
+    else { xx = x1 + param * C; yy = y1 + param * D; }
+    
+    return Math.hypot(px - xx, py - yy);
+}
+
+// ============================================
+// ІНСТРУМЕНТИ
+// ============================================
+
+function setTool(tool) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
+        b.classList.toggle('active', b.dataset.tool === tool);
+    });
+    
+    selectedObjects = [];
+    requestDraw();
+    
+    // Закриваємо панель фігур
+    document.getElementById('shapes-palette').classList.remove('visible');
+    
+    // Курсори
+    switch (tool) {
+        case 'select': canvas.className = 'cursor-default'; break;
+        case 'hand': canvas.className = 'cursor-grab'; break;
+        case 'pen': canvas.className = 'cursor-pencil'; break;
+        case 'text': canvas.className = 'cursor-text'; break;
+        case 'eraser': canvas.className = 'cursor-eraser'; break;
+        default: canvas.className = 'cursor-crosshair';
+    }
+}
+
+function selectShape(type) {
+    selectedShapeType = type;
+    currentTool = 'shape';
+    document.getElementById('shapes-palette').classList.remove('visible');
+    setTool('shape');
+}
+
+// Обробники кнопок інструментів
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (btn.id === 'shapes-btn') {
+            document.getElementById('shapes-palette').classList.toggle('visible');
+        } else {
+            setTool(btn.dataset.tool);
+        }
+    });
+});
+
+// Математична кнопка
+document.getElementById('math-btn').addEventListener('click', toggleMathPalette);
+
+// Вибір кольору
+document.getElementById('color-btn').addEventListener('click', () => {
+    document.getElementById('color-input').click();
+});
+
+document.getElementById('color-input').addEventListener('input', (e) => {
+    currentColor = e.target.value;
+    document.getElementById('color-btn').style.backgroundColor = e.target.value;
+});
+
+// Товщина лінії
+document.getElementById('size-slider').addEventListener('input', (e) => {
+    currentSize = parseInt(e.target.value);
+});
+
+// ============================================
+// МАСШТАБУВАННЯ
+// ============================================
+
+function zoomIn() {
+    scale *= 1.2;
+    scale = Math.min(scale, 10);
+    updateZoomDisplay();
+    requestDraw();
+}
+
+function zoomOut() {
+    scale *= 0.8;
+    scale = Math.max(scale, 0.1);
+    updateZoomDisplay();
+    requestDraw();
+}
+
+function resetZoom() {
+    scale = 1;
+    offsetX = 0;
+    offsetY = 0;
+    updateZoomDisplay();
+    requestDraw();
+}
+
+function updateZoomDisplay() {
+    document.getElementById('zoom-display').textContent = Math.round(scale * 100) + '%';
+}
+
+// ============================================
+// ІСТОРІЯ
+// ============================================
+
+function saveHistory() {
+    if (historyIndex < historyStack.length - 1) {
+        historyStack = historyStack.slice(0, historyIndex + 1);
+    }
+    
+    historyStack.push(JSON.parse(JSON.stringify(objects)));
+    
+    if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+    } else {
+        historyIndex++;
+    }
+}
+
+function undo() {
+    if (historyIndex <= 0) return;
+    historyIndex--;
+    objects = JSON.parse(JSON.stringify(historyStack[historyIndex]));
+    socket.emit('update-all', objects);
+    selectedObjects = [];
+    requestDraw();
+}
+
+function redo() {
+    if (historyIndex >= historyStack.length - 1) return;
+    historyIndex++;
+    objects = JSON.parse(JSON.stringify(historyStack[historyIndex]));
+    socket.emit('update-all', objects);
+    selectedObjects = [];
+    requestDraw();
+}
+
+// ============================================
+// КЛАВІАТУРНІ СКОРОЧЕННЯ
+// ============================================
+
+document.addEventListener('keydown', (e) => {
+    // Якщо редактор тексту активний - не обробляємо
+    if (textEditor) return;
+    
+    const key = e.key.toLowerCase();
+    
+    // Ctrl+Z - скасувати
+    if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+    }
+    
+    // Ctrl+Shift+Z - повторити
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'z') {
+        e.preventDefault();
+        redo();
+        return;
+    }
+    
+    // Ctrl+C - копіювати
+    if ((e.ctrlKey || e.metaKey) && key === 'c') {
+        e.preventDefault();
+        copySelection();
+        return;
+    }
+    
+    // Ctrl+V - вставити
+    if ((e.ctrlKey || e.metaKey) && key === 'v') {
+        e.preventDefault();
+        pasteSelection();
+        return;
+    }
+    
+    // Ctrl+A - виділити все
+    if ((e.ctrlKey || e.metaKey) && key === 'a') {
+        e.preventDefault();
+        selectedObjects = [...objects];
+        requestDraw();
+        return;
+    }
+    
+    // Delete - видалити
+    if (key === 'delete' || key === 'backspace') {
+        if (selectedObjects.length > 0) {
+            e.preventDefault();
+            deleteSelection();
+        }
+        return;
+    }
+    
+    // Escape - скасувати виділення
+    if (key === 'escape') {
+        selectedObjects = [];
+        mathPaletteVisible = false;
+        document.getElementById('math-palette').classList.remove('visible');
+        document.getElementById('shapes-palette').classList.remove('visible');
+        requestDraw();
+        return;
+    }
+    
+    // Гарячі клавіші інструментів
+    const toolKeys = {
+        'v': 'select',
+        'h': 'hand',
+        'p': 'pen',
+        'l': 'line',
+        'r': 'rect',
+        't': 'text',
+        'e': 'eraser'
+    };
+    
+    if (toolKeys[key] && !e.ctrlKey && !e.metaKey) {
+        setTool(toolKeys[key]);
+        return;
+    }
+    
+    // M - математична панель
+    if (key === 'm') {
+        toggleMathPalette();
+        return;
+    }
+});
+
+socket.on('update-all', (newObjects) => {
+    objects = newObjects;
     requestDraw();
 });
 
-socket.on('update-all', (newObjects) => { 
-    objects = newObjects; 
-    requestDraw(); 
+// ============================================
+// ЕКСПОРТ
+// ============================================
+
+function exportPNG() {
+    // Зберігаємо поточний стан
+    const originalScale = scale;
+    const originalOffsetX = offsetX;
+    const originalOffsetY = offsetY;
+    const originalObjects = objects;
+    
+    // Скидаємо масштаб для експорту
+    scale = 1;
+    offsetX = 0;
+    offsetY = 0;
+    
+    // Розтягуємо canvas на весь документ
+    const tempCanvas = document.createElement('canvas');
+    const bbox = getGroupBBox(objects);
+    
+    if (bbox) {
+        tempCanvas.width = (bbox.w + 100) * 2;
+        tempCanvas.height = (bbox.h + 100) * 2;
+    } else {
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+    }
+    
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.fillStyle = '#ffffff';
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    
+    // Малюємо об'єкти
+    const oldCtx = ctx;
+    const oldOffsetX = offsetX;
+    const oldOffsetY = offsetY;
+    
+    ctx = tempCtx;
+    offsetX = 50;
+    offsetY = 50;
+    
+    draw();
+    
+    ctx = oldCtx;
+    offsetX = oldOffsetX;
+    offsetY = oldOffsetY;
+    
+    // Відновлюємо стан
+    scale = originalScale;
+    offsetX = originalOffsetX;
+    offsetY = originalOffsetY;
+    
+    // Завантажуємо PNG
+    const link = document.createElement('a');
+    link.download = `math-board-${Date.now()}.png`;
+    link.href = tempCanvas.toDataURL('image/png');
+    link.click();
+    
+    showNotification('PNG збережено!');
+}
+
+function clearBoard() {
+    if (!confirm('Очистити дошку?')) return;
+    
+    objects = [];
+    selectedObjects = [];
+    historyStack = [];
+    historyIndex = -1;
+    saveHistory();
+    
+    socket.emit('board:clear');
+    requestDraw();
+    showNotification('Дошку очищено');
+}
+
+// ============================================
+// ПОВІДОМЛЕННЯ
+// ============================================
+
+function showNotification(text) {
+    const container = document.getElementById('notifications');
+    const notif = document.createElement('div');
+    notif.className = 'notification';
+    notif.textContent = text;
+    container.appendChild(notif);
+    
+    setTimeout(() => {
+        notif.style.opacity = '0';
+        setTimeout(() => container.removeChild(notif), 300);
+    }, 2000);
+}
+
+// ============================================
+// ПАНЕЛЬ КОРИСТУВАЧІВ
+// ============================================
+
+function updateUsersPanel() {
+    const list = document.getElementById('users-list');
+    list.innerHTML = '';
+    
+    users.forEach(user => {
+        const item = document.createElement('div');
+        item.className = 'user-item';
+        item.innerHTML = `
+            <span class="user-dot" style="background: ${user.color}"></span>
+            <span>${user.name}${user.id === myUserId ? ' (ви)' : ''}</span>
+        `;
+        list.appendChild(item);
+    });
+}
+
+// ============================================
+// УТИЛІТИ
+// ============================================
+
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
+// Вставка зображень через drag & drop
+canvas.addEventListener('dragover', (e) => {
+    e.preventDefault();
 });
 
+canvas.addEventListener('drop', (e) => {
+    e.preventDefault();
+    
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+            const coords = screenToCanvas(e.clientX, e.clientY);
+            const obj = {
+                id: generateId(),
+                type: 'image',
+                src: event.target.result,
+                _img: img,
+                x: coords.x - img.width / 4,
+                y: coords.y - img.height / 4,
+                w: img.width / 2,
+                h: img.height / 2
+            };
+            
+            objects.push(obj);
+            saveHistory();
+            socket.emit('object:add', obj);
+            requestDraw();
+        };
+    };
+    reader.readAsDataURL(file);
+});
+
+// Вставка зображень через Ctrl+V
+document.addEventListener('paste', (e) => {
+    const items = e.clipboardData.items;
+    for (let item of items) {
+        if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const coords = screenToCanvas(window.innerWidth / 2, window.innerHeight / 2);
+                    const obj = {
+                        id: generateId(),
+                        type: 'image',
+                        src: event.target.result,
+                        _img: img,
+                        x: coords.x - img.width / 4,
+                        y: coords.y - img.height / 4,
+                        w: img.width / 2,
+                        h: img.height / 2
+                    };
+                    
+                    objects.push(obj);
+                    saveHistory();
+                    socket.emit('object:add', obj);
+                    requestDraw();
+                };
+            };
+            reader.readAsDataURL(blob);
+        }
+    }
+});
+
+// ============================================
+// ІНІЦІАЛІЗАЦІЯ LaTeX PREVIEW
+// ============================================
+
+document.getElementById('latex-input').addEventListener('input', (e) => {
+    document.getElementById('latex-preview').innerHTML = latexToHtml(e.target.value);
+});
+
+function setLatexExample(text) {
+    document.getElementById('latex-input').value = text;
+    document.getElementById('latex-preview').innerHTML = latexToHtml(text);
+}
+
+function previewLatex() {
+    const input = document.getElementById('latex-input').value;
+    document.getElementById('latex-preview').innerHTML = latexToHtml(input);
+}
+
+function insertLatexInput() {
+    const input = document.getElementById('latex-input').value;
+    if (input) {
+        openLatexPanel(input);
+    }
+}
+
+// Фінальний виклик
+setTool('select');
 </script>
 </body>
 </html>
