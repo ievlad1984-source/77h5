@@ -3,23 +3,15 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, { 
     cors: { 
-        origin: "*", 
+        origin: "*",
         methods: ["GET", "POST"]
     },
-    maxHttpBufferSize: 1e8, 
-    pingTimeout: 60000,
-    pingInterval: 25000
+    maxHttpBufferSize: 1e8
 });
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const boardsData = {}; 
-const boardTimers = {}; 
-
-function log(message) {
-    const timestamp = new Date().toLocaleTimeString('uk-UA');
-    console.log(`[${timestamp}] ${message}`);
-}
+const boardsData = {};
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '50mb' }));
@@ -30,13 +22,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/:boardId', (req, res) => {
-    const boardId = req.params.boardId;
-    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
-        log(`[SECURITY] Спроба доступу до недопустимого ID: ${boardId}`);
-        return res.status(400).send('Invalid board ID');
-    }
-    if (boardId.includes('.')) {
-        log(`[SECURITY] Спроба доступу до файлу через URL: ${boardId}`);
+    if (req.params.boardId.includes('.')) {
         return res.status(404).send('Not found');
     }
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -44,89 +30,64 @@ app.get('/:boardId', (req, res) => {
 
 io.on('connection', (socket) => {
     const boardId = socket.handshake.query.boardId || 'main';
-    
-    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
-        log(`[SECURITY] Недопустимий boardId від сокету: ${boardId}`);
-        socket.disconnect(true);
-        return;
-    }
-    
     socket.join(boardId);
     
     if (!boardsData[boardId]) {
         boardsData[boardId] = [];
-        log(`[SERVER] Створено нову дошку: ${boardId}`);
-    }
-    
-    if (boardTimers[boardId]) {
-        clearTimeout(boardTimers[boardId]);
-        delete boardTimers[boardId];
+        console.log(`[SERVER] Створено нову дошку: ${boardId}`);
     }
 
-    log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
-    log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
+    console.log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
+    console.log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
 
+    // Надсилаємо повну історію новому користувачу
     socket.emit('init-history', boardsData[boardId]);
 
+    // Новий об'єкт (окремий об'єкт)
     socket.on('new-object', (obj) => {
-        if (!obj || typeof obj !== 'object') return;
-        
         boardsData[boardId].push(obj);
-        io.in(boardId).emit('new-object', obj);
-        log(`[SERVER] Новий об'єкт в ${boardId}. Всього об'єктів: ${boardsData[boardId].length}`);
+        socket.to(boardId).emit('new-object', obj);
+        console.log(`[SERVER] Новий об'єкт в ${boardId}. Всього об'єктів: ${boardsData[boardId].length}`);
     });
 
-    socket.on('update-all', (data) => {
-        if (!Array.isArray(data)) return;
-        
-        boardsData[boardId] = data;
-        io.in(boardId).emit('update-all', data);
-        log(`[SERVER] Оновлено стан дошки ${boardId}. Об'єктів: ${data.length}`);
-    });
-
-    socket.on('undo', () => {
-        if (boardsData[boardId]?.length > 0) {
-            boardsData[boardId].pop();
-            io.in(boardId).emit('init-history', boardsData[boardId]);
-            log(`[SERVER] Undo в кімнаті ${boardId}`);
+    // Оновлення об'єкта (рух, зміна розміру)
+    socket.on('update-object', (updatedObj) => {
+        const index = boardsData[boardId].findIndex(o => o.id === updatedObj.id);
+        if (index !== -1) {
+            boardsData[boardId][index] = updatedObj;
         }
+        socket.to(boardId).emit('update-object', updatedObj);
     });
 
+    // Повне оновлення (видалення, очищення)
+    socket.on('update-all', (data) => {
+        boardsData[boardId] = data;
+        socket.to(boardId).emit('update-all', data);
+    });
+
+    // Видалення об'єкта
+    socket.on('delete-object', (objId) => {
+        boardsData[boardId] = boardsData[boardId].filter(o => o.id !== objId);
+        socket.to(boardId).emit('delete-object', objId);
+    });
+
+    // Очищення дошки
     socket.on('delete-board', () => {
         boardsData[boardId] = [];
         io.in(boardId).emit('board-deleted');
-        log(`[SERVER] Дошку ${boardId} очищено`);
+        console.log(`[SERVER] Дошку ${boardId} очищено`);
     });
     
     socket.on('disconnect', () => {
-        log(`[SERVER] Користувач ${socket.id} відключився від кімнати: ${boardId}`);
-        
-        const room = io.sockets.adapter.rooms.get(boardId);
-        const roomSize = room?.size || 0;
-        log(`[SERVER] В кімнаті ${boardId} залишилось ${roomSize} користувачів`);
-        
-        if (roomSize === 0) {
-            log(`[SERVER] Кімната ${boardId} пуста. Заплановано видалення через 5 хв`);
-            boardTimers[boardId] = setTimeout(() => {
-                const currentRoom = io.sockets.adapter.rooms.get(boardId);
-                if (!currentRoom || currentRoom.size === 0) {
-                    delete boardsData[boardId];
-                    delete boardTimers[boardId];
-                    log(`[SERVER] Дошку ${boardId} видалено з пам'яті`);
-                }
-            }, 5 * 60 * 1000);
-        }
-    });
-    
-    socket.on('error', (error) => {
-        log(`[ERROR] Помилка сокету ${socket.id}: ${error.message}`);
+        console.log(`[SERVER] Користувач ${socket.id} відключився від кімнати: ${boardId}`);
+        console.log(`[SERVER] В кімнаті ${boardId} залишилось ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
     });
 });
 
 http.listen(PORT, () => {
-    log('========================================');
-    log(`СЕРВЕР ЗАПУЩЕНО: http://localhost:${PORT}`);
-    log(`Для створення нової кімнати додайте /назва в кінець URL`);
-    log(`Наприклад: http://localhost:${PORT}/room123`);
-    log('========================================');
+    console.log('========================================');
+    console.log(`СЕРВЕР ЗАПУЩЕНО: http://localhost:${PORT}`);
+    console.log(`Для створення нової кімнати додайте /назва в кінець URL`);
+    console.log(`Наприклад: http://localhost:${PORT}/room123`);
+    console.log('========================================');
 });
