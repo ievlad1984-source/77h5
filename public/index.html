@@ -628,31 +628,56 @@ function sendOperation(type, data) {
 }
 
 function applyOperation(operation) {
+    // Перевіряємо чи вже обробляли цю операцію
+    if (operation.id && syncState.processedOperationIds.has(operation.id)) {
+        return;
+    }
+    
+    if (operation.id) {
+        syncState.processedOperationIds.add(operation.id);
+        if (syncState.processedOperationIds.size > 1000) {
+            const arr = Array.from(syncState.processedOperationIds);
+            syncState.processedOperationIds = new Set(arr.slice(-500));
+        }
+    }
+    
     switch (operation.type) {
         case 'add':
-            if (!objects[operation.data.id]) {
-                objects[operation.data.id] = operation.data;
-                objectsArray.push(operation.data);
+            if (operation.data && operation.data.id) {
+                const existing = objects[operation.data.id];
+                // Для зображень зберігаємо _img під час оновлення
+                if (existing && existing._img) {
+                    objects[operation.data.id] = {
+                        ...operation.data,
+                        _img: existing._img // Зберігаємо посилання на зображення
+                    };
+                } else {
+                    objects[operation.data.id] = operation.data;
+                }
+                updateObjectsArray();
             }
             break;
         case 'update':
-            if (objects[operation.data.id]) {
-                objects[operation.data.id] = {
-                    ...objects[operation.data.id],
-                    ...operation.data
-                };
-                // Оновлюємо в масиві
-                const idx = objectsArray.findIndex(o => o.id === operation.data.id);
-                if (idx !== -1) {
-                    objectsArray[idx] = objects[operation.data.id];
+            if (operation.data && operation.data.id) {
+                const existing = objects[operation.data.id];
+                if (existing) {
+                    // Зберігаємо _img та інші тимчасові властивості
+                    objects[operation.data.id] = {
+                        ...existing,
+                        ...operation.data,
+                        _img: existing._img, // Зберігаємо посилання на зображення
+                        lastModified: operation.data.lastModified || Date.now()
+                    };
+                    updateObjectsArray();
                 }
             }
             break;
         case 'delete':
-            if (objects[operation.data.id]) {
-                delete objects[operation.data.id];
-                objectsArray = objectsArray.filter(o => o.id !== operation.data.id);
-                selectedObjects = selectedObjects.filter(o => o.id !== operation.data.id);
+            const idToDelete = operation.objectId || operation.data?.id;
+            if (idToDelete && objects[idToDelete]) {
+                delete objects[idToDelete];
+                objectsArray = objectsArray.filter(o => o.id !== idToDelete);
+                selectedObjects = selectedObjects.filter(o => o.id !== idToDelete);
             }
             break;
         case 'clear':
@@ -1591,7 +1616,7 @@ function drawObject(obj, isTemp = false) {
     ctx.lineJoin = 'round';
     
     if (obj.lineStyle === 'dotted') {
-        ctx.setLineDash([5 * scale, 5 * scale]);
+        ctx.setLineDash([5 * scale, 5极速 scale]);
     } else {
         ctx.setLineDash([]);
     }
@@ -1607,10 +1632,10 @@ function drawObject(obj, isTemp = false) {
         const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
         drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
     } else if (obj.type === 'line' || obj.type === 'arrow') {
-        const ex = obj.ex * scale + offsetX;
+        const ex = obj.ex * scale + offset极速;
         const ey = obj.ey * scale + offsetY;
         ctx.beginPath();
-        ctx.moveTo(sx, sy);
+        ctx.moveTo(s极速, sy);
         ctx.lineTo(ex, ey);
         ctx.stroke();
         if (obj.type === 'arrow') {
@@ -1620,7 +1645,7 @@ function drawObject(obj, isTemp = false) {
             ctx.moveTo(ex, ey);
             ctx.lineTo(ex - headlen * Math.cos(angle - Math.PI / 6), ey - headlen * Math.sin(angle - Math.PI / 6));
             ctx.moveTo(ex, ey);
-            ctx.lineTo(ex - headlen * Math.cos(angle + Math.PI / 6), ey - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(ex - headlen * Math.cos(angle + Math.PI / 6), ey - headlen * Math.sin(angle极速 Math.PI / 6));
             ctx.stroke();
         }
     } else if (obj.type === 'rect') {
@@ -1641,7 +1666,7 @@ function drawObject(obj, isTemp = false) {
         } else if (obj.shapeType === 'triangle') {
             ctx.moveTo(cx, sy);
             ctx.lineTo(sx + w, sy + h);
-            ctx.lineTo(sx, sy + h);
+            ctx极速(sx, sy + h);
             ctx.closePath();
         } else if (obj.shapeType === 'diamond') {
             ctx.moveTo(cx, sy);
@@ -1652,20 +1677,20 @@ function drawObject(obj, isTemp = false) {
         } else if (obj.shapeType === 'pentagon') {
             const r = minDim / 2;
             for (let i = 0; i < 5; i++) {
-                const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+                const angle = (i * 2 * Math.PI / 5) - Math.P极速 / 2;
                 const px = cx + r * Math.cos(angle);
-                const py = cy + r * Math.sin(angle);
+                const py = cy极速 r * Math.sin(angle);
                 if (i === 0) ctx.moveTo(px, py);
                 else ctx.lineTo(px, py);
             }
             ctx.closePath();
         } else if (obj.shapeType === 'hexagon') {
-            const r = minDim / 2;
-            for (let i = 0; i < 6; i++) {
+            const r = minDim / 极速;
+            for (let i = 0极速 i < 6; i++) {
                 const angle = (i * 2 * Math.PI / 6) - Math.PI / 2;
                 const px = cx + r * Math.cos(angle);
                 const py = cy + r * Math.sin(angle);
-                if (i === 0) ctx.moveTo(px, py);
+                if (i === 0) ctx.move极速(px, py);
                 else ctx.lineTo(px, py);
             }
             ctx.closePath();
@@ -1686,12 +1711,12 @@ function drawObject(obj, isTemp = false) {
             ctx.moveTo(sx + offset, sy);
             ctx.lineTo(sx + w, sy);
             ctx.lineTo(sx + w - offset, sy + h);
-            ctx.lineTo(sx, sy + h);
+            ctx.lineTo(sx, sy +极速);
             ctx.closePath();
         } else if (obj.shapeType === 'rounded-rect') {
             const radius = Math.min(Math.abs(w), Math.abs(h)) * 0.2;
             ctx.roundRect(sx, sy, w, h, radius);
-        } else if (obj.shapeType === 'semi-circle') {
+        } else if (obj.shape极速 === 'semi-circle') {
             ctx.arc(cx, cy, minDim/2, Math.PI, 0);
             ctx.lineTo(sx + w, cy);
             ctx.lineTo(sx, cy);
@@ -1703,7 +1728,7 @@ function drawObject(obj, isTemp = false) {
         } else if (obj.shapeType === 'heart') {
             const topCurveHeight = h * 0.3;
             ctx.moveTo(cx, sy + h * 0.2);
-            ctx.bezierCurveTo(cx, sy, sx, sy, sx, cy);
+            ctx.bezierCurveTo(c极速, sy, sx, sy, sx, cy);
             ctx.bezierCurveTo(sx, sy + h, cx, sy + h * 1.2, sx + w, sy + h);
             ctx.bezierCurveTo(sx + w, cy, sx + w, sy, cx, sy);
             ctx.closePath();
@@ -1722,7 +1747,7 @@ function drawObject(obj, isTemp = false) {
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const textLines = obj.text.split('\n');
             const lineH = baseSize * 1.4;
-            textLines.forEach((line, i) => {
+            textLines.forEach((line, i极速 {
                 ctx.fillText(line, sx, sy + (baseSize * 0.8) + (i * lineH));
             });
         }
@@ -1730,17 +1755,52 @@ function drawObject(obj, isTemp = false) {
         drawCoordinateGrid(obj);
     } else if (obj.type === 'image') {
         if (!obj._img) {
+            // Створюємо нове зображення тільки якщо його ще немає
             obj._img = new Image();
             obj._img.src = obj.src;
-            obj._img.onload = () => requestDraw();
+            obj._img.onload = () => {
+                requestDraw();
+                // Після завантаження оновлюємо об'єкт на сервері
+                if (syncState.connected) {
+                    const updateObj = {
+                        id: obj.id,
+                        type: 'image',
+                        src: obj.src,
+                        x: obj.x,
+                        y: obj.y,
+                        w: obj.w,
+                        h: obj.h,
+                        rotation: obj.rotation || 0,
+                        lastModified: Date.now()
+                    };
+                    sendOperation('update', updateObj);
+                }
+            };
+            obj._img.onerror = () => {
+                console.error('Помилка завантаження зображення:', obj.src);
+            };
         }
+        
+        // Малюємо тільки якщо зображення завантажене
         if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
-            ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
+            try {
+                ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
+            } catch (e) {
+                console.error('Помилка малювання зображення:', e);
+            }
+        } else if (obj._img && obj._img.complete) {
+            // Якщо зображення не завантажилось, малюємо placeholder
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(sx, sy, obj.w * scale, obj.h * scale);
+            ctx.strokeStyle = '#ccc';
+            ctx.strokeRect(sx, sy, obj.w * scale, obj.h * scale);
+            ctx.fillStyle = '#999';
+            ctx.font = '12px Arial';
+            ctx.fillText('Зображення', sx + 5, sy + 15);
         }
     }
     ctx.restore();
 }
-
 // ============================================
 // ОТРИМАННЯ КООРДИНАТ
 // ============================================
@@ -2389,228 +2449,131 @@ canvas.addEventListener('mousedown', (e) => {
     
     const coords = getCoords(e);
     
-    if (textEditor && editingObject) {
-        const clickedText = [...objectsArray].reverse().find(obj => {
-            if (obj.type === 'text' && obj !== editingObject) {
-                return hitTest(obj, coords.x, coords.y, 2);
-            }
-            return false;
-        });
-        
-        if (clickedText) {
-            saveHistory();
-            const editorDiv = textEditor.querySelector('.text-edit-content');
-            const html = editorDiv.innerHTML;
-            const segments = htmlToSegments(html);
-            if (segments && segments.length > 0) {
-                editingObject.segments = segments;
-            } else {
-                delete editingObject.segments;
-            }
-            editingObject.text = editorDiv.innerText;
-            editingObject.lastModified = Date.now();
-            
-            if (textEditor.parentNode) {
-                document.body.removeChild(textEditor);
-            }
-            textEditor = null;
-            
-            startTextEdit(clickedText);
-            requestDraw();
-            return;
-        }
+    if (textEditor) { 
+        stopTextEdit(); 
+        selectedObjects = [];
+        requestDraw();
     }
+    
+    if (currentTool === 'select') {
+        let clickedHandle = selectedObjects.length > 0 ? hitHandle(coords.x, coords.y) : null;
+        
+        if (!clickedHandle) {
+            const clickedObj = [...objectsArray].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
+            
+            if (clickedObj) {
+                if (!selectedObjects.includes(clickedObj)) {
+                    if (!shiftKey) selectedObjects = [];
+                    selectedObjects.push(clickedObj);
+                } else if (shiftKey) {
+                    selectedObjects = selectedObjects.filter(o => o !== clicked极速);
+                }
+                
+                isDragging = true;
+                dragStartX = coords.x;
+                dragStartY = coords.y;
+                
+                startResizeState = selectedObjects.map(o => ({
+                    obj: o,
+                    x: o.x, y: o.y,
+                    ex: o.ex, ey: o.ey,
+                    points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
+                    w: o.w, h: o.h
+                }));
+            } else {
+                selectedObjects = [];
+                isSelectingArea = true;
+                selectionStart = { x: coords.x, y: coords.y };
+                selectionEnd = { x: coords.x, y: coords.y };
+            }
+        } else {
+            startResizeGroup(clickedHandle, e);
+        }
+        requestDraw();
+    } else if (currentTool === 'hand') {
+        isDragging = true;
+        dragStartX = coords.rawX;
+        dragStartY = coords.rawY;
+    } else if (currentTool === 'eraser') {
+        eraseAt(coords.x, coords.y);
+    } else if (currentTool === 'text') {
+        const existingText = [...objectsArray].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
+        if (existingText) {
+            startTextEdit(existingText);
+        } else {
+            createNewText(coords);
+        }
+    } else {
+        startDrawing(coords);
+    }
+});
+    
+canvas.addEventListener('mousedown', (e) => {
+    if (e.detail === 2) {
+        return;
+    }
+    
+    const coords = getCoords(e);
     
     if (textEditor) { 
         stopTextEdit(); 
         selectedObjects = [];
         requestDraw();
-        return; 
-    }
-    
-    if (currentTool === 'shape' && selectedShapeType) {
-        startDrawing(coords);
-        return;
-    }
-
-    if (currentTool !== 'select' && currentTool !== 'hand') {
-        if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
-        else if (currentTool === 'text') {
-            const existingText = [...objectsArray].reverse().find(obj => {
-                if (obj.type === 'text') {
-                    return hitTest(obj, coords.x, coords.y, 2);
-                }
-                return false;
-            });
-            
-            if (existingText) {
-                startTextEdit(existingText);
-                requestDraw();
-                return;
-            }
-            createNewText(coords);
-        }
-        else if (currentTool === 'grid') {
-            startDrawing(coords);
-            return;
-        }
-        else startDrawing(coords);
-        return;
     }
     
     if (currentTool === 'select') {
-        let clickedObj = null;
-        let clickedHandle = null;
-        
-        if (selectedObjects.length > 0) {
-            clickedHandle = hitHandle(coords.x, coords.y);
-        }
+        let clickedHandle = selectedObjects.length > 0 ? hitHandle(coords.x, coords.y) : null;
         
         if (!clickedHandle) {
-            clickedObj = [...objectsArray].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
-        }
-        
-        if (clickedHandle) {
-            if (clickedHandle === 'rotate') startRotate(e);
-            else startResizeGroup(clickedHandle, e);
-            return;
-        }
-        
-        if (clickedObj) {
-            if (!selectedObjects.includes(clickedObj)) {
-                if (!shiftKey) selectedObjects = [];
-                selectedObjects.push(clickedObj);
-            } else if (shiftKey) {
-                selectedObjects = selectedObjects.filter(o => o !== clickedObj);
+            const clickedObj = [...objectsArray].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
+            
+            if (clickedObj) {
+                if (!selectedObjects.includes(clickedObj)) {
+                    if (!shiftKey) selectedObjects = [];
+                    selectedObjects.push(clickedObj);
+                } else if (shiftKey) {
+                    selectedObjects = selectedObjects.filter(o => o !== clicked极速);
+                }
+                
+                isDragging = true;
+                dragStartX = coords.x;
+                dragStartY = coords.y;
+                
+                startResizeState = selectedObjects.map(o => ({
+                    obj: o,
+                    x: o.x, y: o.y,
+                    ex: o.ex, ey: o.ey,
+                    points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
+                    w: o.w, h: o.h
+                }));
+            } else {
+                selectedObjects = [];
+                isSelectingArea = true;
+                selectionStart = { x: coords.x, y: coords.y };
+                selectionEnd = { x: coords.x, y: coords.y };
             }
-            
-            isDragging = true;
-            dragStartX = coords.x;
-            dragStartY = coords.y;
-            
-            startResizeState = selectedObjects.map(o => ({
-                obj: o,
-                x: o.x, y: o.y,
-                ex: o.ex, ey: o.ey,
-                points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
-                w: o.w, h: o.h
-            }));
-            
-            requestDraw();
         } else {
-            selectedObjects = [];
-            isSelectingArea = true;
-            selectionStart = { x: coords.x, y: coords.y };
-            selectionEnd = { x: coords.x, y: coords.y };
-            requestDraw();
+            startResizeGroup(clickedHandle, e);
         }
+        requestDraw();
     } else if (currentTool === 'hand') {
         isDragging = true;
         dragStartX = coords.rawX;
         dragStartY = coords.rawY;
+    } else if (currentTool === 'eraser') {
+        eraseAt(coords.x, coords.y);
+    } else if (currentTool === 'text') {
+        const existingText = [...objectsArray].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
+        if (existingText) {
+            startTextEdit(existingText);
+        } else {
+            createNewText(coords);
+        }
+    } else {
+        startDrawing(coords);
     }
 });
-
-canvas.addEventListener('mousemove', (e) => {
-    const coords = getCoords(e);
     
-    if (currentTool === 'select' && selectedObjects.length > 0 && !isDragging && !isResizing && !isRotating && !isSelectingArea) {
-        const handle = hitHandle(coords.x, coords.y);
-        canvas.style.cursor = getCursor(handle);
-    } else if (currentTool === 'select') canvas.style.cursor = isSelectingArea ? 'crosshair' : 'default';
-    else if (currentTool === 'hand') canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
-    else if (currentTool === 'eraser') {
-        canvas.style.cursor = 'cell';
-        if (e.buttons === 1) eraseAt(coords.x, coords.y);
-    } else if (currentTool === 'pen') {
-        canvas.style.cursor = 'pencil';
-    } else if (currentTool === 'line' || currentTool === 'arrow' || currentTool === 'shape' || currentTool === 'rect') {
-        canvas.style.cursor = 'crosshair';
-    } else if (currentTool === 'grid') {
-        canvas.style.cursor = 'crosshair';
-    } else canvas.style.cursor = 'crosshair';
-    
-    if (!isDragging && !isResizing && !isRotating && !isDrawing && !isSelectingArea) return;
-    
-    if (isDragging && selectedObjects.length > 0) {
-        const dx = coords.x - dragStartX;
-        const dy = coords.y - dragStartY;
-        
-        startResizeState.forEach(state => {
-            const o = state.obj;
-            if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid' || o.type === 'shape') {
-                o.x = state.x + dx;
-                o.y = state.y + dy;
-                o.ex = state.ex + dx;
-                o.ey = state.ey + dy;
-                if (o.w !== undefined) o.w = state.w;
-                if (o.h !== undefined) o.h = state.h;
-            } else if (o.type === 'pen') {
-                o.x = state.x + dx;
-                o.y = state.y + dy;
-                o.points = state.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
-            } else {
-                o.x = state.x + dx;
-                o.y = state.y + dy;
-            }
-        });
-        requestDraw();
-    } 
-    else if (isSelectingArea) {
-        selectionEnd = { x: coords.x, y: coords.y };
-        requestDraw();
-    }
-    else if (isDragging && currentTool === 'hand') {
-        offsetX += coords.rawX - dragStartX;
-        offsetY += coords.rawY - dragStartY;
-        dragStartX = coords.rawX;
-        dragStartY = coords.rawY;
-        requestDraw();
-    } 
-    else if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen') {
-            const lastPoint = currentPath.points.length > 0 
-                ? currentPath.points[currentPath.points.length - 1] 
-                : { x: currentPath.x, y: currentPath.y };
-            
-            const dist = Math.hypot(coords.x - lastPoint.x, coords.y - lastPoint.y);
-            if (dist > 2 / scale) {
-                const smoothedX = lastPoint.x + (coords.x - lastPoint.x) * SMOOTHING_FACTOR;
-                const smoothedY = lastPoint.y + (coords.y - lastPoint.y) * SMOOTHING_FACTOR;
-                currentPath.points.push({ x: smoothedX, y: smoothedY });
-            }
-        }
-        else if (currentPath.type === 'shape' || currentPath.type === 'rect') {
-            currentPath.w = coords.x - currentPath.x;
-            currentPath.h = coords.y - currentPath.y;
-        }
-        else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
-            currentPath.ex = coords.x;
-            currentPath.ey = coords.y;
-        }
-        else if (currentPath.type === 'grid') {
-            currentPath.w = coords.x - currentPath.x;
-            currentPath.h = coords.y - currentPath.y;
-        }
-        requestDraw();
-    } 
-    else if (isRotating && selectedObjects.length > 0) {
-        const bbox = getGroupBBox(selectedObjects);
-        const centerX = bbox.x + bbox.w / 2;
-        const centerY = bbox.y + bbox.h / 2;
-        
-        const angle = Math.atan2(coords.y - centerY, coords.x - centerX);
-        const degrees = angle * 180 / Math.PI + 90;
-        
-        selectedObjects.forEach(obj => {
-            if (!obj.rotation) obj.rotation = 0;
-            const originalRotation = startResizeState.originalRotation || 0;
-            obj.rotation = originalRotation + (degrees - startResizeState.startAngle);
-        });
-        requestDraw();
-    }
-});
-
 canvas.addEventListener('mouseup', () => {
     if (isSelectingArea) {
         isSelectingArea = false;
@@ -3051,13 +3014,25 @@ window.addEventListener('paste', (e) => {
                         y: centerY - img.height/4, 
                         w: img.width/2, 
                         h: img.height/2, 
-                        rotation: 0 
+                        rotation: 0,
+                        // Додаємо тимчасову властивість для локального використання
+                        _img: img
                     };
                     saveHistory();
                     objects[id] = obj;
                     objectsArray.push(obj);
                     selectedObjects = [obj];
-                    sendOperation('add', obj);
+                    sendOperation('add', {
+                        // Надсилаємо тільки необхідні дані, без _img
+                        type: 'image', 
+                        id: id,
+                        src: event.target.result, 
+                        x: centerX - img.width/4, 
+                        y: centerY - img.height/4, 
+                        w: img.width/2, 
+                        h: img.height/2, 
+                        rotation: 0
+                    });
                     requestDraw();
                 };
             };
