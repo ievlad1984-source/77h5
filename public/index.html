@@ -511,7 +511,6 @@ try {
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
-// КЕШ ЗОБРАЖЕНЬ
 const imageCache = new Map();
 let objects = [];
 let currentTool = 'select';
@@ -538,7 +537,6 @@ let selectedShapeType = null;
 let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
 
-// Унікальний ID для об'єктів
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
@@ -597,28 +595,6 @@ function undo() {
 
 function updateZoomDisplay() {
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
-}
-
-// ============================================
-// ЗАВАНТАЖЕННЯ ЗОБРАЖЕНЬ З КЕШУ
-// ============================================
-
-function preloadImage(src) {
-    if (imageCache.has(src)) {
-        return Promise.resolve(imageCache.get(src));
-    }
-    
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-            imageCache.set(src, img);
-            resolve(img);
-        };
-        img.onerror = () => {
-            reject(new Error('Failed to load image'));
-        };
-        img.src = src;
-    });
 }
 
 function restoreImages(objectsToRestore) {
@@ -1222,7 +1198,7 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
 
 // ============================================
 // МАЛЮВАННЯ КООРДИНАТНОЇ СІТКИ (ВИПРАВЛЕНА)
-// Осі по лініях клітинок, числа 0, -1, 1, -2, 2, -3, 3
+// Початок координат (0,0) в центрі, всі числа підписані
 // ============================================
 
 function drawCoordinateGrid(obj) {
@@ -1266,110 +1242,103 @@ function drawCoordinateGrid(obj) {
         ctx.stroke();
     }
     
-    // Обчислюємо кількість клітинок
-    const cellsX = Math.round(sw / gridSpacing);
-    const cellsY = Math.round(sh / gridSpacing);
+    // Обчислюємо кількість клітинок по горизонталі та вертикалі
+    const totalCellsX = Math.round(sw / gridSpacing);
+    const totalCellsY = Math.round(sh / gridSpacing);
     
-    // Визначаємо позицію осі Y (вертикальна вісь) - завжди по вертикальній лінії
-    // Ставимо вісь Y на лівій частині, щоб залишити місце для від'ємних чисел
-    // Але також щоб 0 був видимий
-    let axisYLineIndex = Math.floor(cellsX / 4); // Вісь Y на 1/4 зліва
-    if (axisYLineIndex < 1) axisYLineIndex = 1;
+    // Центр сітки (початок координат 0,0)
+    const centerX = sx + sw / 2;
+    const centerY = sy + sh / 2;
     
-    const axisX = sx + axisYLineIndex * gridSpacing;
+    // Визначаємо кількість клітинок в кожній чверті
+    const cellsRight = Math.floor(totalCellsX / 2);
+    const cellsLeft = totalCellsX - cellsRight;
+    const cellsUp = Math.floor(totalCellsY / 2);
+    const cellsDown = totalCellsY - cellsUp;
     
-    // Визначаємо позицію осі X (горизонтальна вісь) - завжди по горизонтальній лінії
-    // Ставимо вісь X на верхній частині (як в математиці, Y вгору)
-    let axisXLineIndex = Math.floor(cellsY / 4); // Вісь X на 1/4 зверху
-    if (axisXLineIndex < 1) axisXLineIndex = 1;
-    
-    const axisY = sy + axisXLineIndex * gridSpacing;
-    
-    // Малюємо вісь X (горизонтальна) - напрям вправо
+    // Малюємо вісь X (горизонтальна) - проходить через центр
     ctx.strokeStyle = axisColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(sx, axisY);
-    ctx.lineTo(sx + sw, axisY);
+    ctx.moveTo(sx, centerY);
+    ctx.lineTo(sx + sw, centerY);
     ctx.stroke();
     
-    // Малюємо вісь Y (вертикальна) - напрям вгору
+    // Малюємо вісь Y (вертикальна) - проходить через центр, напрямлена вгору
     ctx.beginPath();
-    ctx.moveTo(axisX, sy + sh);
-    ctx.lineTo(axisX, sy);
+    ctx.moveTo(centerX, sy + sh);
+    ctx.lineTo(centerX, sy);
     ctx.stroke();
     
     // Стрілка осі X (направлена вправо)
     const arrowSize = 8;
     ctx.beginPath();
-    ctx.moveTo(sx + sw, axisY);
-    ctx.lineTo(sx + sw - arrowSize, axisY - arrowSize);
-    ctx.moveTo(sx + sw, axisY);
-    ctx.lineTo(sx + sw - arrowSize, axisY + arrowSize);
+    ctx.moveTo(sx + sw, centerY);
+    ctx.lineTo(sx + sw - arrowSize, centerY - arrowSize);
+    ctx.moveTo(sx + sw, centerY);
+    ctx.lineTo(sx + sw - arrowSize, centerY + arrowSize);
     ctx.stroke();
     
     // Стрілка осі Y (направлена вгору)
     ctx.beginPath();
-    ctx.moveTo(axisX, sy);
-    ctx.lineTo(axisX - arrowSize, sy + arrowSize);
-    ctx.moveTo(axisX, sy);
-    ctx.lineTo(axisX + arrowSize, sy + arrowSize);
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX - arrowSize, sy + arrowSize);
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX + arrowSize, sy + arrowSize);
     ctx.stroke();
     
     // Підписи осей
     ctx.fillStyle = axisColor;
     ctx.font = 'bold 16px Segoe UI';
-    ctx.fillText('X', sx + sw - 15, axisY - 15);
-    ctx.fillText('Y', axisX + 12, sy + 18);
+    ctx.fillText('X', sx + sw - 15, centerY - 15);
+    ctx.fillText('Y', centerX + 12, sy + 18);
     
-    // Числа на осі X (праворуч від осі Y) - позитивні числа
+    // Всі числа на осі X (праворуч від центру) - позитивні
     ctx.font = '12px Segoe UI';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     
-    const cellsRightOfAxis = cellsX - axisYLineIndex;
-    for (let i = 0; i <= cellsRightOfAxis; i++) {
-        const x = axisX + i * gridSpacing;
-        if (x >= sx + 12 && x <= sx + sw - 12) {
-            ctx.fillText(i.toString(), x, axisY + 6);
+    for (let i = 1; i <= cellsRight; i++) {
+        const x = centerX + i * gridSpacing;
+        if (x >= sx + 10 && x <= sx + sw - 10) {
+            ctx.fillText(i.toString(), x, centerY + 6);
         }
     }
     
-    // Числа на осі X (ліворуч від осі Y) - від'ємні числа
+    // Всі числа на осі X (ліворуч від центру) - від'ємні
     ctx.textAlign = 'center';
-    for (let i = 1; i <= axisYLineIndex; i++) {
-        const x = axisX - i * gridSpacing;
-        if (x >= sx + 12 && x <= sx + sw - 12) {
-            ctx.fillText((-i).toString(), x, axisY + 6);
+    for (let i = 1; i <= cellsLeft; i++) {
+        const x = centerX - i * gridSpacing;
+        if (x >= sx + 10 && x <= sx + sw - 10) {
+            ctx.fillText((-i).toString(), x, centerY + 6);
         }
     }
     
-    // Числа на осі Y (вгору від осі X) - позитивні числа (Y направлена вгору)
+    // Всі числа на осі Y (вгору від центру) - позитивні (Y направлена вгору)
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    const cellsAboveAxis = cellsY - axisXLineIndex;
-    for (let i = 1; i <= cellsAboveAxis; i++) {
-        const y = axisY - i * gridSpacing;
-        if (y >= sy + 12 && y <= sy + sh - 12) {
-            ctx.fillText(i.toString(), axisX - 6, y);
+    for (let i = 1; i <= cellsUp; i++) {
+        const y = centerY - i * gridSpacing;
+        if (y >= sy + 10 && y <= sy + sh - 10) {
+            ctx.fillText(i.toString(), centerX - 6, y);
         }
     }
     
-    // Числа на осі Y (вниз від осі X) - від'ємні числа
+    // Всі числа на осі Y (вниз від центру) - від'ємні
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    for (let i = 1; i <= axisXLineIndex; i++) {
-        const y = axisY + i * gridSpacing;
-        if (y >= sy + 12 && y <= sy + sh - 12) {
-            ctx.fillText((-i).toString(), axisX - 6, y);
+    for (let i = 1; i <= cellsDown; i++) {
+        const y = centerY + i * gridSpacing;
+        if (y >= sy + 10 && y <= sy + sh - 10) {
+            ctx.fillText((-i).toString(), centerX - 6, y);
         }
     }
     
-    // Число 0
+    // Число 0 в центрі
     ctx.font = 'bold 12px Segoe UI';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
-    ctx.fillText('0', axisX - 6, axisY + 6);
+    ctx.fillText('0', centerX - 6, centerY + 6);
     
     ctx.restore();
 }
