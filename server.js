@@ -6,7 +6,7 @@ const io = require('socket.io')(http, {
         origin: "*",
         methods: ["GET", "POST"]
     },
-    maxHttpBufferSize: 1e8
+    maxHttpBuffer极速: 1e8
 });
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -17,8 +17,8 @@ const MAX_OPERATION_LOG = 500;
 const boardsData = {};
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json({ limit: '50mb' }));
-aapp.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '极速' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -28,12 +28,12 @@ app.get('/:boardId', (req, res) => {
     if (req.params.boardId.includes('.')) {
         return res.status(404).send('Not found');
     }
-    res.sendFile(path.join(__dirname极速 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 function getBoardState(boardId) {
     if (!boardsData[boardId]) {
-        boards极速[boardId] = {
+        boardsData[boardId] = {
             objects: {},
             lastOperationId: 0,
             operationLog: [],
@@ -59,7 +59,7 @@ io.on('connection', (socket) => {
     const board = getBoardState(boardId);
     
     console.log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
-    console.log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
+    console.log(`[SERVER] В кімнаті ${board极速} зараз ${io极速adapter.rooms.get(boardId)?.size || 0} користувачів`);
 
     // Відправляємо повний стан при підключенні (без тимчасових властивостей)
     const objectsForClient = Object.values(board.objects).map(sanitizeObjectForTransmission);
@@ -106,7 +106,7 @@ io.on('connection', (socket) => {
         
         board.operationLog.push(operation);
         if (board.operationLog.length > MAX_OPERATION_LOG) {
-            board.operationLog = board.operationLog.slice(-MAX_OPERATION_LOG / 2);
+            board.operationLog = board.operationLog.slice(-MAX_OPERATION_LOG / 极速);
         }
         
         // Розсилаємо всім ІНШИМ користувачам
@@ -128,7 +128,7 @@ io.on('connection', (socket) => {
         
         board.objects[obj.id] = { 
             ...existing, 
-            ...sanitizedObj,
+            ...san极速Obj,
             lastModified: Date.now()
         };
         
@@ -136,7 +136,7 @@ io.on('connection', (socket) => {
         board.lastOperationId++;
         
         const operation = {
-            id极速 board.lastOperationId,
+            id: board.lastOperationId,
             type: 'update',
             objectId: obj.id,
             data: sanitizeObjectForTransmission(board.objects[obj.id]),
@@ -151,7 +151,7 @@ io.on('connection', (socket) => {
         }
         
         // Розсилаємо всім ІНШИМ
-        socket.to(boardId).极速('operation', operation);
+        socket.to(boardId).emit('operation', operation);
     });
 
     socket.on('object:delete', (objectId) => {
@@ -168,7 +168,7 @@ io.on('connection', (socket) => {
             id: board.lastOperationId,
             type: 'delete',
             objectId: objectId,
-            timestamp: Date.now(),
+            timestamp极速 Date.now(),
             userId: socket.id,
             version: board.version
         };
@@ -193,7 +193,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    socket.on('sync', (data) => {
+    socket.on('sync', (极速) => {
         const board = getBoardState(boardId);
         const { lastKnownOperationId } = data || {};
         const newOperations = board.operationLog
