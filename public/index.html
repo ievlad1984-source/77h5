@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (Math Fields)</title>
+    <title>Математична Дошка Pro</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { 
@@ -504,43 +504,44 @@ let socket;
 try {
     socket = io({ query: { boardId } });
 } catch (e) {
-    console.warn("Socket.io not loaded or connection failed. Running in local mode.");
-    socket = { emit: () => {}, on: () => {} };
+    console.warn("Socket.io not loaded. Running in local mode.");
+    socket = { emit: () => {}, on: () => {}, connected: false };
 }
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
-// Змінні стану
-let scale = 1.0, offsetX = 0, offsetY = 0;
-let objects = [], currentTool = 'select';
+// КЕШ ЗОБРАЖЕНЬ - виправлення головної проблеми
+const imageCache = new Map();
+let objects = [];
+let currentTool = 'select';
 let selectedObjects = []; 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
 let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
 let shiftKey = false, ctrlKey = false;
-
 let isSelectingArea = false;
 let selectionStart = { x: 0, y: 0 };
 let selectionEnd = { x: 0, y: 0 };
-
 let textEditor = null;
 let editingObject = null;
-
 let historyStack = [];
 let historyIndex = -1;
 let isUndoing = false;
-
 let needsRedraw = false;
 let animationFrameId = null;
-
+let scale = 1.0, offsetX = 0, offsetY = 0;
 const MAX_HISTORY = 50;
 const SMOOTHING_FACTOR = 0.5;
-
 let selectedShapeType = null;
 let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
+
+// Унікальний ID для об'єктів
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
 
 // ============================================
 // ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
@@ -599,6 +600,48 @@ function updateZoomDisplay() {
 }
 
 // ============================================
+// ЗАВАНТАЖЕННЯ ЗОБРАЖЕНЬ З КЕШУ
+// ============================================
+
+function preloadImage(src) {
+    if (imageCache.has(src)) {
+        return Promise.resolve(imageCache.get(src));
+    }
+    
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            imageCache.set(src, img);
+            resolve(img);
+        };
+        img.onerror = () => {
+            reject(new Error('Failed to load image'));
+        };
+        img.src = src;
+    });
+}
+
+function restoreImages(objectsToRestore) {
+    const imagePromises = [];
+    
+    objectsToRestore.forEach(obj => {
+        if (obj.type === 'image' && obj.src) {
+            if (imageCache.has(obj.src)) {
+                obj._img = imageCache.get(obj.src);
+            } else {
+                const img = new Image();
+                img.src = obj.src;
+                img.onload = () => {
+                    imageCache.set(obj.src, img);
+                    requestDraw();
+                };
+                obj._img = img;
+            }
+        }
+    });
+}
+
+// ============================================
 // ОБРОБКА КЛАВІШ
 // ============================================
 
@@ -625,7 +668,10 @@ window.addEventListener('keydown', (e) => {
         if (selectedObjects.length > 0 && !textEditor) {
             e.preventDefault();
             saveHistory();
-            objects = objects.filter(o => !selectedObjects.includes(o));
+            selectedObjects.forEach(obj => {
+                objects = objects.filter(o => o !== obj);
+                if (socket && socket.connected) socket.emit('delete-object', obj.id);
+            });
             selectedObjects = [];
             if (socket && socket.connected) socket.emit('update-all', objects);
             requestDraw();
@@ -677,14 +723,8 @@ const lineTrigger = document.getElementById('lineDropdownTrigger');
 lineTrigger.addEventListener('click', (e) => {
     e.stopPropagation();
     const palette = document.getElementById('line-palette');
-    if (palette.style.display === 'flex') {
-        palette.style.display = 'none';
-    } else {
-        palette.style.display = 'flex';
-        if (currentTool !== 'line') {
-            selectedLineToolType = 'line';
-        }
-    }
+    palette.style.display = palette.style.display === 'flex' ? 'none' : 'flex';
+    if (currentTool !== 'line') selectedLineToolType = 'line';
 });
 
 lineBtn.addEventListener('click', (e) => {
@@ -698,14 +738,8 @@ const rectTrigger = document.getElementById('rectDropdownTrigger');
 rectTrigger.addEventListener('click', (e) => {
     e.stopPropagation();
     const palette = document.getElementById('shapes-palette');
-    if (palette.style.display === 'flex') {
-        palette.style.display = 'none';
-    } else {
-        palette.style.display = 'flex';
-        if (currentTool !== 'shape') {
-            selectedShapeType = null;
-        }
-    }
+    palette.style.display = palette.style.display === 'flex' ? 'none' : 'flex';
+    if (currentTool !== 'shape') selectedShapeType = null;
 });
 
 rectBtn.addEventListener('click', (e) => {
@@ -717,15 +751,11 @@ document.addEventListener('mousedown', (e) => {
     const linePalette = document.getElementById('line-palette');
     const shapePalette = document.getElementById('shapes-palette');
     
-    if (linePalette.style.display === 'flex' && 
-        !linePalette.contains(e.target) && 
-        !lineBtn.contains(e.target)) {
+    if (linePalette.style.display === 'flex' && !linePalette.contains(e.target) && !lineBtn.contains(e.target)) {
         linePalette.style.display = 'none';
     }
     
-    if (shapePalette.style.display === 'flex' && 
-        !shapePalette.contains(e.target) && 
-        !rectBtn.contains(e.target)) {
+    if (shapePalette.style.display === 'flex' && !shapePalette.contains(e.target) && !rectBtn.contains(e.target)) {
         shapePalette.style.display = 'none';
     }
 });
@@ -764,10 +794,8 @@ function measureSegments(segments, baseSize, isBold) {
         } else if (s.type === 'frac') {
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
-            
             const fracWidth = Math.max(numMetrics.w, denMetrics.w);
             const fracHeight = numMetrics.h + denMetrics.h + 6;
-            
             totalWidth += fracWidth;
             maxHeight = Math.max(maxHeight, fracHeight);
         }
@@ -800,19 +828,11 @@ function htmlToSegments(html) {
             } else if (node.classList.contains('math-frac')) {
                 const numNode = node.querySelector('.math-num');
                 const denNode = node.querySelector('.math-den');
-                
                 const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
                 const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
-                
-                segments.push({ 
-                    type: 'frac', 
-                    numerator: numSegs, 
-                    denominator: denSegs 
-                });
+                segments.push({ type: 'frac', numerator: numSegs, denominator: denSegs });
             } else if (node.tagName === 'BR') {
-                 segments.push({ type: 'normal', text: '\n' });
-            } else if (node.tagName === 'DIV') {
-                node.childNodes.forEach(processNode);
+                segments.push({ type: 'normal', text: '\n' });
             } else {
                 node.childNodes.forEach(processNode);
             }
@@ -820,7 +840,6 @@ function htmlToSegments(html) {
     }
     
     Array.from(doc.body.childNodes).forEach(processNode);
-    
     return segments;
 }
 
@@ -850,36 +869,21 @@ function getBBox(obj) {
         
         if (obj.segments && obj.segments.length > 0) {
             const metrics = measureSegments(obj.segments, baseSize, obj.isBold);
-            return { 
-                x: obj.x, 
-                y: obj.y - (metrics.ascent * 0.2),
-                w: metrics.w || 2, 
-                h: metrics.h * 1.2 
-            };
+            return { x: obj.x, y: obj.y - (metrics.ascent * 0.2), w: metrics.w || 2, h: metrics.h * 1.2 };
         }
 
         ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
         const lineH = baseSize * 1.4;
-        
         let maxW = 0;
-        let lines = 1;
-        
         const text = obj.text || ''; 
         const textLines = text.split('\n');
-        lines = textLines.length;
         
         textLines.forEach(line => {
-            ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const w = ctx.measureText(line).width;
             if (w > maxW) maxW = w;
         });
         
-        return { 
-            x: obj.x, 
-            y: obj.y, 
-            w: maxW || 2, 
-            h: (lineH * lines) 
-        };
+        return { x: obj.x, y: obj.y, w: maxW || 2, h: lineH * textLines.length };
     }
     if (obj.type === 'rect' || obj.type === 'shape') {
         return { x: obj.x, y: obj.y, w: Math.abs(obj.w), h: Math.abs(obj.h) };
@@ -909,10 +913,10 @@ function getGroupBBox(objs) {
     objs.forEach(obj => {
         const bbox = getBBox(obj);
         if (bbox) {
-            if (bbox.x < minX) minX = bbox.x;
-            if (bbox.y < minY) minY = bbox.y;
-            if (bbox.x + bbox.w > maxX) maxX = bbox.x + bbox.w;
-            if (bbox.y + bbox.h > maxY) maxY = bbox.y + bbox.h;
+            minX = Math.min(minX, bbox.x);
+            minY = Math.min(minY, bbox.y);
+            maxX = Math.max(maxX, bbox.x + bbox.w);
+            maxY = Math.max(maxY, bbox.y + bbox.h);
         }
     });
     
@@ -1099,15 +1103,12 @@ function drawMarqueeSelection() {
     const x2 = selectionEnd.x * scale + offsetX;
     const y2 = selectionEnd.y * scale + offsetY;
     
-    const width = x2 - x1;
-    const height = y2 - y1;
-    
     ctx.save();
     ctx.fillStyle = 'rgba(0, 123, 255, 0.15)';
     ctx.strokeStyle = '#007bff';
     ctx.lineWidth = 1;
-    ctx.fillRect(x1, y1, width, height);
-    ctx.strokeRect(x1, y1, width, height);
+    ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
     ctx.restore();
 }
 
@@ -1141,7 +1142,6 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     let currentY = y;
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
     const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
-    
     const lineH = baseSize * 1.4;
     
     segments.forEach(s => {
@@ -1166,16 +1166,12 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
         } else if (s.type === 'frac') {
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
-            
             const fracW = Math.max(numMetrics.w, denMetrics.w);
             const gap = 3;
-            
             const numStartX = currentX + (fracW - numMetrics.w) / 2;
             const denStartX = currentX + (fracW - denMetrics.w) / 2;
-            
             const fractionCenterY = currentY - (baseSize * 0.15);
             const lineY = fractionCenterY;
-            
             const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
             const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
             
@@ -1235,20 +1231,16 @@ function drawCoordinateGrid(obj) {
     const sy = obj.y * scale + offsetY;
     const sw = obj.w * scale;
     const sh = obj.h * scale;
-    
     const gridSpacing = obj.gridSpacing || 40;
     const axisColor = obj.axisColor || '#000000';
     const gridColor = obj.gridColor || '#cccccc';
     
     ctx.save();
-    
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(sx, sy, sw, sh);
-    
     ctx.strokeStyle = '#dddddd';
     ctx.lineWidth = 1;
     ctx.strokeRect(sx, sy, sw, sh);
-    
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     
@@ -1266,40 +1258,27 @@ function drawCoordinateGrid(obj) {
         ctx.stroke();
     }
     
-    const rawCenterX = sx + sw / 2;
-    const rawCenterY = sy + sh / 2;
-    
-    const offsetXFromStart = rawCenterX - sx;
-    const offsetYFromStart = rawCenterY - sy;
-    
-    const stepsX = Math.round(offsetXFromStart / gridSpacing);
-    const stepsY = Math.round(offsetYFromStart / gridSpacing);
-    
-    const centerX = sx + stepsX * gridSpacing;
-    const centerY = sy + stepsY * gridSpacing;
+    const centerX = sx + sw / 2;
+    const centerY = sy + sh / 2;
     
     ctx.strokeStyle = axisColor;
     ctx.lineWidth = 2;
-    
     ctx.beginPath();
     ctx.moveTo(sx, centerY);
     ctx.lineTo(sx + sw, centerY);
     ctx.stroke();
-    
     ctx.beginPath();
     ctx.moveTo(centerX, sy);
     ctx.lineTo(centerX, sy + sh);
     ctx.stroke();
     
     const arrowSize = 10;
-    
     ctx.beginPath();
     ctx.moveTo(sx + sw, centerY);
     ctx.lineTo(sx + sw - arrowSize, centerY - arrowSize);
     ctx.moveTo(sx + sw, centerY);
     ctx.lineTo(sx + sw - arrowSize, centerY + arrowSize);
     ctx.stroke();
-    
     ctx.beginPath();
     ctx.moveTo(centerX, sy);
     ctx.lineTo(centerX - arrowSize, sy + arrowSize);
@@ -1308,41 +1287,11 @@ function drawCoordinateGrid(obj) {
     ctx.stroke();
     
     ctx.fillStyle = axisColor;
-    ctx.font = '12px Segoe UI';
+    ctx.font = 'bold 14px Segoe UI';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    
-    const cellsRight = Math.floor((sx + sw - centerX) / gridSpacing);
-    const cellsLeft = Math.floor((centerX - sx) / gridSpacing);
-    const cellsUp = Math.floor((centerY - sy) / gridSpacing);
-    const cellsDown = Math.floor((sy + sh - centerY) / gridSpacing);
-    
-    for (let i = -cellsLeft; i <= cellsRight; i++) {
-        if (i !== 0) {
-            const x = centerX + i * gridSpacing;
-            if (x >= sx + 15 && x <= sx + sw - 15) {
-                ctx.fillText(i.toString(), x, centerY + 5);
-            }
-        }
-    }
-    
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    for (let i = -cellsDown; i <= cellsUp; i++) {
-        if (i !== 0) {
-            const y = centerY - i * gridSpacing;
-            if (y >= sy + 15 && y <= sy + sh - 15) {
-                ctx.fillText(i.toString(), centerX - 5, y);
-            }
-        }
-    }
-    
-    ctx.font = 'bold 14px Segoe UI';
     ctx.fillText('X', sx + sw - 15, centerY - 20);
     ctx.fillText('Y', centerX + 10, sy + 15);
-    
-    ctx.font = '10px Segoe UI';
-    ctx.fillText('0', centerX - 8, centerY + 15);
     
     ctx.restore();
 }
@@ -1373,28 +1322,19 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
     }
     
     ctx.beginPath();
-    
     const p0 = points[0];
     ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
     
     for (let i = 1; i < points.length - 1; i++) {
         const p1 = points[i];
         const p2 = points[i + 1];
-        
         const midX = (p1.x + p2.x) / 2;
         const midY = (p1.y + p2.y) / 2;
-        
-        ctx.quadraticCurveTo(
-            p1.x * scaleX + offsetX, 
-            p1.y * scaleX + offsetY, 
-            midX * scaleX + offsetX, 
-            midY * scaleX + offsetY
-        );
+        ctx.quadraticCurveTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY, midX * scaleX + offsetX, midY * scaleX + offsetY);
     }
     
     const lastPoint = points[points.length - 1];
     ctx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
-    
     ctx.stroke();
 }
 
@@ -1524,7 +1464,6 @@ function drawObject(obj, isTemp = false) {
             ctx.lineTo(sx, sy + h);
             ctx.closePath();
         } else if (obj.shapeType === 'heart') {
-            const topCurveHeight = h * 0.3;
             ctx.moveTo(cx, sy + h * 0.2);
             ctx.bezierCurveTo(cx, sy, sx, sy, sx, cy);
             ctx.bezierCurveTo(sx, sy + h, cx, sy + h * 1.2, sx + w, sy + h);
@@ -1536,7 +1475,6 @@ function drawObject(obj, isTemp = false) {
     } else if (obj.type === 'text') {
         ctx.fillStyle = obj.color || '#000';
         ctx.textBaseline = 'alphabetic';
-        
         const baseSize = obj.size * scale;
         
         if (obj.segments && obj.segments.length > 0) {
@@ -1552,12 +1490,21 @@ function drawObject(obj, isTemp = false) {
     } else if (obj.type === 'grid') {
         drawCoordinateGrid(obj);
     } else if (obj.type === 'image') {
+        // ВИПРАВЛЕННЯ: Використовуємо кеш зображень
         if (!obj._img) {
-            obj._img = new Image();
-            obj._img.src = obj.src;
-            obj._img.onload = () => requestDraw();
+            if (imageCache.has(obj.src)) {
+                obj._img = imageCache.get(obj.src);
+            } else {
+                const img = new Image();
+                img.src = obj.src;
+                img.onload = () => {
+                    imageCache.set(obj.src, img);
+                    requestDraw();
+                };
+                obj._img = img;
+            }
         }
-        if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
+        if (obj._img && (obj._img.complete || obj._img.naturalWidth > 0)) {
             ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
         }
     }
@@ -1639,12 +1586,8 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    // ✅ ПЕРЕВІРКА: чи є вміст у чисельнику
-    const hasNumeratorContent = numSpan.textContent && 
-                                 numSpan.textContent.trim() !== '' && 
-                                 numSpan.textContent !== '\u200B';
+    const hasNumeratorContent = numSpan.textContent && numSpan.textContent.trim() !== '' && numSpan.textContent !== '\u200B';
 
-    // ✅ КУРСОР У ЗНАМЕННИК (якщо чисельник не пустий)
     const newRange = document.createRange();
     if (hasNumeratorContent) {
         newRange.selectNodeContents(denSpan);
@@ -1665,22 +1608,13 @@ function insertFraction(editorDiv, numeratorContent) {
     }
 }
 
-// ============================================
-// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА (ВИПРАВЛЕНА ВЕРСІЯ)
-// ============================================
-
 function collectNumeratorContent(range, editorDiv) {
     let currentNode = range.startContainer;
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
-    
-    // Знаки-розділювачі: пробіл та арифметичні оператори
     const separatorChars = /[+\-*/:><=\s]/;
-    
     let hasContent = false;
     
-    // 1. Спочатку перевіряємо сусідні елементи (степені/індекси)
-    // Це важливо для випадків коли курсор одразу після степеня
     let nodeBeforeCursor = null;
     
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -1693,26 +1627,21 @@ function collectNumeratorContent(range, editorDiv) {
         }
     }
 
-    // Пропускаємо порожні текстові вузли
     while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
         nodeBeforeCursor = nodeBeforeCursor.previousSibling;
     }
 
-    // Якщо знайдено степінь або індекс
     if (nodeBeforeCursor && nodeBeforeCursor.classList && 
         (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
         
-        // Шукаємо базовий текст перед степенем
         let baseNode = nodeBeforeCursor.previousSibling;
         while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
             baseNode = baseNode.previousSibling;
         }
 
-        // Додаємо базовий текст (якщо є)
         if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
             const baseText = baseNode.textContent.trim();
             if (baseText.length > 0) {
-                // Перевіряємо чи є розділювач в базовому тексті
                 let lastSepIndex = -1;
                 for (let i = baseText.length - 1; i >= 0; i--) {
                     if (separatorChars.test(baseText[i])) {
@@ -1722,36 +1651,29 @@ function collectNumeratorContent(range, editorDiv) {
                 }
                 
                 if (lastSepIndex === -1) {
-                    // Немає розділювача - беремо весь текст
                     const textNode = document.createTextNode(baseText);
                     fragment.insertBefore(textNode, fragment.firstChild);
                     hasContent = true;
-                    // Видаляємо текст з оригінального вузла
                     baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
                 } else {
-                    // Є розділювач - беремо тільки частину після нього
                     const numeratorText = baseText.substring(lastSepIndex + 1);
                     if (numeratorText.trim().length > 0) {
                         const textNode = document.createTextNode(numeratorText);
                         fragment.insertBefore(textNode, fragment.firstChild);
                         hasContent = true;
-                        // Видаляємо тільки частину для чисельника
                         baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
                     }
                 }
             }
         }
         
-        // Додаємо степінь/індекс
         fragment.appendChild(nodeBeforeCursor);
         hasContent = true;
     }
     
-    // 2. Обробка текстового вмісту перед курсором (якщо не було степеня)
     if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
         
-        // Знаходимо останній розділювач
         let lastSepIndex = -1;
         for (let i = textBefore.length - 1; i >= 0; i--) {
             if (separatorChars.test(textBefore[i])) {
@@ -1765,16 +1687,13 @@ function collectNumeratorContent(range, editorDiv) {
             startOffset = lastSepIndex + 1;
         }
 
-        // Збираємо текст після останнього розділювача
         if (currentOffset > startOffset) {
             const numeratorText = textBefore.substring(startOffset);
             if (numeratorText.trim().length > 0) {
                 const textNode = document.createTextNode(numeratorText);
                 fragment.appendChild(textNode);
                 hasContent = true;
-                // Оновлюємо оригінальний вузол
-                currentNode.textContent = textBefore.substring(0, startOffset) + 
-                                         currentNode.textContent.substring(currentOffset);
+                currentNode.textContent = textBefore.substring(0, startOffset) + currentNode.textContent.substring(currentOffset);
                 range.setStart(currentNode, startOffset);
             }
         }
@@ -1877,7 +1796,6 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
-        // Створення дробу клавішею /
         if (e.key === '/') {
             e.preventDefault();
             const numeratorContent = collectNumeratorContent(range, editorDiv);
@@ -1886,7 +1804,6 @@ function startTextEdit(obj) {
             return;
         }
 
-        // Створення степеня/індексу
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const type = e.key === '^' ? 'sup' : 'sub';
@@ -1895,11 +1812,9 @@ function startTextEdit(obj) {
             return;
         }
         
-        // ✅ Навігація правою стрілкою (ВИПРАВЛЕНО - 1 натискання)
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
             
-            // Спеціальна обробка для знаменателя - завжди переходимо далі
             if (parent && parent.classList.contains('math-den')) {
                 e.preventDefault();
                 const frac = parent.parentElement;
@@ -1925,7 +1840,6 @@ function startTextEdit(obj) {
                 return;
             }
             
-            // Стандартна обробка для інших елементів
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
@@ -1968,7 +1882,6 @@ function startTextEdit(obj) {
             }
         }
         
-        // Навігація лівою стрілкою
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
             let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
@@ -2053,7 +1966,8 @@ function startTextEdit(obj) {
         updateSize();
         if (editingObject) {
             editingObject.text = editorDiv.innerText;
-            if (socket && socket.connected) socket.emit('update-all', objects);
+            editingObject.segments = htmlToSegments(editorDiv.innerHTML);
+            if (socket && socket.connected) socket.emit('update-object', editingObject);
         }
     });
     
@@ -2102,7 +2016,7 @@ function stopTextEdit(cancel = false) {
         
         editingObject.text = editorDiv.innerText;
         
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        if (socket && socket.connected) socket.emit('update-object', editingObject);
     }
     if (textEditor.parentNode) {
         document.body.removeChild(textEditor);
@@ -2153,7 +2067,7 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        if (socket && socket.connected) socket.emit('update-object', obj);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2188,7 +2102,7 @@ function startTextDrag(obj, e, wrapper) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        if (socket && socket.connected) socket.emit('update-object', obj);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2217,9 +2131,7 @@ canvas.addEventListener('dblclick', (e) => {
 });
 
 canvas.addEventListener('mousedown', (e) => {
-    if (e.detail === 2) {
-        return;
-    }
+    if (e.detail === 2) return;
     
     const coords = getCoords(e);
     
@@ -2513,9 +2425,14 @@ canvas.addEventListener('mouseup', () => {
     if (isDragging || isResizing || isRotating) {
         if (isRotating || isResizing || (isDragging && selectedObjects.length > 0)) {
             saveHistory();
+            // Надсилаємо оновлення для кожного зміненого об'єкта
+            if (socket && socket.connected) {
+                selectedObjects.forEach(obj => {
+                    socket.emit('update-object', obj);
+                });
+            }
         }
         isDragging = false; isResizing = false; isRotating = false;
-        if (socket && socket.connected) socket.emit('update-all', objects);
     }
 });
 
@@ -2555,9 +2472,10 @@ function eraseAt(mx, my) {
         
         if (shouldRemove) {
             saveHistory();
-            objects.splice(i, 1);
-            selectedObjects = selectedObjects.filter(o => o !== obj);
+            const deletedObj = objects.splice(i, 1)[0];
+            selectedObjects = selectedObjects.filter(o => o !== deletedObj);
             changed = true;
+            if (socket && socket.connected) socket.emit('delete-object', deletedObj.id);
         }
     }
     if (changed) { 
@@ -2573,6 +2491,7 @@ function eraseAt(mx, my) {
 function startDrawing(coords) {
     isDrawing = true;
     currentPath = {
+        id: generateId(),
         type: currentTool,
         color: currentPenColor,
         width: document.getElementById('lineWidth').value,
@@ -2587,10 +2506,6 @@ function startDrawing(coords) {
     if (currentTool === 'pen') currentPath.points = [];
     if (currentTool === 'shape') {
         currentPath.shapeType = selectedShapeType;
-    }
-    if (currentTool === 'line' && selectedLineToolType === 'compass') {
-        currentPath.type = 'compass';
-        currentPath.radius = 0;
     }
 }
 
@@ -2704,7 +2619,11 @@ function startResizeGroup(handle, e) {
         document.removeEventListener('mousemove', onMove); 
         document.removeEventListener('mouseup', onUp); 
         saveHistory(); 
-        if (socket && socket.connected) socket.emit('update-all', objects); 
+        if (socket && socket.connected) {
+            selectedObjects.forEach(obj => {
+                socket.emit('update-object', obj);
+            });
+        }
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2718,14 +2637,19 @@ function startRotate(e) {}
 
 function createNewText(coords) {
     const obj = {
-        type: 'text', x: coords.x, y: coords.y, 
+        id: generateId(),
+        type: 'text', 
+        x: coords.x, 
+        y: coords.y, 
         text: '', 
         color: currentPenColor,
-        size: 20, isBold: document.getElementById('boldText').checked,
+        size: 20, 
+        isBold: document.getElementById('boldText').checked,
         rotation: 0
     };
     saveHistory();
-    objects.push(obj); selectedObjects = [obj];
+    objects.push(obj); 
+    selectedObjects = [obj];
     if (socket && socket.connected) socket.emit('new-object', obj);
     requestDraw();
     startTextEdit(obj);
@@ -2760,7 +2684,8 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = (
 document.getElementById('clearBtn').onclick = () => { 
     if(confirm("Очистити дошку?")) {
         saveHistory();
-        objects = []; selectedObjects = [];
+        objects = []; 
+        selectedObjects = [];
         if (textEditor) stopTextEdit();
         if (socket && socket.connected) socket.emit('delete-board');
         requestDraw();
@@ -2834,6 +2759,7 @@ window.addEventListener('paste', (e) => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
                     const obj = { 
+                        id: generateId(),
                         type: 'image', 
                         src: event.target.result, 
                         x: centerX - img.width/4, 
@@ -2842,6 +2768,10 @@ window.addEventListener('paste', (e) => {
                         h: img.height/2, 
                         rotation: 0 
                     };
+                    // Зберігаємо зображення в кеш
+                    imageCache.set(obj.src, img);
+                    obj._img = img;
+                    
                     saveHistory();
                     objects.push(obj); 
                     selectedObjects = [obj];
@@ -2855,48 +2785,97 @@ window.addEventListener('paste', (e) => {
 });
 
 // ============================================
-// SOCKET.IO ПОДІЇ
+// SOCKET.IO ПОДІЇ - ВИПРАВЛЕНА СИНХРОНІЗАЦІЯ
 // ============================================
 
 socket.on('init-history', (h) => { 
-    objects = h;
+    objects = h || [];
+    
+    // Відновлюємо зображення з кешу
+    restoreImages(objects);
+    
     historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
     historyIndex = 0;
-    let imagesLoaded = 0;
-    const totalImages = objects.filter(o => o.type === 'image').length;
-    
-    if (totalImages === 0) {
-        requestDraw();
-    } else {
-        objects.forEach(obj => {
-            if (obj.type === 'image') {
-                obj._img = new Image();
-                obj._img.src = obj.src;
-                obj._img.onload = () => {
-                    imagesLoaded++;
-                    if (imagesLoaded >= totalImages) requestDraw();
-                };
-                obj._img.onerror = () => {
-                    imagesLoaded++;
-                    if (imagesLoaded >= totalImages) requestDraw();
-                };
-            }
-        });
-    }
+    requestDraw();
 });
 
 socket.on('new-object', (o) => { 
-    objects.push(o); 
-    saveHistory();
-    requestDraw(); 
+    // Перевіряємо чи об'єкт вже є
+    const exists = objects.some(obj => obj.id === o.id);
+    if (!exists) {
+        objects.push(o);
+        // Відновлюємо зображення якщо потрібно
+        if (o.type === 'image' && o.src) {
+            if (imageCache.has(o.src)) {
+                o._img = imageCache.get(o.src);
+            } else {
+                const img = new Image();
+                img.src = o.src;
+                img.onload = () => {
+                    imageCache.set(o.src, img);
+                    requestDraw();
+                };
+                o._img = img;
+            }
+        }
+        saveHistory();
+        requestDraw();
+    }
+});
+
+socket.on('update-object', (updatedObj) => { 
+    const index = objects.findIndex(o => o.id === updatedObj.id);
+    if (index !== -1) {
+        // Зберігаємо _img якщо було
+        const oldImg = objects[index]._img;
+        objects[index] = updatedObj;
+        if (oldImg) objects[index]._img = oldImg;
+        
+        // Відновлюємо зображення якщо потрібно
+        if (updatedObj.type === 'image' && updatedObj.src && !updatedObj._img) {
+            if (imageCache.has(updatedObj.src)) {
+                updatedObj._img = imageCache.get(updatedObj.src);
+            } else {
+                const img = new Image();
+                img.src = updatedObj.src;
+                img.onload = () => {
+                    imageCache.set(updatedObj.src, img);
+                    requestDraw();
+                };
+                updatedObj._img = img;
+            }
+        }
+        
+        requestDraw();
+    }
 });
 
 socket.on('update-all', (newObjects) => { 
+    // Відновлюємо зображення перед заміною
+    newObjects.forEach(obj => {
+        if (obj.type === 'image' && obj.src) {
+            if (imageCache.has(obj.src)) {
+                obj._img = imageCache.get(obj.src);
+            } else {
+                const img = new Image();
+                img.src = obj.src;
+                img.onload = () => {
+                    imageCache.set(obj.src, img);
+                    requestDraw();
+                };
+                obj._img = img;
+            }
+        }
+    });
+    
     objects = newObjects; 
-    if (!isUndoing) {
-        saveHistory();
-    }
     requestDraw(); 
+});
+
+socket.on('delete-object', (objId) => { 
+    objects = objects.filter(o => o.id !== objId);
+    selectedObjects = selectedObjects.filter(o => o.id !== objId);
+    requestDraw();
 });
 
 socket.on('board-deleted', () => { 
