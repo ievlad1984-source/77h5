@@ -1639,10 +1639,12 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
+    // ✅ ПЕРЕВІРКА: чи є вміст у чисельнику
     const hasNumeratorContent = numSpan.textContent && 
                                  numSpan.textContent.trim() !== '' && 
                                  numSpan.textContent !== '\u200B';
 
+    // ✅ КУРСОР У ЗНАМЕННИК (якщо чисельник не пустий)
     const newRange = document.createRange();
     if (hasNumeratorContent) {
         newRange.selectNodeContents(denSpan);
@@ -1664,7 +1666,7 @@ function insertFraction(editorDiv, numeratorContent) {
 }
 
 // ============================================
-// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА
+// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА (ВИПРАВЛЕНА ВЕРСІЯ)
 // ============================================
 
 function collectNumeratorContent(range, editorDiv) {
@@ -1672,8 +1674,13 @@ function collectNumeratorContent(range, editorDiv) {
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
     
+    // Знаки-розділювачі: пробіл та арифметичні оператори
     const separatorChars = /[+\-*/:><=\s]/;
+    
     let hasContent = false;
+    
+    // 1. Спочатку перевіряємо сусідні елементи (степені/індекси)
+    // Це важливо для випадків коли курсор одразу після степеня
     let nodeBeforeCursor = null;
     
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -1686,21 +1693,26 @@ function collectNumeratorContent(range, editorDiv) {
         }
     }
 
+    // Пропускаємо порожні текстові вузли
     while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
         nodeBeforeCursor = nodeBeforeCursor.previousSibling;
     }
 
+    // Якщо знайдено степінь або індекс
     if (nodeBeforeCursor && nodeBeforeCursor.classList && 
         (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
         
+        // Шукаємо базовий текст перед степенем
         let baseNode = nodeBeforeCursor.previousSibling;
         while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
             baseNode = baseNode.previousSibling;
         }
 
+        // Додаємо базовий текст (якщо є)
         if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
             const baseText = baseNode.textContent.trim();
             if (baseText.length > 0) {
+                // Перевіряємо чи є розділювач в базовому тексті
                 let lastSepIndex = -1;
                 for (let i = baseText.length - 1; i >= 0; i--) {
                     if (separatorChars.test(baseText[i])) {
@@ -1710,28 +1722,36 @@ function collectNumeratorContent(range, editorDiv) {
                 }
                 
                 if (lastSepIndex === -1) {
+                    // Немає розділювача - беремо весь текст
                     const textNode = document.createTextNode(baseText);
                     fragment.insertBefore(textNode, fragment.firstChild);
                     hasContent = true;
+                    // Видаляємо текст з оригінального вузла
                     baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
                 } else {
+                    // Є розділювач - беремо тільки частину після нього
                     const numeratorText = baseText.substring(lastSepIndex + 1);
                     if (numeratorText.trim().length > 0) {
                         const textNode = document.createTextNode(numeratorText);
                         fragment.insertBefore(textNode, fragment.firstChild);
                         hasContent = true;
+                        // Видаляємо тільки частину для чисельника
                         baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
                     }
                 }
             }
         }
         
+        // Додаємо степінь/індекс
         fragment.appendChild(nodeBeforeCursor);
         hasContent = true;
     }
     
+    // 2. Обробка текстового вмісту перед курсором (якщо не було степеня)
     if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
+        
+        // Знаходимо останній розділювач
         let lastSepIndex = -1;
         for (let i = textBefore.length - 1; i >= 0; i--) {
             if (separatorChars.test(textBefore[i])) {
@@ -1745,12 +1765,14 @@ function collectNumeratorContent(range, editorDiv) {
             startOffset = lastSepIndex + 1;
         }
 
+        // Збираємо текст після останнього розділювача
         if (currentOffset > startOffset) {
             const numeratorText = textBefore.substring(startOffset);
             if (numeratorText.trim().length > 0) {
                 const textNode = document.createTextNode(numeratorText);
                 fragment.appendChild(textNode);
                 hasContent = true;
+                // Оновлюємо оригінальний вузол
                 currentNode.textContent = textBefore.substring(0, startOffset) + 
                                          currentNode.textContent.substring(currentOffset);
                 range.setStart(currentNode, startOffset);
@@ -1855,6 +1877,7 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
+        // Створення дробу клавішею /
         if (e.key === '/') {
             e.preventDefault();
             const numeratorContent = collectNumeratorContent(range, editorDiv);
@@ -1863,6 +1886,7 @@ function startTextEdit(obj) {
             return;
         }
 
+        // Створення степеня/індексу
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const type = e.key === '^' ? 'sup' : 'sub';
@@ -1871,8 +1895,11 @@ function startTextEdit(obj) {
             return;
         }
         
+        // ✅ Навігація правою стрілкою (ВИПРАВЛЕНО - 1 натискання)
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
+            
+            // Спеціальна обробка для знаменателя - завжди переходимо далі
             if (parent && parent.classList.contains('math-den')) {
                 e.preventDefault();
                 const frac = parent.parentElement;
@@ -1898,6 +1925,7 @@ function startTextEdit(obj) {
                 return;
             }
             
+            // Стандартна обробка для інших елементів
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
@@ -1940,6 +1968,7 @@ function startTextEdit(obj) {
             }
         }
         
+        // Навігація лівою стрілкою
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
             let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
@@ -2023,9 +2052,8 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
-            // ✅ ВИПРАВЛЕННЯ: Оновлюємо тільки локальний об'єкт, НЕ відправляємо на сервер при кожному натисканні
             editingObject.text = editorDiv.innerText;
-            requestDraw(); 
+            if (socket && socket.connected) socket.emit('update-all', objects);
         }
     });
     
@@ -2074,7 +2102,6 @@ function stopTextEdit(cancel = false) {
         
         editingObject.text = editorDiv.innerText;
         
-        // ✅ ВИПРАВЛЕННЯ: Відправляємо на сервер тільки коли закінчили редагування
         if (socket && socket.connected) socket.emit('update-all', objects);
     }
     if (textEditor.parentNode) {
@@ -2828,32 +2855,11 @@ window.addEventListener('paste', (e) => {
 });
 
 // ============================================
-// SOCKET.IO ПОДІЇ (ВИПРАВЛЕНО)
+// SOCKET.IO ПОДІЇ
 // ============================================
 
 socket.on('init-history', (h) => { 
-    // ✅ ВИПРАВЛЕННЯ: Якщо ми зараз редагуємо текст, не перезаписуємо його вміст з сервера
-    let currentEditText = null;
-    let currentEditHtml = null;
-    
-    if (editingObject && textEditor) {
-        const editorDiv = textEditor.querySelector('.text-edit-content');
-        currentEditText = editorDiv.innerText;
-        currentEditHtml = editorDiv.innerHTML;
-    }
-
     objects = h;
-    
-    // Відновлюємо локальний текст в об'єкті, якщо він був знайдений в оновленні
-    if (editingObject && currentEditText !== null) {
-        const localObj = objects.find(o => o === editingObject);
-        if (localObj) {
-            localObj.text = currentEditText;
-            // Оновлюємо HTML в редакторі, щоб синхронізувати сегменти, якщо вони змінилися зовні
-            // Але краще просто залишити те, що юзер ввів, до моменту blur
-        }
-    }
-
     historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
     historyIndex = 0;
     let imagesLoaded = 0;
@@ -2886,26 +2892,7 @@ socket.on('new-object', (o) => {
 });
 
 socket.on('update-all', (newObjects) => { 
-    // ✅ ВИПРАВЛЕННЯ: Ігноруємо оновлення всього стану, якщо ми зараз редагуємо текст
-    // Це запобігає зниканню тексту при одночасному редагуванні
-    if (editingObject) {
-        // Оновлюємо інші об'єкти, але залишаємо editingObject як є
-        const currentTextObj = editingObject;
-        const currentTextContent = currentTextObj.text;
-        const currentSegments = currentTextObj.segments;
-        
-        objects = newObjects;
-        
-        // Знаходимо наш об'єкт в новому масиві і повертаємо йому текст
-        const restoredObj = objects.find(o => o === currentTextObj);
-        if (restoredObj) {
-            restoredObj.text = currentTextContent;
-            restoredObj.segments = currentSegments;
-        }
-    } else {
-        objects = newObjects; 
-    }
-    
+    objects = newObjects; 
     if (!isUndoing) {
         saveHistory();
     }
@@ -2919,7 +2906,6 @@ socket.on('board-deleted', () => {
     historyIndex = -1;
     requestDraw(); 
 });
-
 </script>
 </body>
 </html>
