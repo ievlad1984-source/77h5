@@ -3041,22 +3041,30 @@ colorPickerInput.addEventListener('input', (e) => {
 // МАСШТАБУВАННЯ
 // ============================================
 
-canvas.addEventListener('wheel', (e) => {
-    // 1. Обов'язково зупиняємо стандартну прокрутку браузера
+// Замінюємо canvas.addEventListener на window.addEventListener
+window.addEventListener('wheel', (e) => {
+    // Перевіряємо, чи курсор не знаходиться над панеллю інструментів або палітрами,
+    // щоб зум не спрацьовував, коли ви просто гортаєте список фігур
+    if (e.target.closest('#toolbar') || e.target.closest('#shapes-palette') || e.target.closest('#line-palette')) {
+        return; 
+    }
+
+    // 1. Зупиняємо стандартну прокрутку сторінки браузером
     e.preventDefault();
     
-    // 2. Розраховуємо новий масштаб
+    // 2. Визначаємо напрямок зуму
     const zoomSpeed = 0.1;
     const delta = e.deltaY > 0 ? (1 - zoomSpeed) : (1 + zoomSpeed);
     const oldScale = scale;
     
+    // 3. Оновлюємо масштаб
     scale *= delta;
     
-    // 3. Жорстке обмеження масштабу
+    // Обмеження масштабу від 10% до 1000%
     if (scale < 0.1) scale = 0.1;
     if (scale > 10) scale = 10;
     
-    // 4. Розрахунок зміщення (zoom в точку курсора)
+    // 4. Розрахунок координат для зуму в точку курсора
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -3067,7 +3075,7 @@ canvas.addEventListener('wheel', (e) => {
     offsetX = mouseX - worldX * scale;
     offsetY = mouseY - worldY * scale;
     
-    // 5. Оновлення інтерфейсу та перемальовування
+    // 5. Оновлюємо відображення % та перемальовуємо дошку
     updateZoomDisplay();
     requestDraw();
 }, { passive: false }); // passive: false обов'язково для роботи e.preventDefault()
