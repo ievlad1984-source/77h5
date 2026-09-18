@@ -14,6 +14,25 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background: #ffffff; 
         }
+.math-matrix {
+    display: inline-grid;
+    vertical-align: middle;
+    border-left: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    padding: 0 4px;
+    margin: 0 4px;
+    line-height: 1.2;
+}
+.math-matrix.det {
+    border-left: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+}
+.math-matrix-cell {
+    min-width: 20px;
+    text-align: center;
+    outline: none;
+    padding: 2px;
+}
         
         #toolbar {
             position: absolute; 
@@ -1037,16 +1056,13 @@ function measureSegments(segments, baseSize, isBold) {
 
 function htmlToSegments(html) {
     if (!html || html.trim() === '') return [];
-    
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const segments = [];
     
     function processNode(node) {
         if (node.nodeType === Node.TEXT_NODE) {
-            if (node.textContent.length > 0) {
-                segments.push({ type: 'normal', text: node.textContent });
-            }
+            if (node.textContent.length > 0) segments.push({ type: 'normal', text: node.textContent });
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             if (node.classList.contains('math-sup')) {
                 segments.push({ type: 'sup', text: node.textContent || '' });
@@ -1055,27 +1071,25 @@ function htmlToSegments(html) {
             } else if (node.classList.contains('math-frac')) {
                 const numNode = node.querySelector('.math-num');
                 const denNode = node.querySelector('.math-den');
-                
-                const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
-                const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
-                
+                segments.push({ type: 'frac', numerator: numNode ? htmlToSegments(numNode.innerHTML) : [], denominator: denNode ? htmlToSegments(denNode.innerHTML) : [] });
+            } else if (node.classList.contains('math-matrix')) {
+                const cells = Array.from(node.querySelectorAll('.math-matrix-cell'));
+                const size = Math.sqrt(cells.length);
+                const data = cells.map(c => c.textContent || ' ');
                 segments.push({ 
-                    type: 'frac', 
-                    numerator: numSegs, 
-                    denominator: denSegs 
+                    type: 'matrix', 
+                    size: size, 
+                    data: data, 
+                    isDet: node.classList.contains('det') 
                 });
             } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
-            } else if (node.tagName === 'DIV') {
-                node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
             }
         }
     }
-    
     Array.from(doc.body.childNodes).forEach(processNode);
-    
     return segments;
 }
 
@@ -1085,9 +1099,11 @@ function segmentsToHtml(segments) {
         if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
         if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
         if (s.type === 'frac') {
-            const numHtml = segmentsToHtml(s.numerator);
-            const denHtml = segmentsToHtml(s.denominator);
-            return `<div class="math-frac"><span class="math-num">${numHtml}</span><span class="math-den">${denHtml}</span></div>`;
+            return `<div class="math-frac"><span class="math-num">${segmentsToHtml(s.numerator)}</span><span class="math-den">${segmentsToHtml(s.denominator)}</span></div>`;
+        }
+        if (s.type === 'matrix') {
+            const cellsHtml = s.data.map(txt => `<span class="math-matrix-cell">${txt}</span>`).join('');
+            return `<div class="math-matrix ${s.isDet ? 'det' : ''}" style="grid-template-columns: repeat(${s.size}, auto)">${cellsHtml}</div>`;
         }
         if (s.text === '\n') return '<br>';
         return s.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1406,7 +1422,35 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             currentY += lineH;
             return;
         }
-        
+        } else if (s.type === 'matrix') {
+            const cellSize = baseSize * 1.2;
+            const mWidth = s.size * cellSize;
+            const mHeight = s.size * cellSize;
+            
+            // Рисуем границы матрицы
+            ctx.beginPath();
+            ctx.lineWidth = 2 * scale;
+            ctx.moveTo(currentX, currentY - baseSize * 0.2);
+            ctx.lineTo(currentX, currentY - baseSize * 0.2 + mHeight);
+            ctx.moveTo(currentX + mWidth, currentY - baseSize * 0.2);
+            ctx.lineTo(currentX + mWidth, currentY - baseSize * 0.2 + mHeight);
+            ctx.stroke();
+            
+            // Рисуем элементы
+            ctx.font = normalFont;
+            ctx.textAlign = 'center';
+            for (let i = 0; i < s.size; i++) {
+                for (let j = 0; j < s.size; j++) {
+                    const text = s.data[i * s.size + j];
+                    const tx = currentX + (j * cellSize) + cellSize / 2;
+                    const ty = (currentY - baseSize * 0.2) + (i * cellSize) + cellSize / 2;
+                    ctx.fillText(text, tx, ty);
+                }
+            }
+            ctx.textAlign = 'left'; // Возвращаем выравнивание
+            currentX += mWidth + 10;
+        }
+
         if (s.type === 'normal') {
             ctx.font = normalFont;
             ctx.fillText(s.text, currentX, currentY);
@@ -2026,6 +2070,9 @@ function collectNumeratorContent(range, editorDiv) {
 // ============================================
 
 function startTextEdit(obj) {
+    saveHistory(); // <--- ДОБАВЬТЕ ЭТО ПЕРВЫМ
+    if (textEditor) stopTextEdit();
+    // ... остальной код
     if (textEditor) stopTextEdit();
     
     editingObject = obj;
@@ -2853,6 +2900,8 @@ function eraseAt(mx, my) {
 // ============================================
 
 function startDrawing(coords) {
+    saveHistory(); // <--- ДОБАВЬТЕ ЭТО ПЕРВЫМ
+    isDrawing = true;
     isDrawing = true;
     currentPath = {
         type: currentTool,
@@ -3306,73 +3355,6 @@ document.addEventListener('mousedown', (e) => {
     }
 });
 
-function insertMatrix(type, size) {
-    const centerX = (canvas.width / 2 - offsetX) / scale;
-    const centerY = (canvas.height / 2 - offsetY) / scale;
-    const cellSize = 40;
-    const totalW = cellSize * size;
-    const totalH = cellSize * size;
-    
-    saveHistory();
-
-    // 1. Рисуем границы (скобки или палки)
-    const lineStyle = {
-        color: currentPenColor,
-        width: 2,
-        id: generateId(),
-        lastModified: Date.now()
-    };
-
-    // Левая граница
-    const leftBorder = { 
-        ...lineStyle, 
-        type: 'line', 
-        x: centerX, y: centerY, 
-        ex: centerX, ey: centerY + totalH 
-    };
-    
-    // Правая граница
-    const rightBorder = { 
-        ...lineStyle, 
-        type: 'line', 
-        x: centerX + totalW, y: centerY, 
-        ex: centerX + totalW, ey: centerY + totalH 
-    };
-
-    // Если это матрица, можно добавить "хвостики" скобок (опционально)
-    // Для упрощения используем прямые линии, как в определителях
-
-    const elements = [leftBorder, rightBorder];
-
-    // 2. Создаем текстовые поля для элементов
-    for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-            const cellText = {
-                type: 'text',
-                id: generateId(),
-                x: centerX + (j * cellSize) + 10,
-                y: centerY + (i * cellSize) + 20,
-                text: '0',
-                color: currentPenColor,
-                size: 20,
-                isBold: false,
-                rotation: 0,
-                lastModified: Date.now()
-            };
-            elements.push(cellText);
-        }
-    }
-
-    // Добавляем все элементы на доску
-    elements.forEach(obj => {
-        objects[obj.id] = obj;
-        objectsArray.push(obj);
-        sendOperation('add', obj);
-    });
-
-    document.getElementById('matrix-palette').style.display = 'none';
-    requestDraw();
-}
 
 </script>
 </body>
