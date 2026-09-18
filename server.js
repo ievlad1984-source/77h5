@@ -67,15 +67,48 @@ io.on('connection', (socket) => {
         lastOperationId: board.lastOperationId
     });
 
-    // Обработка инкрементальной синхронизации отстающих клиентов
-    socket.on('sync', (data) => {
-        const { lastKnownOperationId } = data;
-        const newOperations = board.operationLog.filter(op => op.id > lastKnownOperationId);
+    // Обновление объекта с проверкой по времени (предотвращает пропадание рисунков)
+    socket.on('object:update', (obj) => {
+        if (!obj || !obj.id) return;
         
-        socket.emit('operations-batch', {
-            operations: newOperations,
-            currentOperationId: board.lastOperationId
-        });
+        const existingObj = board.objects[obj.id];
+        
+        if (!existingObj) {
+            board.lastOperationId++;
+            obj.createdBy = userId;
+            obj.createdAt = Date.now();
+            obj.lastModified = Date.now();
+            const operation = { id: board.lastOperationId, type: 'add', objectId: obj.id, data: obj, timestamp: Date.now(), userId: userId };
+            board.operationLog.push(operation);
+            board.objects[obj.id] = obj;
+            socket.to(boardId).emit('operation', operation);
+            return;
+        }
+        
+        // ПРОВЕРКА: Обновляем только если входящие данные свежее существующих
+        if (obj.lastModified && existingObj.lastModified && obj.lastModified < existingObj.lastModified) {
+            return; // Игнорируем устаревшее обновление
+        }
+        
+        const mergedObj = {
+            ...existingObj,
+            ...obj,
+            lastModified: Date.now()
+        };
+        
+        board.lastOperationId++;
+        const operation = {
+            id: board.lastOperationId,
+            type: 'update',
+            objectId: obj.id,
+            data: mergedObj,
+            timestamp: Date.now(),
+            userId: userId
+        };
+        
+        board.operationLog.push(operation);
+        board.objects[obj.id] = mergedObj;
+        socket.to(boardId).emit('operation', operation);
     });
 
     // Создание нового объекта на холсте
@@ -99,64 +132,12 @@ io.on('connection', (socket) => {
         board.operationLog.push(operation);
         board.objects[obj.id] = obj;
         
-        // Вещаем строго остальным участникам комнаты
-        socket.to(boardId).emit('operation', operation);
-    });
-
-    // Безопасное пошаговое обновление объекта без разрушения его структуры
-    socket.on('object:update', (obj) => {
-        if (!obj || !obj.id) return;
-        
-        const existingObj = board.objects[obj.id];
-        
-        if (!existingObj) {
-            // Если объект исчез или не был найден, регистрируем его как новый
-            board.lastOperationId++;
-            obj.createdBy = userId;
-            obj.createdAt = Date.now();
-            obj.lastModified = Date.now();
-            
-            const operation = {
-                id: board.lastOperationId,
-                type: 'add',
-                objectId: obj.id,
-                data: obj,
-                timestamp: Date.now(),
-                userId: userId
-            };
-            board.operationLog.push(operation);
-            board.objects[obj.id] = obj;
-            socket.to(boardId).emit('operation', operation);
-            return;
-        }
-        
-        // Глубокое слияние свойств для предотвращения затирания данных от одновременных мутаций
-        const mergedObj = {
-            ...existingObj,
-            ...obj,
-            lastModified: Date.now()
-        };
-        
-        board.lastOperationId++;
-        const operation = {
-            id: board.lastOperationId,
-            type: 'update',
-            objectId: obj.id,
-            data: mergedObj,
-            timestamp: Date.now(),
-            userId: userId
-        };
-        
-        board.operationLog.push(operation);
-        board.objects[obj.id] = mergedObj;
-        
         socket.to(boardId).emit('operation', operation);
     });
 
     // Удаление объекта
     socket.on('object:delete', (objectId) => {
         if (!objectId) return;
-        
         if (!board.objects[objectId]) return;
         
         board.lastOperationId++;
@@ -171,14 +152,12 @@ io.on('connection', (socket) => {
         
         board.operationLog.push(operation);
         delete board.objects[objectId];
-        
         socket.to(boardId).emit('operation', operation);
     });
 
-    // Пакетные транзакции (для массовых изменений и Undo/Redo действий)
+    // Пакетные транзакции
     socket.on('batch-operation', (batch) => {
         if (!batch || !Array.isArray(batch.operations)) return;
-        
         const results = [];
         
         batch.operations.forEach(op => {
@@ -214,11 +193,9 @@ io.on('connection', (socket) => {
                     }
                     break;
             }
-            
             board.operationLog.push(operation);
             results.push(operation);
         });
-        
         socket.to(boardId).emit('batch-operation', { operations: results });
     });
 
@@ -229,7 +206,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Очистить всю доску целиком
     socket.on('delete-board', () => {
         board.objects = {};
         board.lastOperationId++;
@@ -239,12 +215,11 @@ io.on('connection', (socket) => {
             timestamp: Date.now(),
             userId: userId
         });
-        
         io.in(boardId).emit('board-cleared');
     });
 
     socket.on('disconnect', () => {
-        console.log(`[SERVER] Пользователь ${userId} отключился от комнаты: ${boardId}`);
+        console.log(`[SERVER] Пользователь ${userId} отключился`);
     });
 });
 
