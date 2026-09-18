@@ -650,25 +650,8 @@ function applyOperation(operation) {
             if (objects[operation.data.id]) {
                 const oldObj = objects[operation.data.id];
                 const updatedObj = { ...oldObj, ...operation.data };
-                
-                // Зберігаємо посилання на завантажене зображення
-                if (oldObj._img) {
-                    updatedObj._img = oldObj._img;
-                }
-                
-                objects[operation.data.id] = updatedObj;
-                
-                const idx = objectsArray.findIndex(o => o.id === operation.data.id);
-                if (idx !== -1) {
-                    objectsArray[idx] = updatedObj;
-                }
-            } else {
-                // Якщо оновлення прийшло раніше за створення (race condition), створюємо об'єкт
-                const newObj = { ...operation.data };
-                objects[newObj.id] = newObj;
-                objectsArray.push(newObj);
-            }
-            break;
+                if (oldObj._img) updatedObj._img = oldObj._img;
+                o
         case 'delete':
             if (objects[operation.data.id]) {
                 delete objects[operation.data.id];
@@ -682,7 +665,6 @@ function applyOperation(operation) {
             selectedObjects = [];
             break;
     }
-    
     requestDraw();
 }
 
@@ -2250,9 +2232,9 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
+            // Оновлюємо і текст, і математичні сегменти миттєво
             editingObject.text = editorDiv.innerText;
-            const html = editorDiv.innerHTML;
-            editingObject.segments = htmlToSegments(html); // ОБОВ'ЯЗКОВО для математики
+            editingObject.segments = htmlToSegments(editorDiv.innerHTML); 
             editingObject.lastModified = Date.now();
             sendOperation('update', editingObject);
         }
