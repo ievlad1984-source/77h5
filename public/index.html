@@ -646,12 +646,32 @@ function applyOperation(operation) {
                 objectsArray.push(operation.data);
             }
             break;
+
         case 'update':
             if (objects[operation.data.id]) {
                 const oldObj = objects[operation.data.id];
                 const updatedObj = { ...oldObj, ...operation.data };
-                if (oldObj._img) updatedObj._img = oldObj._img;
-                o
+                
+                // Preserve the loaded image object to prevent flickering/reloading
+                if (oldObj._img) {
+                    updatedObj._img = oldObj._img;
+                }
+                
+                objects[operation.data.id] = updatedObj;
+                
+                // Update the reference in the array for drawing
+                const idx = objectsArray.findIndex(o => o.id === operation.data.id);
+                if (idx !== -1) {
+                    objectsArray[idx] = updatedObj;
+                }
+            } else {
+                // Safety: If update arrives before 'add', create the object now
+                const newObj = { ...operation.data };
+                objects[newObj.id] = newObj;
+                objectsArray.push(newObj);
+            }
+            break; // <--- Crucial: prevents falling through to 'delete'
+
         case 'delete':
             if (objects[operation.data.id]) {
                 delete objects[operation.data.id];
@@ -659,12 +679,14 @@ function applyOperation(operation) {
                 selectedObjects = selectedObjects.filter(o => o.id !== operation.data.id);
             }
             break;
+
         case 'clear':
             objects = {};
             objectsArray = [];
             selectedObjects = [];
             break;
     }
+    
     requestDraw();
 }
 
