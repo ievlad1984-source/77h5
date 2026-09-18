@@ -649,9 +649,13 @@ function applyOperation(operation) {
         case 'update':
             if (objects[operation.data.id]) {
                 const oldObj = objects[operation.data.id];
-                const updatedObj = { ...oldObj, ...operation.data };
+                const updatedObj = {
+                    ...oldObj,
+                    ...operation.data
+                };
                 
-                // Зберігаємо посилання на завантажене зображення
+                // Зберігаємо посилання на завантажене зображення, 
+                // щоб воно не перевантажувалося щоразу
                 if (oldObj._img) {
                     updatedObj._img = oldObj._img;
                 }
@@ -662,11 +666,6 @@ function applyOperation(operation) {
                 if (idx !== -1) {
                     objectsArray[idx] = updatedObj;
                 }
-            } else {
-                // Якщо оновлення прийшло раніше за створення (race condition), створюємо об'єкт
-                const newObj = { ...operation.data };
-                objects[newObj.id] = newObj;
-                objectsArray.push(newObj);
             }
             break;
         case 'delete':
@@ -2251,9 +2250,8 @@ function startTextEdit(obj) {
         updateSize();
         if (editingObject) {
             editingObject.text = editorDiv.innerText;
-            const html = editorDiv.innerHTML;
-            editingObject.segments = htmlToSegments(html); // ОБОВ'ЯЗКОВО для математики
             editingObject.lastModified = Date.now();
+            // Інкрементальне оновлення
             sendOperation('update', editingObject);
         }
     });
