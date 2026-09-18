@@ -681,15 +681,21 @@ function applyBatchOperations(operations) {
 
 function requestDraw() {
     if (!needsRedraw) {
-        needsRedraw = true; // Исправлено: было needsRedDraw
+        needsRedraw = true;
         animationFrameId = requestAnimationFrame(() => {
-            // Синхронизируем позицию текстового редактора с масштабом
-            if (textEditor && editingObject) {
-                const bbox = getBBox(editingObject);
-                textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-                textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+            try {
+                // Оновлюємо позицію редактора тексту тільки якщо він відкритий
+                if (textEditor && editingObject) {
+                    const bbox = getBBox(editingObject);
+                    if (bbox) {
+                        textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
+                        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+                    }
+                }
+                draw();
+            } catch (e) {
+                console.error("Помилка при малюванні:", e);
             }
-            draw();
             needsRedraw = false;
         });
     }
@@ -3017,32 +3023,34 @@ colorPickerInput.addEventListener('input', (e) => {
 // ============================================
 
 canvas.addEventListener('wheel', (e) => {
-    // Це прибирає стандартну прокрутку сторінки, щоб працював тільки зум дошки
+    // 1. Обов'язково зупиняємо стандартну прокрутку браузера
     e.preventDefault();
     
-    // Визначаємо напрямок прокрутки: вгору (збільшення) або вниз (зменшення)
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    // 2. Розраховуємо новий масштаб
+    const zoomSpeed = 0.1;
+    const delta = e.deltaY > 0 ? (1 - zoomSpeed) : (1 + zoomSpeed);
     const oldScale = scale;
     
-    // Оновлюємо масштаб
     scale *= delta;
     
-    // Обмежуємо зум від 20% до 500%, щоб не "зникнути" в екрані
-    scale = Math.min(Math.max(scale, 0.2), 5.0);
+    // 3. Жорстке обмеження масштабу
+    if (scale < 0.1) scale = 0.1;
+    if (scale > 10) scale = 10;
     
+    // 4. Розрахунок зміщення (zoom в точку курсора)
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    // Розрахунок координат, щоб зум відбувався в точку, де знаходиться курсор
-    const mx = (mouseX - offsetX) / oldScale;
-    const my = (mouseY - offsetY) / oldScale;
+    const worldX = (mouseX - offsetX) / oldScale;
+    const worldY = (mouseY - offsetY) / oldScale;
     
-    offsetX = mouseX - mx * scale;
-    offsetY = mouseY - my * scale;
+    offsetX = mouseX - worldX * scale;
+    offsetY = mouseY - worldY * scale;
     
+    // 5. Оновлення інтерфейсу та перемальовування
     updateZoomDisplay();
-    requestDraw(); 
+    requestDraw();
 }, { passive: false }); // passive: false обов'язково для роботи e.preventDefault()
 
 // ============================================
