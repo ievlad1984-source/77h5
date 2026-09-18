@@ -611,19 +611,29 @@ function updateConnectionStatus(status, text) {
 function sendOperation(type, data) {
     if (!syncState.connected) return;
     
-    // Локальне застосування
+    // Створюємо копію даних для відправки, щоб не змінювати оригінал на дошці
+    let dataToSend = JSON.parse(JSON.stringify(data));
+
+    // КРИТИЧНЕ ВИПРАВЛЕННЯ: Якщо це оновлення і це зображення, 
+    // видаляємо src з даних, що йдуть на сервер. 
+    // Сервер вже має src, йому потрібні тільки нові координати.
+    if (type === 'update' && dataToSend.type === 'image') {
+        delete dataToSend.src;
+    }
+    
+    // Локальне застосування (використовуємо оригінальні дані)
     applyOperation({ type, data, id: Date.now(), timestamp: Date.now() });
     
-    // Відправка на сервер
+    // Відправка на сервер (використовуємо оптимізовані дані)
     switch (type) {
         case 'add':
-            socket.emit('object:add', data);
+            socket.emit('object:add', dataToSend);
             break;
         case 'update':
-            socket.emit('object:update', data);
+            socket.emit('object:update', dataToSend);
             break;
         case 'delete':
-            socket.emit('object:delete', data.id);
+            socket.emit('object:delete', dataToSend.id);
             break;
     }
 }
@@ -638,14 +648,23 @@ function applyOperation(operation) {
             break;
         case 'update':
             if (objects[operation.data.id]) {
-                objects[operation.data.id] = {
-                    ...objects[operation.data.id],
+                const oldObj = objects[operation.data.id];
+                const updatedObj = {
+                    ...oldObj,
                     ...operation.data
                 };
-                // Оновлюємо в масиві
+                
+                // Зберігаємо посилання на завантажене зображення, 
+                // щоб воно не перевантажувалося щоразу
+                if (oldObj._img) {
+                    updatedObj._img = oldObj._img;
+                }
+                
+                objects[operation.data.id] = updatedObj;
+                
                 const idx = objectsArray.findIndex(o => o.id === operation.data.id);
                 if (idx !== -1) {
-                    objectsArray[idx] = objects[operation.data.id];
+                    objectsArray[idx] = updatedObj;
                 }
             }
             break;
