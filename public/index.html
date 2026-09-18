@@ -553,7 +553,8 @@ let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = {}; // Змінено на Map для швидкого доступу
 let objectsArray = []; // Для зворотньої сумісності
 let currentTool = 'select';
-let selectedObjects = []; 
+let selectedObjects = [];
+let clipboard = null; // <--- ДОДАЙТЕ ОСЬ ЦЕЙ РЯДОК ТУТ 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
 let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
@@ -711,51 +712,35 @@ function undo() {
     historyIndex--;
     const state = historyStack[historyIndex];
     
-    // Відправляємо повну синхронізацію
-    if (syncState.connected) {
-        // Для undo надсилаємо операції видалення для всіх об'єктів, 
-        // а потім додаємо їх з історії
-        const batchOps = [];
-        Object.keys(objects).forEach(id => {
-            batchOps.push({ type: 'delete', data: { id } });
-        });
-        
-        if (batchOps.length > 0) {
-            socket.emit('batch-operation', { operations: batchOps });
-        }
-        
-        // Додаємо об'єкти з історії
-        state.objects.forEach(obj => {
-            const newObj = { ...obj, id: obj.id || generateId() };
-            objects[obj.id] = newObj;
-            objectsArray.push(newObj);
-            socket.emit('object:add', newObj);
-        });
-        
-        objects = {};
-        objectsArray = [];
-        state.objects.forEach(obj => {
-            const id = obj.id || generateId();
-            obj.id = id;
-            objects[id] = obj;
-            objectsArray.push(obj);
-        });
-    } else {
-        objects = {};
-        objectsArray = [];
-        state.objects.forEach(obj => {
-            const id = obj.id || generateId();
-            obj.id = id;
-            objects[id] = obj;
-            objectsArray.push(obj);
-        });
-    }
+    // Вместо того чтобы удалять всё на сервере, мы обновляем локальный список
+    // и синхронизируем его через пакетную операцию только для изменившихся объектов
+    const oldObjects = { ...objects };
+    objects = {};
+    objectsArray = [];
     
+    state.objects.forEach(obj => {
+        objects[obj.id] = obj;
+        objectsArray.push(obj);
+    });
+
     if (state.view) {
         scale = state.view.scale;
         offsetX = state.view.offsetX;
         offsetY = state.view.offsetY;
         updateZoomDisplay();
+    }
+
+    // Синхронизируем с сервером: удаляем то, чего нет в истории, и добавляем то, что появилось
+    const ops = [];
+    Object.keys(oldObjects).forEach(id => {
+        if (!objects[id]) ops.push({ type: 'delete', data: { id } });
+    });
+    objectsArray.forEach(obj => {
+        if (!oldObjects[obj.id]) ops.push({ type: 'add', data: obj });
+    });
+
+    if (syncState.connected && ops.length > 0) {
+        socket.emit('batch-operation', { operations: ops });
     }
 
     selectedObjects = [];
@@ -764,8 +749,26 @@ function undo() {
     isUndoing = false;
 }
 
-function updateZoomDisplay() {
-    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
+function pasteObjects() {
+    saveHistory();
+    const offset = 20; // Смещение, чтобы вставленный объект не перекрывал оригинал полностью
+    
+    clipboard.forEach(clipObj => {
+        const newObj = JSON.parse(JSON.stringify(clipObj));
+        newObj.id = generateId(); // Обязательно новый ID
+        newObj.x += offset;
+        newObj.y += offset;
+        if (newObj.ex !== undefined) newObj.ex += offset;
+        if (newObj.ey !== undefined) newObj.ey += offset;
+        if (newObj.points) {
+            newObj.points = newObj.points.map(p => ({ x: p.x + offset, y: p.y + offset }));
+        }
+        
+        objects[newObj.id] = newObj;
+        objectsArray.push(newObj);
+        sendOperation('add', newObj);
+    });
+    requestDraw();
 }
 
 // ============================================
@@ -790,18 +793,34 @@ window.addEventListener('keydown', (e) => {
         undo();
         return;
     }
+
+    // --- НОВЫЙ БЛОК: Копирование ---
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        if (!textEditor && selectedObjects.length > 0) {
+            e.preventDefault();
+            clipboard = JSON.parse(JSON.stringify(selectedObjects));
+            return;
+        }
+    }
+
+    // --- НОВЫЙ БЛОК: Вставка ---
+    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        if (!textEditor && clipboard) {
+            e.preventDefault();
+            pasteObjects();
+            return;
+        }
+    }
+    // -----------------------------
     
     if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedObjects.length > 0 && !textEditor) {
             e.preventDefault();
             saveHistory();
-            
-            // Відправляємо операції видалення
             selectedObjects.forEach(obj => {
                 delete objects[obj.id];
                 sendOperation('delete', { id: obj.id });
             });
-            
             objectsArray = objectsArray.filter(o => !selectedObjects.some(s => s.id === o.id));
             selectedObjects = [];
             requestDraw();
@@ -812,11 +831,6 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'v' || e.key === 'V') setTool('select');
     if (e.key === 'h' || e.key === 'H') setTool('hand');
     if (e.key === 'g' || e.key === 'G') setTool('grid');
-});
-
-window.addEventListener('keyup', (e) => { 
-    if (e.key === 'Shift') shiftKey = false;
-    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
 
 // ============================================
@@ -1603,8 +1617,8 @@ function drawObject(obj, isTemp = false) {
     }
     
     if (obj.type === 'pen') {
-        if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
-        const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
+        // Дозволяємо малювати, навіть якщо точок 0 (це буде одна точка/крапка)
+        const allPoints = [{x: obj.x, y: obj.y}, ...(obj.points || [])];
         drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
     } else if (obj.type === 'line' || obj.type === 'arrow') {
         const ex = obj.ex * scale + offsetX;
@@ -2637,7 +2651,7 @@ canvas.addEventListener('mouseup', () => {
     }
     
     if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen' && currentPath.points.length > 1) {
+        if (currentPath.type === 'pen') {
             saveHistory();
             currentPath.id = generateId();
             objects[currentPath.id] = currentPath;
