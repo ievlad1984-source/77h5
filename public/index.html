@@ -636,18 +636,21 @@ function applyOperation(operation) {
             }
             break;
         case 'update':
-            if (objects[operation.data.id]) {
-                objects[operation.data.id] = {
-                    ...objects[operation.data.id],
-                    ...operation.data
-                };
-                // Оновлюємо в масиві
-                const idx = objectsArray.findIndex(o => o.id === operation.data.id);
-                if (idx !== -1) {
-                    objectsArray[idx] = objects[operation.data.id];
-                }
+    if (objects[operation.data.id]) {
+        const localObj = objects[operation.data.id];
+        // Обновляем только если данные с сервера новее локальных
+        if (!localObj.lastModified || (operation.data.lastModified && operation.data.lastModified > localObj.lastModified)) {
+            objects[operation.data.id] = {
+                ...localObj,
+                ...operation.data
+            };
+            const idx = objectsArray.findIndex(o => o.id === operation.data.id);
+            if (idx !== -1) {
+                objectsArray[idx] = objects[operation.data.id];
             }
-            break;
+        }
+    }
+    break;
         case 'delete':
             if (objects[operation.data.id]) {
                 delete objects[operation.data.id];
@@ -3053,11 +3056,16 @@ window.addEventListener('paste', (e) => {
                         h: img.height/2, 
                         rotation: 0 
                     };
-                    saveHistory();
+                    
+                    // Сначала добавляем в локальный стейт
                     objects[id] = obj;
                     objectsArray.push(obj);
                     selectedObjects = [obj];
+                    
+                    // Затем отправляем на сервер
                     sendOperation('add', obj);
+                    
+                    saveHistory();
                     requestDraw();
                 };
             };
