@@ -503,6 +503,40 @@
         <div class="shape-item" onclick="selectShape('quarter-circle')"><svg viewBox="0 0 24 24"><path d="M2 22 A20 20 0 0 1 22 2 Z" /></svg></div>
         <div class="shape-item" onclick="selectShape('heart')"><svg viewBox="0 0 24 24"><path d="M12 21 C12 21 2 14 2 8 C2 5 5 2 8 2 C10 2 12 4 12 4 C12 4 14 2 16 2 C19 2 22 5 22 8 C22 14 12 21 12 21 Z" /></svg></div>
     </div>
+
+    <div class="shape-category">3D Тіла</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('cube')" title="Куб">
+            <svg viewBox="0 0 24 24"><path d="M7 5h10l3 4v10l-3 4H7l-3-4V9l3-4z M7 5l3 4h10M7 9h10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('cylinder')" title="Циліндр">
+            <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="6" ry="2"/><path d="M6 5v12a6 6 0 0012 0V5"/><ellipse cx="12" cy="17" rx="6" ry="2"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('sphere')" title="Сфера">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="//9" ry="3" stroke-dasharray="2,2"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('pyramid')" title="Піраміда">
+            <svg viewBox="0 0 24 24"><path d="M12 3L21 18H3L12 3z M12 3v15M7 18l2-6h6l2 6"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('cone')" title="Конус">
+            <svg viewBox="0 0 24 24"><path d="M12 3L20 18C20 20 4 20 4 18L12 3z"/><ellipse cx="12" cy="18" rx="8" ry="2"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('prism')" title="Призма">
+            <svg viewBox="0 0 24 24"><path d="M8 5l4-2 4 2v12l-4 2-4-2V5z M8 5l4 2 4-2M8 17l4 2 4-2"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('hexprism')" title="Шестигранна призма">
+            <svg viewBox="0 0 24 24"><path d="M7 6l5-3 5 3v12l-5 3-5-3V6z M7 6l5 3 5-3M7 18l5 3 5-3"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('octahedron')" title="Октаедр">
+            <svg viewBox="0 0 24 24"><path d="M12 2L22 12L12 22L2 12Z M2 12h20M12 2v20"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('pyr_frustum')" title="Зріз піраміди">
+            <svg viewBox="0 0 24 24"><path d="M6 8l3-3h6l3 3v8l-3 3h-6l-3-3V8z"/></svg>
+        </div>
+        <div class="shape-item" onclick="selectShape('cone_frustum')" title="Зріз конуса">
+            <svg viewBox="0 0 24 24"><ellipse cx="12" cy="8" rx="4" ry="2"/><path d="M8 8v8a4 4 0 008 0V8"/><ellipse cx="12" cy="16" rx="6" ry="2"/></svg>
+        </div>
+    </div>
 </div>
 
 <div id="zoom-display">100%</div>
@@ -1691,6 +1725,8 @@ function drawObject(obj, isTemp = false) {
         
         if (obj.shapeType === 'circle') {
             ctx.ellipse(cx, cy, minDim/2, minDim/2, 0, 0, Math.PI * 2);
+        } else if (obj.shapeType === 'circle') {
+            ctx.ellipse(cx, cy, minDim/2, minDim/2, 0, 0, Math.PI * 2);
         } else if (obj.shapeType === 'triangle') {
             ctx.moveTo(cx, sy);
             ctx.lineTo(sx + w, sy + h);
@@ -1754,44 +1790,130 @@ function drawObject(obj, isTemp = false) {
             ctx.lineTo(sx, sy + h);
             ctx.closePath();
         } else if (obj.shapeType === 'heart') {
-            const topCurveHeight = h * 0.3;
             ctx.moveTo(cx, sy + h * 0.2);
             ctx.bezierCurveTo(cx, sy, sx, sy, sx, cy);
             ctx.bezierCurveTo(sx, sy + h, cx, sy + h * 1.2, sx + w, sy + h);
             ctx.bezierCurveTo(sx + w, cy, sx + w, sy, cx, sy);
             ctx.closePath();
+        } 
+        // --- НОВІ 3D ТІЛА ---
+        else if (obj.shapeType === 'cube') {
+            const size = minDim * 0.6;
+            const offset = size * 0.4;
+            ctx.strokeRect(cx - size/2, cy - size/2, size, size);
+            ctx.strokeRect(cx - size/2 + offset, cy - size/2 - offset, size, size);
+            ctx.beginPath();
+            ctx.moveTo(cx - size/2, cy - size/2); ctx.lineTo(cx - size/2 + offset, cy - size/2 - offset);
+            ctx.moveTo(cx + size/2, cy - size/2); ctx.lineTo(cx + size/2 + offset, cy - size/2 - offset);
+            ctx.moveTo(cx - size/2, cy + size/2); ctx.lineTo(cx - size/2 + offset, cy + size/2 - offset);
+            ctx.moveTo(cx + size/2, cy + size/2); ctx.lineTo(cx + size/2 + offset, cy + size/2 - offset);
+            ctx.stroke();
+        } else if (obj.shapeType === 'cylinder') {
+            const rw = minDim / 2;
+            const rh = rw * 0.3;
+            ctx.beginPath();
+            ctx.ellipse(cx, sy + rh, rw, rh, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx - rw, sy + rh); ctx.lineTo(cx - rw, sy + h - rh);
+            ctx.moveTo(cx + rw, sy + rh); ctx.lineTo(cx + rw, sy + h - rh);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.ellipse(cx, sy + h - rh, rw, rh, 0, 0, Math.PI);
+            ctx.stroke();
+        } else if (obj.shapeType === 'sphere') {
+            ctx.beginPath();
+            ctx.arc(cx, cy, minDim/2, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, minDim/2, minDim * 0.15, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (obj.shapeType === 'pyramid') {
+            ctx.beginPath();
+            ctx.moveTo(cx, sy);
+            ctx.lineTo(sx + w, sy + h * 0.7);
+            ctx.lineTo(cx, sy + h);
+            ctx.lineTo(sx, sy + h * 0.7);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, sy); ctx.lineTo(cx, sy + h);
+            ctx.moveTo(cx, sy); ctx.lineTo(sx + w, sy + h * 0.7);
+            ctx.moveTo(cx, sy); ctx.lineTo(sx, sy + h * 0.7);
+            ctx.stroke();
+        } else if (obj.shapeType === 'cone') {
+            ctx.beginPath();
+            ctx.moveTo(cx, sy);
+            ctx.lineTo(sx + w/2, sy + h);
+            ctx.lineTo(sx - w/2, sy + h); // упрощення для прикладу
+            ctx.closePath();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.ellipse(cx, sy + h, minDim/2, minDim*0.15, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (obj.shapeType === 'prism') {
+            const size = minDim * 0.5;
+            const off = size * 0.3;
+            ctx.strokeRect(cx - size/2, cy - size/2, size, size);
+            ctx.beginPath();
+            ctx.moveTo(cx - size/2, cy - size/2); ctx.lineTo(cx - size/2 + off, cy - size/2 - off);
+            ctx.lineTo(cx + size/2 + off, cy - size/2 - off); ctx.lineTo(cx + size/2, cy - size/2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx - size/2, cy + size/2); ctx.lineTo(cx - size/2 + off, cy + size/2 - off);
+            ctx.lineTo(cx + size/2 + off, cy + size/2 - off); ctx.lineTo(cx + size/2, cy + size/2);
+            ctx.stroke();
+        } else if (obj.shapeType === 'hexprism') {
+            const r = minDim / 2;
+            const off = r * 0.3;
+            ctx.beginPath();
+            for(let i=0; i<6; i++) {
+                let a = (i * Math.PI/3) - Math.PI/2;
+                ctx.lineTo(cx + r*Math.cos(a), cy + r*Math.sin(a));
+            }
+            ctx.closePath(); ctx.stroke();
+            ctx.beginPath();
+            for(let i=0; i<6; i++) {
+                let a = (i * Math.PI/3) - Math.PI/2;
+                ctx.lineTo(cx + r*Math.cos(a) + off, cy + r*Math.sin(a) - off);
+            }
+            ctx.closePath(); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx - r, cy); ctx.lineTo(cx - r + off, cy - off);
+            ctx.moveTo(cx + r, cy); ctx.lineTo(cx + r + off, cy - off);
+            ctx.stroke();
+        } else if (obj.shapeType === 'octahedron') {
+            ctx.beginPath();
+            ctx.moveTo(cx, sy); ctx.lineTo(sx+w, cy); ctx.lineTo(cx, sy+h); ctx.lineTo(sx, cy); ctx.closePath();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(sx, cy); ctx.lineTo(sx+w, cy);
+            ctx.moveTo(cx, sy); ctx.lineTo(cx, sy+h);
+            ctx.stroke();
+        } else if (obj.shapeType === 'pyr_frustum') {
+            const s1 = minDim * 0.7;
+            const s2 = minDim * 0.4;
+            ctx.strokeRect(cx - s1/2, cy + s2/2, s1, s1);
+            ctx.strokeRect(cx - s2/2, cy - s2/2, s2, s2);
+            ctx.beginPath();
+            ctx.moveTo(cx-s1/2, cy+s2/2); ctx.lineTo(cx-s2/2, cy-s2/2);
+            ctx.moveTo(cx+s1/2, cy+s2/2); ctx.lineTo(cx+s2/2, cy-s2/2);
+            ctx.stroke();
+        } else if (obj.shapeType === 'cone_frustum') {
+            const r1 = minDim / 2;
+            const r2 = r1 * 0.6;
+            const rh = r1 * 0.3;
+            ctx.beginPath();
+            ctx.ellipse(cx, sy + rh, r2, rh, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx - r2, sy + rh); ctx.lineTo(cx - r1, sy + h - rh);
+            ctx.moveTo(cx + r2, sy + rh); ctx.lineTo(cx + r1, sy + h - rh);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.ellipse(cx, sy + h - rh, r1, rh, 0, 0, Math.PI * 2);
+            ctx.stroke();
         }
-        
-        ctx.stroke();
-    } else if (obj.type === 'text') {
-        ctx.fillStyle = obj.color || '#000';
-        ctx.textBaseline = 'alphabetic';
-        
-        const baseSize = obj.size * scale;
-        
-        if (obj.segments && obj.segments.length > 0) {
-            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
-        } else if (obj.text && obj.text.trim() !== '') {
-            ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-            const textLines = obj.text.split('\n');
-            const lineH = baseSize * 1.4;
-            textLines.forEach((line, i) => {
-                ctx.fillText(line, sx, sy + (baseSize * 0.8) + (i * lineH));
-            });
-        }
-    } else if (obj.type === 'grid') {
-        drawCoordinateGrid(obj);
-    } else if (obj.type === 'image') {
-        if (!obj._img) {
-            obj._img = new Image();
-            obj._img.src = obj.src;
-            obj._img.onload = () => requestDraw();
-        }
-        if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
-            ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
-        }
-    }
-    ctx.restore();
 }
 
 // ============================================
