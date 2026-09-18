@@ -694,6 +694,13 @@ function applyBatchOperations(operations) {
     });
 }
 
+function updateZoomDisplay() {
+    const display = document.getElementById('zoom-display');
+    if (display) {
+        display.innerText = `${Math.round(scale * 100)}%`;
+    }
+}
+
 // ============================================
 // ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
 // ============================================
