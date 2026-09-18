@@ -417,6 +417,28 @@
             width: 20px;
             height: 20px;
         }
+/* ... где-то здесь стили для #shapes-palette ... */
+#shapes-palette, #line-palette {
+    /* ... какие-то свойства ... */
+}
+
+/* ВСТАВЛЯЙТЕ СЮДА: */
+#matrix-palette {
+    position: absolute;
+    top: 70px;
+    left: 15px;
+    width: 200px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    z-index: 1001;
+    display: none;
+    flex-direction: column;
+    padding: 10px;
+}
+
+/* ... далее идут другие стили ... */
     </style>
 </head>
 <body>
@@ -445,6 +467,7 @@
     
     <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
     <button class="tool-btn" data-tool="text" title="Текст">Т</button>
+    <button class="tool-btn" id="matrixBtn" title="Матрицы и Определители">🔲</button>
     
     <button class="tool-btn" data-tool="eraser" title="Ластик">
         <svg class="tool-icon" viewBox="0 0 24 24">
@@ -506,6 +529,19 @@
 </div>
 
 <div id="zoom-display">100%</div>
+<div id="matrix-palette">
+    <div class="shape-category">Матрицы</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="insertMatrix('matrix', 2)" title="Матрица 2x2">2x2</div>
+        <div class="shape-item" onclick="insertMatrix('matrix', 3)" title="Матрица 3x3">3x3</div>
+    </div>
+    <div class="shape-category">Определители</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="insertMatrix('det', 2)" title="Определитель 2x2">|2x2|</div>
+        <div class="shape-item" onclick="insertMatrix('det', 3)" title="Определитель 3x3">|3x3|</div>
+    </div>
+</div>
+
 <div id="status-display">
     <div id="status-dot"></div>
     <span id="status-text">Підключено</span>
@@ -552,6 +588,7 @@ let syncState = {
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = {}; // Змінено на Map для швидкого доступу
 let objectsArray = []; // Для зворотньої сумісності
+let clipboard = []; // <--- ДОБАВЬТЕ ЭТУ СТРОКУ СЮДА
 let currentTool = 'select';
 let selectedObjects = []; 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
@@ -559,6 +596,7 @@ let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
 let startResizeState = {};
 let shiftKey = false, ctrlKey = false;
+
 
 let isSelectingArea = false;
 let selectionStart = { x: 0, y: 0 };
@@ -775,7 +813,50 @@ function updateZoomDisplay() {
 // ОБРОБКА КЛАВІШ
 // ============================================
 
-window.addEventListener('keydown', (e) => { 
+window.addEventListener('keydown', (e) => {
+// Копирование (Ctrl+C)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        if (!textEditor) {
+            e.preventDefault();
+            clipboard = JSON.parse(JSON.stringify(selectedObjects));
+        }
+    }
+
+    // Вставка (Ctrl+V)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        if (!textEditor) {
+            e.preventDefault();
+            if (clipboard.length === 0) return;
+            
+            saveHistory();
+            const offset = 20; // Смещение, чтобы вставленный объект не перекрывал оригинал
+            
+            clipboard.forEach(objData => {
+                const newObj = JSON.parse(JSON.stringify(objData));
+                newObj.id = generateId();
+                newObj.x += offset;
+                newObj.y += offset;
+                if (newObj.ex !== undefined) { newObj.ex += offset; }
+                if (newObj.ey !== undefined) { newObj.ey += offset; }
+                if (newObj.points) {
+                    newObj.points = newObj.points.map(p => ({ x: p.x + offset, y: p.y + offset }));
+                }
+                
+                objects[newObj.id] = newObj;
+                objectsArray.push(newObj);
+                sendOperation('add', newObj);
+            });
+            requestDraw();
+        }
+    }
+    
+    // Undo (Ctrl+Z) уже реализован в вашем коде через функцию undo(), 
+    // но убедитесь, что вызов выглядит так:
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+    } 
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
     
@@ -788,12 +869,7 @@ window.addEventListener('keydown', (e) => {
         }
     }
     
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault();
-        undo();
-        return;
-    }
-    
+        
     if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedObjects.length > 0 && !textEditor) {
             e.preventDefault();
@@ -2640,12 +2716,26 @@ canvas.addEventListener('mouseup', () => {
     }
     
     if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen' && currentPath.points.length > 1) {
-            saveHistory();
-            currentPath.id = generateId();
-            objects[currentPath.id] = currentPath;
-            objectsArray.push(currentPath);
-            sendOperation('add', currentPath);
+        if (currentPath.type === 'pen') {
+            // Если точек всего одна или нет (просто клик) — создаем точку
+            if (currentPath.points.length <= 1) {
+                saveHistory();
+                currentPath.id = generateId();
+                // Создаем "точку" как очень короткую линию или специальный объект
+                // Для простоты добавим одну точку, которая отрисуется как точка
+                if (currentPath.points.length === 0) {
+                    currentPath.points.push({x: currentPath.x, y: currentPath.y});
+                }
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            } else {
+                saveHistory();
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            }
         } else if (currentPath.type === 'shape') {
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
@@ -2688,7 +2778,8 @@ canvas.addEventListener('mouseup', () => {
         isDrawing = false;
         currentPath = null;
         requestDraw();
-    }
+    } // <--- ЭТА СКОБКА БЫЛА ПРОПУЩЕНА
+            // ... (остальной ваш код для shape, rect, line, grid остается без изменений)
     
     if (isDragging || isResizing || isRotating) {
         if (isRotating || isResizing || (isDragging && selectedObjects.length > 0)) {
@@ -3202,6 +3293,86 @@ setInterval(() => {
         socket.emit('sync', { lastKnownOperationId: syncState.lastKnownOperationId });
     }
 }, 5000);
+// Управление меню матриц
+document.getElementById('matrixBtn').onclick = (e) => {
+    const palette = document.getElementById('matrix-palette');
+    palette.style.display = palette.style.display === 'flex' ? 'none' : 'flex';
+    e.stopPropagation();
+};
+
+document.addEventListener('mousedown', (e) => {
+    if (!document.getElementById('matrix-palette').contains(e.target)) {
+        document.getElementById('matrix-palette').style.display = 'none';
+    }
+});
+
+function insertMatrix(type, size) {
+    const centerX = (canvas.width / 2 - offsetX) / scale;
+    const centerY = (canvas.height / 2 - offsetY) / scale;
+    const cellSize = 40;
+    const totalW = cellSize * size;
+    const totalH = cellSize * size;
+    
+    saveHistory();
+
+    // 1. Рисуем границы (скобки или палки)
+    const lineStyle = {
+        color: currentPenColor,
+        width: 2,
+        id: generateId(),
+        lastModified: Date.now()
+    };
+
+    // Левая граница
+    const leftBorder = { 
+        ...lineStyle, 
+        type: 'line', 
+        x: centerX, y: centerY, 
+        ex: centerX, ey: centerY + totalH 
+    };
+    
+    // Правая граница
+    const rightBorder = { 
+        ...lineStyle, 
+        type: 'line', 
+        x: centerX + totalW, y: centerY, 
+        ex: centerX + totalW, ey: centerY + totalH 
+    };
+
+    // Если это матрица, можно добавить "хвостики" скобок (опционально)
+    // Для упрощения используем прямые линии, как в определителях
+
+    const elements = [leftBorder, rightBorder];
+
+    // 2. Создаем текстовые поля для элементов
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+            const cellText = {
+                type: 'text',
+                id: generateId(),
+                x: centerX + (j * cellSize) + 10,
+                y: centerY + (i * cellSize) + 20,
+                text: '0',
+                color: currentPenColor,
+                size: 20,
+                isBold: false,
+                rotation: 0,
+                lastModified: Date.now()
+            };
+            elements.push(cellText);
+        }
+    }
+
+    // Добавляем все элементы на доску
+    elements.forEach(obj => {
+        objects[obj.id] = obj;
+        objectsArray.push(obj);
+        sendOperation('add', obj);
+    });
+
+    document.getElementById('matrix-palette').style.display = 'none';
+    requestDraw();
+}
 
 </script>
 </body>
