@@ -553,8 +553,7 @@ let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = {}; // Змінено на Map для швидкого доступу
 let objectsArray = []; // Для зворотньої сумісності
 let currentTool = 'select';
-let selectedObjects = [];
-let clipboard = null; // <--- ДОДАЙТЕ ОСЬ ЦЕЙ РЯДОК ТУТ 
+let selectedObjects = []; 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
 let isDrawing = false, currentPath = null;
 let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
@@ -611,29 +610,19 @@ function updateConnectionStatus(status, text) {
 function sendOperation(type, data) {
     if (!syncState.connected) return;
     
-    // Створюємо копію даних для відправки, щоб не змінювати оригінал на дошці
-    let dataToSend = JSON.parse(JSON.stringify(data));
-
-    // КРИТИЧНЕ ВИПРАВЛЕННЯ: Якщо це оновлення і це зображення, 
-    // видаляємо src з даних, що йдуть на сервер. 
-    // Сервер вже має src, йому потрібні тільки нові координати.
-    if (type === 'update' && dataToSend.type === 'image') {
-        delete dataToSend.src;
-    }
-    
-    // Локальне застосування (використовуємо оригінальні дані)
+    // Локальне застосування
     applyOperation({ type, data, id: Date.now(), timestamp: Date.now() });
     
-    // Відправка на сервер (використовуємо оптимізовані дані)
+    // Відправка на сервер
     switch (type) {
         case 'add':
-            socket.emit('object:add', dataToSend);
+            socket.emit('object:add', data);
             break;
         case 'update':
-            socket.emit('object:update', dataToSend);
+            socket.emit('object:update', data);
             break;
         case 'delete':
-            socket.emit('object:delete', dataToSend.id);
+            socket.emit('object:delete', data.id);
             break;
     }
 }
@@ -646,32 +635,22 @@ function applyOperation(operation) {
                 objectsArray.push(operation.data);
             }
             break;
-
         case 'update':
-            if (objects[operation.data.id]) {
-                const oldObj = objects[operation.data.id];
-                const updatedObj = { ...oldObj, ...operation.data };
-                
-                // Preserve the loaded image object to prevent flickering/reloading
-                if (oldObj._img) {
-                    updatedObj._img = oldObj._img;
-                }
-                
-                objects[operation.data.id] = updatedObj;
-                
-                // Update the reference in the array for drawing
-                const idx = objectsArray.findIndex(o => o.id === operation.data.id);
-                if (idx !== -1) {
-                    objectsArray[idx] = updatedObj;
-                }
-            } else {
-                // Safety: If update arrives before 'add', create the object now
-                const newObj = { ...operation.data };
-                objects[newObj.id] = newObj;
-                objectsArray.push(newObj);
+    if (objects[operation.data.id]) {
+        const localObj = objects[operation.data.id];
+        // Обновляем только если данные с сервера новее локальных
+        if (!localObj.lastModified || (operation.data.lastModified && operation.data.lastModified > localObj.lastModified)) {
+            objects[operation.data.id] = {
+                ...localObj,
+                ...operation.data
+            };
+            const idx = objectsArray.findIndex(o => o.id === operation.data.id);
+            if (idx !== -1) {
+                objectsArray[idx] = objects[operation.data.id];
             }
-            break; // <--- Crucial: prevents falling through to 'delete'
-
+        }
+    }
+    break;
         case 'delete':
             if (objects[operation.data.id]) {
                 delete objects[operation.data.id];
@@ -679,7 +658,6 @@ function applyOperation(operation) {
                 selectedObjects = selectedObjects.filter(o => o.id !== operation.data.id);
             }
             break;
-
         case 'clear':
             objects = {};
             objectsArray = [];
@@ -707,19 +685,7 @@ function requestDraw() {
     if (!needsRedraw) {
         needsRedraw = true;
         animationFrameId = requestAnimationFrame(() => {
-            try {
-                // Оновлюємо позицію редактора тексту тільки якщо він відкритий
-                if (textEditor && editingObject) {
-                    const bbox = getBBox(editingObject);
-                    if (bbox) {
-                        textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-                        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
-                    }
-                }
-                draw();
-            } catch (e) {
-                console.error("Помилка при малюванні:", e);
-            }
+            draw();
             needsRedraw = false;
         });
     }
@@ -748,35 +714,51 @@ function undo() {
     historyIndex--;
     const state = historyStack[historyIndex];
     
-    // Вместо того чтобы удалять всё на сервере, мы обновляем локальный список
-    // и синхронизируем его через пакетную операцию только для изменившихся объектов
-    const oldObjects = { ...objects };
-    objects = {};
-    objectsArray = [];
+    // Відправляємо повну синхронізацію
+    if (syncState.connected) {
+        // Для undo надсилаємо операції видалення для всіх об'єктів, 
+        // а потім додаємо їх з історії
+        const batchOps = [];
+        Object.keys(objects).forEach(id => {
+            batchOps.push({ type: 'delete', data: { id } });
+        });
+        
+        if (batchOps.length > 0) {
+            socket.emit('batch-operation', { operations: batchOps });
+        }
+        
+        // Додаємо об'єкти з історії
+        state.objects.forEach(obj => {
+            const newObj = { ...obj, id: obj.id || generateId() };
+            objects[obj.id] = newObj;
+            objectsArray.push(newObj);
+            socket.emit('object:add', newObj);
+        });
+        
+        objects = {};
+        objectsArray = [];
+        state.objects.forEach(obj => {
+            const id = obj.id || generateId();
+            obj.id = id;
+            objects[id] = obj;
+            objectsArray.push(obj);
+        });
+    } else {
+        objects = {};
+        objectsArray = [];
+        state.objects.forEach(obj => {
+            const id = obj.id || generateId();
+            obj.id = id;
+            objects[id] = obj;
+            objectsArray.push(obj);
+        });
+    }
     
-    state.objects.forEach(obj => {
-        objects[obj.id] = obj;
-        objectsArray.push(obj);
-    });
-
     if (state.view) {
         scale = state.view.scale;
         offsetX = state.view.offsetX;
         offsetY = state.view.offsetY;
         updateZoomDisplay();
-    }
-
-    // Синхронизируем с сервером: удаляем то, чего нет в истории, и добавляем то, что появилось
-    const ops = [];
-    Object.keys(oldObjects).forEach(id => {
-        if (!objects[id]) ops.push({ type: 'delete', data: { id } });
-    });
-    objectsArray.forEach(obj => {
-        if (!oldObjects[obj.id]) ops.push({ type: 'add', data: obj });
-    });
-
-    if (syncState.connected && ops.length > 0) {
-        socket.emit('batch-operation', { operations: ops });
     }
 
     selectedObjects = [];
@@ -785,26 +767,8 @@ function undo() {
     isUndoing = false;
 }
 
-function pasteObjects() {
-    saveHistory();
-    const offset = 20; // Смещение, чтобы вставленный объект не перекрывал оригинал полностью
-    
-    clipboard.forEach(clipObj => {
-        const newObj = JSON.parse(JSON.stringify(clipObj));
-        newObj.id = generateId(); // Обязательно новый ID
-        newObj.x += offset;
-        newObj.y += offset;
-        if (newObj.ex !== undefined) newObj.ex += offset;
-        if (newObj.ey !== undefined) newObj.ey += offset;
-        if (newObj.points) {
-            newObj.points = newObj.points.map(p => ({ x: p.x + offset, y: p.y + offset }));
-        }
-        
-        objects[newObj.id] = newObj;
-        objectsArray.push(newObj);
-        sendOperation('add', newObj);
-    });
-    requestDraw();
+function updateZoomDisplay() {
+    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
 }
 
 // ============================================
@@ -829,34 +793,18 @@ window.addEventListener('keydown', (e) => {
         undo();
         return;
     }
-
-    // --- НОВЫЙ БЛОК: Копирование ---
-    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        if (!textEditor && selectedObjects.length > 0) {
-            e.preventDefault();
-            clipboard = JSON.parse(JSON.stringify(selectedObjects));
-            return;
-        }
-    }
-
-    // --- НОВЫЙ БЛОК: Вставка ---
-    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        if (!textEditor && clipboard) {
-            e.preventDefault();
-            pasteObjects();
-            return;
-        }
-    }
-    // -----------------------------
     
     if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedObjects.length > 0 && !textEditor) {
             e.preventDefault();
             saveHistory();
+            
+            // Відправляємо операції видалення
             selectedObjects.forEach(obj => {
                 delete objects[obj.id];
                 sendOperation('delete', { id: obj.id });
             });
+            
             objectsArray = objectsArray.filter(o => !selectedObjects.some(s => s.id === o.id));
             selectedObjects = [];
             requestDraw();
@@ -867,6 +815,11 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'v' || e.key === 'V') setTool('select');
     if (e.key === 'h' || e.key === 'H') setTool('hand');
     if (e.key === 'g' || e.key === 'G') setTool('grid');
+});
+
+window.addEventListener('keyup', (e) => { 
+    if (e.key === 'Shift') shiftKey = false;
+    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
 
 // ============================================
@@ -1653,8 +1606,8 @@ function drawObject(obj, isTemp = false) {
     }
     
     if (obj.type === 'pen') {
-        // Дозволяємо малювати, навіть якщо точок 0 (це буде одна точка/крапка)
-        const allPoints = [{x: obj.x, y: obj.y}, ...(obj.points || [])];
+        if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
+        const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
         drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
     } else if (obj.type === 'line' || obj.type === 'arrow') {
         const ex = obj.ex * scale + offsetX;
@@ -2254,10 +2207,9 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
-            // Оновлюємо і текст, і математичні сегменти миттєво
             editingObject.text = editorDiv.innerText;
-            editingObject.segments = htmlToSegments(editorDiv.innerHTML); 
             editingObject.lastModified = Date.now();
+            // Інкрементальне оновлення
             sendOperation('update', editingObject);
         }
     });
@@ -2688,7 +2640,7 @@ canvas.addEventListener('mouseup', () => {
     }
     
     if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen') {
+        if (currentPath.type === 'pen' && currentPath.points.length > 1) {
             saveHistory();
             currentPath.id = generateId();
             objects[currentPath.id] = currentPath;
@@ -3048,35 +3000,33 @@ colorPickerInput.addEventListener('input', (e) => {
 // ============================================
 
 canvas.addEventListener('wheel', (e) => {
-    // 1. Обов'язково зупиняємо стандартну прокрутку браузера
     e.preventDefault();
     
-    // 2. Розраховуємо новий масштаб
-    const zoomSpeed = 0.1;
-    const delta = e.deltaY > 0 ? (1 - zoomSpeed) : (1 + zoomSpeed);
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const oldScale = scale;
-    
     scale *= delta;
+    scale = Math.min(Math.max(scale, 0.2), 5.0);
     
-    // 3. Жорстке обмеження масштабу
-    if (scale < 0.1) scale = 0.1;
-    if (scale > 10) scale = 10;
-    
-    // 4. Розрахунок зміщення (zoom в точку курсора)
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    const worldX = (mouseX - offsetX) / oldScale;
-    const worldY = (mouseY - offsetY) / oldScale;
+    const mx = (mouseX - offsetX) / oldScale;
+    const my = (mouseY - offsetY) / oldScale;
     
-    offsetX = mouseX - worldX * scale;
-    offsetY = mouseY - worldY * scale;
+    offsetX = mouseX - mx * scale;
+    offsetY = mouseY - my * scale;
     
-    // 5. Оновлення інтерфейсу та перемальовування
     updateZoomDisplay();
+    
+    if (textEditor && editingObject) {
+        const bbox = getBBox(editingObject);
+        textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
+        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+    }
+    
     requestDraw();
-}, { passive: false }); // passive: false обов'язково для роботи e.preventDefault()
+}, { passive: false });
 
 // ============================================
 // ВСТАВКА ЗОБРАЖЕНЬ
@@ -3106,11 +3056,16 @@ window.addEventListener('paste', (e) => {
                         h: img.height/2, 
                         rotation: 0 
                     };
-                    saveHistory();
+                    
+                    // Сначала добавляем в локальный стейт
                     objects[id] = obj;
                     objectsArray.push(obj);
                     selectedObjects = [obj];
+                    
+                    // Затем отправляем на сервер
                     sendOperation('add', obj);
+                    
+                    saveHistory();
                     requestDraw();
                 };
             };
