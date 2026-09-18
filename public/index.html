@@ -681,8 +681,15 @@ function applyBatchOperations(operations) {
 
 function requestDraw() {
     if (!needsRedraw) {
-        needsRedraw = true;
+        needsRedDraw = true;
         animationFrameId = requestAnimationFrame(() => {
+            // Оновлюємо позицію текстового редактора тут (один раз за кадр), 
+            // а не в кожній події колесика миші
+            if (textEditor && editingObject) {
+                const bbox = getBBox(editingObject);
+                textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
+                textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+            }
             draw();
             needsRedraw = false;
         });
@@ -3030,11 +3037,8 @@ canvas.addEventListener('wheel', (e) => {
     
     updateZoomDisplay();
     
-    if (textEditor && editingObject) {
-        const bbox = getBBox(editingObject);
-        textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
-        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
-    }
+    // ВИДАЛЕНО: важкий блок оновлення textEditor. 
+    // Тепер це робить функція requestDraw() автоматично і плавно.
     
     requestDraw();
 }, { passive: false });
