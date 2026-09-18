@@ -681,10 +681,9 @@ function applyBatchOperations(operations) {
 
 function requestDraw() {
     if (!needsRedraw) {
-        needsRedDraw = true;
+        needsRedraw = true; // Исправлено: было needsRedDraw
         animationFrameId = requestAnimationFrame(() => {
-            // Оновлюємо позицію текстового редактора тут (один раз за кадр), 
-            // а не в кожній події колесика миші
+            // Синхронизируем позицию текстового редактора с масштабом
             if (textEditor && editingObject) {
                 const bbox = getBBox(editingObject);
                 textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
@@ -3020,27 +3019,28 @@ colorPickerInput.addEventListener('input', (e) => {
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     
+    // Коэффициенты масштабирования
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const oldScale = scale;
     scale *= delta;
+    
+    // Ограничиваем зум от 20% до 500%
     scale = Math.min(Math.max(scale, 0.2), 5.0);
     
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
+    // Вычисляем координаты курсора в пространстве доски до масштабирования
     const mx = (mouseX - offsetX) / oldScale;
     const my = (mouseY - offsetY) / oldScale;
     
+    // Смещаем доску так, чтобы точка под курсором осталась на месте
     offsetX = mouseX - mx * scale;
     offsetY = mouseY - my * scale;
     
     updateZoomDisplay();
-    
-    // ВИДАЛЕНО: важкий блок оновлення textEditor. 
-    // Тепер це робить функція requestDraw() автоматично і плавно.
-    
-    requestDraw();
+    requestDraw(); // Запускает перерисовку всех объектов с новым scale
 }, { passive: false });
 
 // ============================================
