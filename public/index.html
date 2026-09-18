@@ -649,16 +649,18 @@ function applyOperation(operation) {
         case 'update':
             if (objects[operation.data.id]) {
                 const oldObj = objects[operation.data.id];
-                const updatedObj = {
-                    ...oldObj,
-                    ...operation.data
-                };
-                
-                // Зберігаємо посилання на завантажене зображення, 
-                // щоб воно не перевантажувалося щоразу
-                if (oldObj._img) {
-                    updatedObj._img = oldObj._img;
-                }
+                const updatedObj = { ...oldObj, ...operation.data };
+                if (oldObj._img) updatedObj._img = oldObj._img;
+                objects[operation.data.id] = updatedObj;
+                const idx = objectsArray.findIndex(o => o.id === operation.data.id);
+                if (idx !== -1) objectsArray[idx] = updatedObj;
+            } else {
+                // КРИТИЧНЕ ВИПРАВЛЕННЯ: якщо об'єкт ще не створений, додаємо його як новий
+                const newObj = { ...operation.data };
+                objects[newObj.id] = newObj;
+                objectsArray.push(newObj);
+            }
+            break;
                 
                 objects[operation.data.id] = updatedObj;
                 
@@ -694,13 +696,6 @@ function applyBatchOperations(operations) {
     });
 }
 
-function updateZoomDisplay() {
-    const display = document.getElementById('zoom-display');
-    if (display) {
-        display.innerText = `${Math.round(scale * 100)}%`;
-    }
-}
-
 // ============================================
 // ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
 // ============================================
@@ -710,8 +705,8 @@ function requestDraw() {
         needsRedraw = true;
         animationFrameId = requestAnimationFrame(() => {
             try {
-                // Перевіряємо, чи редактор існує і чи він реально знаходиться на сторінці
-                if (textEditor && editingObject && document.body.contains(textEditor)) {
+                // Оновлюємо позицію редактора тексту тільки якщо він відкритий
+                if (textEditor && editingObject) {
                     const bbox = getBBox(editingObject);
                     if (bbox) {
                         textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
@@ -720,10 +715,9 @@ function requestDraw() {
                 }
                 draw();
             } catch (e) {
-                console.error("Критична помилка при малюванні:", e);
-            } finally {
-                needsRedraw = false;
+                console.error("Помилка при малюванні:", e);
             }
+            needsRedraw = false;
         });
     }
 }
@@ -2257,9 +2251,11 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
+            // Оновлюємо і звичайний текст, і математичні сегменти в реальному часі
             editingObject.text = editorDiv.innerText;
+            const html = editorDiv.innerHTML;
+            editingObject.segments = htmlToSegments(html); 
             editingObject.lastModified = Date.now();
-            // Інкрементальне оновлення
             sendOperation('update', editingObject);
         }
     });
@@ -3049,33 +3045,22 @@ colorPickerInput.addEventListener('input', (e) => {
 // МАСШТАБУВАННЯ
 // ============================================
 
-// Замінюємо canvas.addEventListener на window.addEventListener
-window.addEventListener('wheel', (e) => {
-    // 1. Ігноруємо зум, якщо курсор над меню
-    if (e.target.closest('#toolbar') || e.target.closest('#shapes-palette') || e.target.closest('#line-palette')) {
-        return; 
-    }
-
-    // 2. Зупиняємо прокрутку сторінки
+canvas.addEventListener('wheel', (e) => {
+    // 1. Обов'язково зупиняємо стандартну прокрутку браузера
     e.preventDefault();
     
-    // Лог для перевірки (видаліть потім), щоб ви бачили в консолі, що подія працює
-    console.log("Wheel event detected. Current scale:", scale);
-    
-    // 3. Розрахунок нового масштабу
+    // 2. Розраховуємо новий масштаб
     const zoomSpeed = 0.1;
-    const direction = e.deltaY > 0 ? (1 - zoomSpeed) : (1 + zoomSpeed);
+    const delta = e.deltaY > 0 ? (1 - zoomSpeed) : (1 + zoomSpeed);
+    const oldScale = scale;
     
-    const oldScale = scale || 1.0; // Запобігаємо 0 або NaN
-    let newScale = oldScale * direction;
+    scale *= delta;
     
-    // Обмеження від 10% до 1000%
-    if (newScale < 0.1) newScale = 0.1;
-    if (newScale > 10) newScale = 10;
+    // 3. Жорстке обмеження масштабу
+    if (scale < 0.1) scale = 0.1;
+    if (scale > 10) scale = 10;
     
-    scale = newScale;
-    
-    // 4. Центрування зуму на курсорі
+    // 4. Розрахунок зміщення (zoom в точку курсора)
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -3086,7 +3071,7 @@ window.addEventListener('wheel', (e) => {
     offsetX = mouseX - worldX * scale;
     offsetY = mouseY - worldY * scale;
     
-    // 5. Оновлення
+    // 5. Оновлення інтерфейсу та перемальовування
     updateZoomDisplay();
     requestDraw();
 }, { passive: false }); // passive: false обов'язково для роботи e.preventDefault()
