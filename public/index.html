@@ -3017,31 +3017,33 @@ colorPickerInput.addEventListener('input', (e) => {
 // ============================================
 
 canvas.addEventListener('wheel', (e) => {
+    // Це прибирає стандартну прокрутку сторінки, щоб працював тільки зум дошки
     e.preventDefault();
     
-    // Коэффициенты масштабирования
+    // Визначаємо напрямок прокрутки: вгору (збільшення) або вниз (зменшення)
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const oldScale = scale;
+    
+    // Оновлюємо масштаб
     scale *= delta;
     
-    // Ограничиваем зум от 20% до 500%
+    // Обмежуємо зум від 20% до 500%, щоб не "зникнути" в екрані
     scale = Math.min(Math.max(scale, 0.2), 5.0);
     
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    // Вычисляем координаты курсора в пространстве доски до масштабирования
+    // Розрахунок координат, щоб зум відбувався в точку, де знаходиться курсор
     const mx = (mouseX - offsetX) / oldScale;
     const my = (mouseY - offsetY) / oldScale;
     
-    // Смещаем доску так, чтобы точка под курсором осталась на месте
     offsetX = mouseX - mx * scale;
     offsetY = mouseY - my * scale;
     
     updateZoomDisplay();
-    requestDraw(); // Запускает перерисовку всех объектов с новым scale
-}, { passive: false });
+    requestDraw(); 
+}, { passive: false }); // passive: false обов'язково для роботи e.preventDefault()
 
 // ============================================
 // ВСТАВКА ЗОБРАЖЕНЬ
