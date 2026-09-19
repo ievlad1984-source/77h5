@@ -628,7 +628,7 @@ function sendOperation(type, data) {
 }
 
 function applyOperation(operation) {
-    // Визначаємо ID об'єкта: шукаємо або в data.id, або в objectId (як надсилає сервер)
+    // Визначаємо ID об'єкта
     const objId = operation.data?.id || operation.objectId;
     if (!objId) return;
 
@@ -641,31 +641,40 @@ function applyOperation(operation) {
             break;
         case 'update':
             if (!objects[objId]) {
-                // Если объект еще не существует (пропустили 'add'), создаем его
-                objects[objId] = operation.data;
-                objectsArray.push(operation.data);
+                // КРИТИЧНА ЗМІНА: Не створюємо об'єкт з дельти!
+                // Якщо об'єкта немає, ми не можемо його відновити з {x, y}.
+                // Просто ігноруємо або можна додати socket.emit('request-full-sync')
+                console.warn(`[SYNC] Отримано update для відсутнього об'єкта ${objId}. Ігноруємо.`);
+                return; 
             } else {
                 const localObj = objects[objId];
                 const isEditingLocally = (editingObject && editingObject.id === objId);
-                const isNewer = !localObj.lastModified || (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
+                
+                // Перевіряємо, чи дані новіші (якщо є timestamp)
+                const isNewer = !localObj.lastModified || 
+                                (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
 
                 if (!isEditingLocally || isNewer) {
-                    // Сохраняем ссылку на загруженное изображение, чтобы оно не исчезло при обновлении координат
+                    // Зберігаємо посилання на HTML-елемент зображення
                     const existingImg = localObj._img; 
                     
-                    objects[objId] = {
+                    // Створюємо новий об'єкт, об'єднуючи старий стан і нові зміни
+                    const updatedObj = {
                         ...localObj,
                         ...operation.data
                     };
                     
-                    // Восстанавливаем ссылку на изображение в обновленном объекте
+                    // Повертаємо посилання на завантажену картинку
                     if (existingImg) {
-                        objects[objId]._img = existingImg;
+                        updatedObj._img = existingImg;
                     }
 
+                    objects[objId] = updatedObj;
+                    
+                    // Оновлюємо посилання в масиві для малювання
                     const idx = objectsArray.findIndex(o => o.id === objId);
                     if (idx !== -1) {
-                        objectsArray[idx] = objects[objId];
+                        objectsArray[idx] = updatedObj;
                     }
                 }
             }
