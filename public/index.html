@@ -610,16 +610,23 @@ function updateConnectionStatus(status, text) {
 function sendOperation(type, data) {
     if (!syncState.connected) return;
     
-    // 1. Локальне застосування змін (використовуємо вже існуючу функцію applyOperation)
+    // Создаем копию данных для отправки, чтобы не испортить локальный объект
+    let dataToSend = JSON.parse(JSON.stringify(data));
+    
+    // ОПТИМИЗАЦИЯ: Если это обновление картинки, удаляем src из пакета, 
+    // чтобы не гонять мегабайты данных при каждом движении мышки
+    if (type === 'update' && data.type === 'image') {
+        delete dataToSend.src; 
+    }
+
     applyOperation({ type, data, id: Date.now(), timestamp: Date.now() });
     
-    // 2. Відправка на сервер
     switch (type) {
         case 'add':
-            socket.emit('object:add', data);
+            socket.emit('object:add', data); // При добавлении src нужен
             break;
         case 'update':
-            socket.emit('object:update', data);
+            socket.emit('object:update', dataToSend); // При обновлении src НЕ нужен
             break;
         case 'delete':
             socket.emit('object:delete', data.id);
@@ -3059,26 +3066,50 @@ window.addEventListener('paste', (e) => {
                 const img = new Image();
                 img.src = event.target.result;
                 img.onload = () => {
+                    // --- СЖАТИЕ КАРТИНКИ ---
+                    const canvasTemp = document.createElement('canvas');
+                    const ctxTemp = canvasTemp.getContext('2d');
+                    
+                    // Ограничиваем максимальный размер до 1200px по большей стороне
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 1200;
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height *= maxDim / width;
+                            width = maxDim;
+                        } else {
+                            width *= maxDim / height;
+                            height = maxDim;
+                        }
+                    }
+                    
+                    canvasTemp.width = width;
+                    canvasTemp.height = height;
+                    ctxTemp.drawImage(img, 0, 0, width, height);
+                    
+                    // Сохраняем как JPEG с качеством 0.7 (сильно уменьшает вес)
+                    const compressedSrc = canvasTemp.toDataURL('image/jpeg', 0.7);
+                    // ------------------------
+
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
                     const id = generateId();
                     const obj = { 
                         type: 'image', 
                         id: id,
-                        src: event.target.result, 
-                        x: centerX - img.width/4, 
-                        y: centerY - img.height/4, 
-                        w: img.width/2, 
-                        h: img.height/2, 
+                        src: compressedSrc, // Используем сжатую версию
+                        x: centerX - width/4, 
+                        y: centerY - height/4, 
+                        w: width/2, 
+                        h: height/2, 
                         rotation: 0 
                     };
                     
-                    // Сначала добавляем в локальный стейт
                     objects[id] = obj;
                     objectsArray.push(obj);
                     selectedObjects = [obj];
                     
-                    // Затем отправляем на сервер
                     sendOperation('add', obj);
                     
                     saveHistory();
