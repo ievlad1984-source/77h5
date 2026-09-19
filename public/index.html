@@ -552,6 +552,7 @@ let syncState = {
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = {}; // Змінено на Map для швидкого доступу
 let objectsArray = []; // Для зворотньої сумісності
+const imageCache = {}; // Кеш для завантажених зображень
 let currentTool = 'select';
 let selectedObjects = []; 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
@@ -655,26 +656,14 @@ function applyOperation(operation) {
                                 (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
 
                 if (!isEditingLocally || isNewer) {
-                    // Зберігаємо посилання на HTML-елемент зображення
-                    const existingImg = localObj._img; 
-                    
-                    // Створюємо новий об'єкт, об'єднуючи старий стан і нові зміни
-                    const updatedObj = {
+                    // Просто оновлюємо дані. Картинки тепер беруться з imageCache, тому _img не потрібен
+                    objects[objId] = {
                         ...localObj,
                         ...operation.data
                     };
-                    
-                    // Повертаємо посилання на завантажену картинку
-                    if (existingImg) {
-                        updatedObj._img = existingImg;
-                    }
-
-                    objects[objId] = updatedObj;
-                    
-                    // Оновлюємо посилання в масиві для малювання
                     const idx = objectsArray.findIndex(o => o.id === objId);
                     if (idx !== -1) {
-                        objectsArray[idx] = updatedObj;
+                        objectsArray[idx] = objects[objId];
                     }
                 }
             }
@@ -1760,13 +1749,21 @@ function drawObject(obj, isTemp = false) {
     } else if (obj.type === 'grid') {
         drawCoordinateGrid(obj);
     } else if (obj.type === 'image') {
-        if (!obj._img) {
-            obj._img = new Image();
-            obj._img.src = obj.src;
-            obj._img.onload = () => requestDraw();
+        const src = obj.src;
+        // Перевіряємо, чи картинка вже є в кеші
+        if (!imageCache[src]) {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                imageCache[src] = img;
+                requestDraw();
+            };
+            imageCache[src] = null; // Позначаємо, що завантаження розпочато
         }
-        if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
-            ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
+        
+        const cachedImg = imageCache[src];
+        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+            ctx.drawImage(cachedImg, sx, sy, obj.w * scale, obj.h * scale);
         }
     }
     ctx.restore();
@@ -3128,6 +3125,7 @@ socket.on('connect_error', () => {
 });
 
 // Повна синхронізація при підключенні
+// Повна синхронізація при підключенні
 socket.on('full-sync', (data) => {
     console.log('[CLIENT] Отримано повну синхронізацію:', data.objects?.length, 'об\'єктів');
     
@@ -3150,7 +3148,7 @@ socket.on('full-sync', (data) => {
     historyStack = [{ objects: JSON.parse(JSON.stringify(objectsArray)), view: { scale, offsetX, offsetY } }];
     historyIndex = 0;
     
-    // Завантажуємо зображення
+    // Завантажуємо зображення в кеш
     let imagesLoaded = 0;
     const totalImages = objectsArray.filter(o => o.type === 'image').length;
     
@@ -3161,16 +3159,17 @@ socket.on('full-sync', (data) => {
         updateConnectionStatus('syncing', `Завантаження зображень...`);
         objectsArray.forEach(obj => {
             if (obj.type === 'image') {
-                obj._img = new Image();
-                obj._img.src = obj.src;
-                obj._img.onload = () => {
+                const img = new Image();
+                img.src = obj.src;
+                img.onload = () => {
+                    imageCache[obj.src] = img;
                     imagesLoaded++;
                     if (imagesLoaded >= totalImages) {
                         updateConnectionStatus('connected', 'Підключено');
                         requestDraw();
                     }
                 };
-                obj._img.onerror = () => {
+                img.onerror = () => {
                     imagesLoaded++;
                     if (imagesLoaded >= totalImages) {
                         updateConnectionStatus('connected', 'Підключено');
@@ -3180,9 +3179,9 @@ socket.on('full-sync', (data) => {
             }
         });
     }
-});
+}); // <--- ОСЬ ЦЯ ДУЖКА МАЄ БУТИ ТУТ, ПІСЛЯ ЦИКЛУ
 
-// Обробка інкрементальних операцій
+// Обробка інкрементальних операцій (рухи, додавання, видалення в реальному часі)
 socket.on('operation', (op) => {
     console.log('[CLIENT] Отримано операцію:', op.type, op.objectId);
     
@@ -3194,7 +3193,7 @@ socket.on('operation', (op) => {
     // Застосовуємо операцію
     applyOperation(op);
 });
-
+// Повна синхронізація при підключенні
 socket.on('operations-batch', (data) => {
     console.log('[CLIENT] Отримано пакет операцій:', data.operations?.length);
     
