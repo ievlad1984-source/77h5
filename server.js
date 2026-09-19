@@ -6,7 +6,7 @@ const io = require('socket.io')(http, {
         origin: "*",
         methods: ["GET", "POST"]
     },
-    maxHttpBufferSize: 1e8
+    maxHttpBufferSize: 1e8 // Дозволяємо великі пакети для Base64 зображень
 });
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -93,27 +93,30 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // ВАЖНО: Мы убрали проверку (obj.lastModified < existingObj.lastModified),
-        // так как часы на разных ПК могут отличаться. Теперь используем Last Write Wins.
-        
+        // 1. Обновляем полное состояние на сервере (сохраняем src и прочее)
+        // Это нужно для тех, кто подключится к доске позже (full-sync)
         const mergedObj = {
             ...existingObj,
             ...obj,
             lastModified: Date.now()
         };
-        
+        board.objects[obj.id] = mergedObj;
         board.lastOperationId++;
+
+        // 2. ВАЖНО: Отправляем другим пользователям ТОЛЬКО изменения (дельту).
+        // Мы отправляем 'obj' (который прислал клиент), а не 'mergedObj'.
+        // Таким образом, если клиент прислал только {id, x, y}, мы не пересылаем 
+        // огромную строку Base64 картинки src снова и снова.
         const operation = {
             id: board.lastOperationId,
             type: 'update',
             objectId: obj.id,
-            data: mergedObj,
+            data: obj, 
             timestamp: Date.now(),
             userId: userId
         };
         
         board.operationLog.push(operation);
-        board.objects[obj.id] = mergedObj;
         socket.to(boardId).emit('operation', operation);
     });
 
