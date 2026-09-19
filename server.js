@@ -35,9 +35,9 @@ app.get('/:boardId', (req, res) => {
 function getBoardState(boardId) {
     if (!boardsData[boardId]) {
         boardsData[boardId] = {
-            objects: {}, // Храним в виде ключ-значение (id -> object) для исключения дубликатов
+            objects: {}, // Храним в виде ключ-значение (id -> object)
             lastOperationId: 0,
-            operationLog: []
+            operationLog: [] // Лог всех действий для досылки пропущенных
         };
         console.log(`[SERVER] Создана новая доска: ${boardId}`);
     }
@@ -67,13 +67,14 @@ io.on('connection', (socket) => {
         lastOperationId: board.lastOperationId
     });
 
-    // Обновление объекта с проверкой по времени (предотвращает пропадание рисунков)
+    // Обновление объекта (текст, перемещение, изменение размера)
     socket.on('object:update', (obj) => {
         if (!obj || !obj.id) return;
         
         const existingObj = board.objects[obj.id];
         
         if (!existingObj) {
+            // Если объект пришел на обновление, но его нет в базе — создаем его (lazy add)
             board.lastOperationId++;
             obj.createdBy = userId;
             obj.createdAt = Date.now();
@@ -88,15 +89,12 @@ io.on('connection', (socket) => {
             };
             board.operationLog.push(operation);
             board.objects[obj.id] = obj;
-            // Используем io.to вместо socket.to, чтобы отправитель тоже подтвердил создание
             io.to(boardId).emit('operation', operation); 
             return;
         }
         
-        // ПРОВЕРКА: Обновляем только если входящие данные свежее существующих
-        if (obj.lastModified && existingObj.lastModified && obj.lastModified < existingObj.lastModified) {
-            return; // Игнорируем устаревшее обновление
-        }
+        // ВАЖНО: Мы убрали проверку (obj.lastModified < existingObj.lastModified),
+        // так как часы на разных ПК могут отличаться. Теперь используем Last Write Wins.
         
         const mergedObj = {
             ...existingObj,
@@ -119,7 +117,7 @@ io.on('connection', (socket) => {
         socket.to(boardId).emit('operation', operation);
     });
 
-    // Создание нового объекта на холсте
+    // Создание нового объекта
     socket.on('object:add', (obj) => {
         if (!obj || !obj.id) return;
         
@@ -163,7 +161,24 @@ io.on('connection', (socket) => {
         socket.to(boardId).emit('operation', operation);
     });
 
-    // Пакетные транзакции
+    // Обработка периодического запроса на синхронизацию (досылка пропущенного)
+    socket.on('sync', (data) => {
+        const { lastKnownOperationId } = data;
+        const board = getBoardState(boardId);
+        
+        // Находим все операции из лога, которые произошли после ID клиента
+        const missedOperations = board.operationLog.filter(op => op.id > lastKnownOperationId);
+        
+        if (missedOperations.length > 0) {
+            console.log(`[SERVER] Досылаем ${missedOperations.length} операций пользователю ${userId}`);
+            socket.emit('operations-batch', { 
+                operations: missedOperations,
+                currentOperationId: board.lastOperationId
+            });
+        }
+    });
+
+    // Пакетные транзакции (например, для Undo или группового перемещения)
     socket.on('batch-operation', (batch) => {
         if (!batch || !Array.isArray(batch.operations)) return;
         const results = [];
