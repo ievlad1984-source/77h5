@@ -626,7 +626,38 @@ function sendOperation(type, data) {
             socket.emit('object:add', data); // При добавлении src нужен
             break;
         case 'update':
-            socket.emit('object:update', dataToSend); // При обновлении src НЕ нужен
+            if (!objects[objId]) {
+                // Якщо об'єкт ще не існує, створюємо його
+                objects[objId] = operation.data;
+                objectsArray.push(operation.data);
+            } else {
+                const localObj = objects[objId];
+                const isEditingLocally = (editingObject && editingObject.id === objId);
+                const isNewer = !localObj.lastModified || (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
+
+                if (!isEditingLocally || isNewer) {
+                    // Зберігаємо посилання на завантажену картинку перед оновленням
+                    const cachedImage = localObj._img; 
+                    
+                    // Створюємо оновлений об'єкт
+                    const updatedObj = {
+                        ...localObj,
+                        ...operation.data
+                    };
+                    
+                    // ПОВЕРТАЄМО завантажену картинку назад в об'єкт, щоб вона не перевантажувалася
+                    if (cachedImage) {
+                        updatedObj._img = cachedImage;
+                    }
+                    
+                    objects[objId] = updatedObj;
+                    
+                    const idx = objectsArray.findIndex(o => o.id === objId);
+                    if (idx !== -1) {
+                        objectsArray[idx] = objects[objId];
+                    }
+                }
+            }
             break;
         case 'delete':
             socket.emit('object:delete', data.id);
