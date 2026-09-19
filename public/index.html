@@ -650,10 +650,19 @@ function applyOperation(operation) {
                 const isNewer = !localObj.lastModified || (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
 
                 if (!isEditingLocally || isNewer) {
+                    // Сохраняем ссылку на загруженное изображение, чтобы оно не исчезло при обновлении координат
+                    const existingImg = localObj._img; 
+                    
                     objects[objId] = {
                         ...localObj,
                         ...operation.data
                     };
+                    
+                    // Восстанавливаем ссылку на изображение в обновленном объекте
+                    if (existingImg) {
+                        objects[objId]._img = existingImg;
+                    }
+
                     const idx = objectsArray.findIndex(o => o.id === objId);
                     if (idx !== -1) {
                         objectsArray[idx] = objects[objId];
