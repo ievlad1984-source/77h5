@@ -628,34 +628,44 @@ function sendOperation(type, data) {
 }
 
 function applyOperation(operation) {
+    // Визначаємо ID об'єкта: шукаємо або в data.id, або в objectId (як надсилає сервер)
+    const objId = operation.data?.id || operation.objectId;
+    if (!objId) return;
+
     switch (operation.type) {
         case 'add':
-            if (!objects[operation.data.id]) {
-                objects[operation.data.id] = operation.data;
+            if (!objects[objId]) {
+                objects[objId] = operation.data;
                 objectsArray.push(operation.data);
             }
             break;
         case 'update':
-    if (objects[operation.data.id]) {
-        const localObj = objects[operation.data.id];
-        // Обновляем только если данные с сервера новее локальных
-        if (!localObj.lastModified || (operation.data.lastModified && operation.data.lastModified >= localObj.lastModified)) {
-    objects[operation.data.id] = {
-        ...localObj,
-        ...operation.data
-    };
-            const idx = objectsArray.findIndex(o => o.id === operation.data.id);
-            if (idx !== -1) {
-                objectsArray[idx] = objects[operation.data.id];
+            if (objects[objId]) {
+                const localObj = objects[objId];
+                
+                // ПРАВИЛО СИНХРОНІЗАЦІЇ:
+                // 1. Якщо ми зараз НЕ редагуємо цей об'єкт — завжди приймаємо зміни з сервера.
+                // 2. Якщо ми його редагуємо — приймаємо тільки якщо дані з сервера новіші.
+                const isEditingLocally = (editingObject && editingObject.id === objId);
+                const isNewer = !localObj.lastModified || (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
+
+                if (!isEditingLocally || isNewer) {
+                    objects[objId] = {
+                        ...localObj,
+                        ...operation.data
+                    };
+                    const idx = objectsArray.findIndex(o => o.id === objId);
+                    if (idx !== -1) {
+                        objectsArray[idx] = objects[objId];
+                    }
+                }
             }
-        }
-    }
-    break;
+            break;
         case 'delete':
-            if (objects[operation.data.id]) {
-                delete objects[operation.data.id];
-                objectsArray = objectsArray.filter(o => o.id !== operation.data.id);
-                selectedObjects = selectedObjects.filter(o => o.id !== operation.data.id);
+            if (objects[objId]) {
+                delete objects[objId];
+                objectsArray = objectsArray.filter(o => o.id !== objId);
+                selectedObjects = selectedObjects.filter(o => o.id !== objId);
             }
             break;
         case 'clear':
