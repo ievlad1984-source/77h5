@@ -640,12 +640,12 @@ function applyOperation(operation) {
             }
             break;
         case 'update':
-            if (objects[objId]) {
+            if (!objects[objId]) {
+                // Если объект еще не существует (пропустили 'add'), создаем его
+                objects[objId] = operation.data;
+                objectsArray.push(operation.data);
+            } else {
                 const localObj = objects[objId];
-                
-                // ПРАВИЛО СИНХРОНІЗАЦІЇ:
-                // 1. Якщо ми зараз НЕ редагуємо цей об'єкт — завжди приймаємо зміни з сервера.
-                // 2. Якщо ми його редагуємо — приймаємо тільки якщо дані з сервера новіші.
                 const isEditingLocally = (editingObject && editingObject.id === objId);
                 const isNewer = !localObj.lastModified || (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
 
@@ -2946,9 +2946,6 @@ function createNewText(coords) {
         rotation: 0
     };
     saveHistory();
-    objects[id] = obj;
-    objectsArray.push(obj);
-    selectedObjects = [obj];
     sendOperation('add', obj);
     requestDraw();
     startTextEdit(obj);
