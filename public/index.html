@@ -640,9 +640,10 @@ function applyOperation(operation) {
         const localObj = objects[operation.data.id];
         // Обновляем только если данные с сервера новее локальных
         if (!localObj.lastModified || (operation.data.lastModified && operation.data.lastModified >= localObj.lastModified)) {
-                ...localObj,
-                ...operation.data
-            };
+    objects[operation.data.id] = {
+        ...localObj,
+        ...operation.data
+    };
             const idx = objectsArray.findIndex(o => o.id === operation.data.id);
             if (idx !== -1) {
                 objectsArray[idx] = objects[operation.data.id];
