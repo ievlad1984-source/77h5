@@ -78,10 +78,18 @@ io.on('connection', (socket) => {
             obj.createdBy = userId;
             obj.createdAt = Date.now();
             obj.lastModified = Date.now();
-            const operation = { id: board.lastOperationId, type: 'add', objectId: obj.id, data: obj, timestamp: Date.now(), userId: userId };
+            const operation = { 
+                id: board.lastOperationId, 
+                type: 'add', 
+                objectId: obj.id, 
+                data: obj, 
+                timestamp: Date.now(), 
+                userId: userId 
+            };
             board.operationLog.push(operation);
             board.objects[obj.id] = obj;
-            socket.to(boardId).emit('operation', operation);
+            // Используем io.to вместо socket.to, чтобы отправитель тоже подтвердил создание
+            io.to(boardId).emit('operation', operation); 
             return;
         }
         
