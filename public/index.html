@@ -1427,21 +1427,14 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
         // 2. КОРЕНЬ (root)
         else if (s.type === 'root') {
             const degreeText = s.degree === '\u200B' ? '' : s.degree;
-            
-            // Рисуем сам символ корня √
             ctx.font = normalFont;
             ctx.fillText('√', currentX, currentY);
-            
-            let rootStartX = currentX + 7; // Смещение после знака √
-            
-            // Рисуем степень корня (если указана)
+            let rootStartX = currentX + 7;
             if (degreeText) {
                 ctx.font = smallFont;
                 ctx.fillText(degreeText, currentX + 5, currentY - baseSize * 0.3);
                 rootStartX += 8;
             }
-            
-            // Рисуем содержимое под корнем
             let valX = rootStartX;
             if (s.value && Array.isArray(s.value)) {
                 s.value.forEach(vSeg => {
@@ -1458,11 +1451,8 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                         ctx.fillText(vSeg.text, valX, currentY + baseSize * 0.3);
                         valX += ctx.measureText(vSeg.text).width;
                     }
-                    // Примечание: дроби внутри корней в этой версии упрощены до текста
                 });
             }
-            
-            // Рисуем горизонтальную линию над выражением под корнем
             const rootWidth = valX - rootStartX;
             if (rootWidth > 0) {
                 ctx.beginPath();
@@ -1470,49 +1460,38 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                 ctx.lineTo(valX, currentY - baseSize * 0.5);
                 ctx.stroke();
             }
-            
             currentX = valX;
         }
-        
         // 3. ОБЫЧНЫЙ ТЕКСТ
         else if (s.type === 'normal') {
             ctx.font = normalFont;
             ctx.fillText(s.text, currentX, currentY);
             currentX += ctx.measureText(s.text).width;
         } 
-        
-        // 4. ВЕРХНИЙ ИНДЕКС (Степень)
+        // 4. ВЕРХНИЙ ИНДЕКС
         else if (s.type === 'sup') {
             ctx.font = smallFont;
             ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
             currentX += ctx.measureText(s.text).width;
         } 
-        
         // 5. НИЖНИЙ ИНДЕКС
         else if (s.type === 'sub') {
             ctx.font = smallFont;
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
             currentX += ctx.measureText(s.text).width;
         } 
-        
-        // 6. ДРОБЬ (frac)
+        // 6. ДРОБЬ
         else if (s.type === 'frac') {
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
-            
             const fracW = Math.max(numMetrics.w, denMetrics.w);
             const gap = 3;
-            
             const numStartX = currentX + (fracW - numMetrics.w) / 2;
             const denStartX = currentX + (fracW - denMetrics.w) / 2;
-            
             const fractionCenterY = currentY - (baseSize * 0.15);
             const lineY = fractionCenterY;
-            
             const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
             const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
-            
-            // Отрисовка числителя
             ctx.font = normalFont;
             let cx = numStartX;
             s.numerator.forEach(seg => {
@@ -1531,14 +1510,10 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                     cx += ctx.measureText(seg.text).width;
                 }
             });
-            
-            // Линия дроби
             ctx.beginPath();
             ctx.moveTo(currentX, lineY);
             ctx.lineTo(currentX + fracW, lineY);
             ctx.stroke();
-            
-            // Отрисовка знаменателя
             let dx = denStartX;
             s.denominator.forEach(seg => {
                 if(seg.type === 'normal') {
@@ -1556,7 +1531,6 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                     dx += ctx.measureText(seg.text).width;
                 }
             });
-            
             currentX += fracW;
         }
     });
