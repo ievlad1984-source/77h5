@@ -231,43 +231,6 @@
             padding: 2px 4px;
             line-height: 1.0;
         }
-#math-sub-toolbar {
-    display: none; /* Будет переключаться через JS */
-    flex-direction: row;
-}
-
-.math-root {
-    display: inline-flex;
-    align-items: center;
-    vertical-align: middle;
-    border-left: 1px solid currentColor;
-    border-top: 1px solid currentColor;
-    margin: 0 2px;
-    position: relative;
-}
-
-.math-root::before {
-    content: '√';
-    position: absolute;
-    left: -11px;
-    top: -2px;
-    font-size: 1.2em;
-    font-weight: normal;
-}
-
-.math-root-deg {
-    font-size: 0.5em;
-    vertical-align: super;
-    margin-right: 1px;
-    border: 1px dashed #4CAF50;
-    min-width: 8px;
-    text-align: center;
-}
-
-.math-root-val {
-    padding: 0 2px;
-    min-width: 10px;
-}
         .math-num {
             border-bottom: 2px solid currentColor;
             padding-bottom: 2px;
@@ -460,7 +423,7 @@
 
 <div id="toolbar">
     <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
-    <button class="tool-btn" data-tool="text" id="textToolBtn" title="Формула">fx</button>
+    <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
     <div class="separator"></div>
     <button class="tool-btn" data-tool="pen" id="penToolBtn" title="Олівець">✏️</button>
     
@@ -481,7 +444,8 @@
     </button>
     
     <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
-       
+    <button class="tool-btn" data-tool="text" title="Текст">Т</button>
+    
     <button class="tool-btn" data-tool="eraser" title="Ластик">
         <svg class="tool-icon" viewBox="0 0 24 24">
             <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
@@ -499,10 +463,6 @@
     <div class="separator"></div>
     <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
     <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
-<div id="math-sub-toolbar" style="display: none; position: absolute; top: 50px; left: 0; background: white; padding: 5px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); gap: 5px; display: none; align-items: center; border: 1px solid #ddd; z-index: 1001;">
-        <button class="tool-btn" onclick="insertMathSymbol('±')" title="Плюс-минус">±</button>
-        <button class="tool-btn" onclick="insertMathRoot()" title="Корень">√</button>
-    </div>
 </div>
 
 <div id="line-palette">
@@ -987,60 +947,29 @@ function measureSegments(segments, baseSize, isBold) {
             totalWidth += metrics.width;
             maxHeight = Math.max(maxHeight, baseSize);
             maxAscent = Math.max(maxAscent, metrics.actualBoundingBoxAscent || baseSize * 0.8);
-        } 
-        else if (s.type === 'sup') {
+        } else if (s.type === 'sup') {
             tempCtx.font = smallFont;
             const metrics = tempCtx.measureText(s.text);
             totalWidth += metrics.width;
-            // Степень поднимает общую высоту блока
             maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5));
-        } 
-        else if (s.type === 'sub') {
+        } else if (s.type === 'sub') {
             tempCtx.font = smallFont;
             const metrics = tempCtx.measureText(s.text);
             totalWidth += metrics.width;
-            // Нижний индекс опускает блок вниз
             maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.3));
-        } 
-        else if (s.type === 'root') {
-            // Рекурсивно измеряем содержимое под корнем
-            const valMetrics = measureSegments(s.value, baseSize, isBold);
-            
-            // Ширина = символ √ (примерно 15px) + ширина содержимого
-            const rootSymbolWidth = 15;
-            const degreeWidth = s.degree && s.degree !== '\u200B' ? 10 : 0;
-            
-            totalWidth += rootSymbolWidth + degreeWidth + valMetrics.w;
-            
-            // Высота корня зависит от содержимого и линии сверху
-            maxHeight = Math.max(maxHeight, valMetrics.h + baseSize * 0.5);
-        } 
-        else if (s.type === 'frac') {
-            // Рекурсивно измеряем числитель и знаменатель
+        } else if (s.type === 'frac') {
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
-            // Ширина дроби — это ширина самого широкого элемента
             const fracWidth = Math.max(numMetrics.w, denMetrics.w);
-            // Высота = сумма высот + отступы и линия
             const fracHeight = numMetrics.h + denMetrics.h + 6;
             
             totalWidth += fracWidth;
             maxHeight = Math.max(maxHeight, fracHeight);
         }
-        else if (s.text === '\n') {
-            // Если в сегментах есть перенос строки, 
-            // в данной упрощенной версии мы просто считаем высоту
-            maxHeight += baseSize * 1.4;
-            totalWidth = 0; // Сброс ширины для новой строки (упрощенно)
-        }
     });
     
-    return { 
-        w: totalWidth || 2, 
-        h: maxHeight || baseSize, 
-        ascent: maxAscent || baseSize * 0.8 
-    };
+    return { w: totalWidth, h: maxHeight, ascent: maxAscent };
 }
 
 // ============================================
@@ -1064,29 +993,27 @@ function htmlToSegments(html) {
                 segments.push({ type: 'sup', text: node.textContent || '' });
             } else if (node.classList.contains('math-sub')) {
                 segments.push({ type: 'sub', text: node.textContent || '' });
-            } else if (node.classList.contains('math-root')) {
-                const degNode = node.querySelector('.math-root-deg');
-                const valNode = node.querySelector('.math-root-val');
-                segments.push({ 
-                    type: 'root', 
-                    degree: degNode ? degNode.textContent : '', 
-                    value: valNode ? htmlToSegments(valNode.innerHTML) : [] 
-                });
             } else if (node.classList.contains('math-frac')) {
                 const numNode = node.querySelector('.math-num');
                 const denNode = node.querySelector('.math-den');
+                
+                const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
+                const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
+                
                 segments.push({ 
                     type: 'frac', 
-                    numerator: numNode ? htmlToSegments(numNode.innerHTML) : [], 
-                    denominator: denNode ? htmlToSegments(denNode.innerHTML) : [] 
+                    numerator: numSegs, 
+                    denominator: denSegs 
                 });
             } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
+            } else if (node.tagName === 'DIV') {
+                node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
             }
         }
-}
+    }
     
     Array.from(doc.body.childNodes).forEach(processNode);
     
@@ -1098,9 +1025,6 @@ function segmentsToHtml(segments) {
     return segments.map(s => {
         if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
         if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
-        if (s.type === 'root') {
-            return `<div class="math-root"><span class="math-root-deg">${s.degree}</span><span class="math-root-val">${segmentsToHtml(s.value)}</span></div>`;
-        }
         if (s.type === 'frac') {
             const numHtml = segmentsToHtml(s.numerator);
             const denHtml = segmentsToHtml(s.denominator);
@@ -1418,81 +1342,40 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     const lineH = baseSize * 1.4;
     
     segments.forEach(s => {
-        // 1. ПЕРЕНОС СТРОКИ
         if (s.text === '\n') {
             currentX = x;
             currentY += lineH;
             return;
-        } 
-        
-        // 2. КОРЕНЬ (root)
-        else if (s.type === 'root') {
-            const degreeText = s.degree === '\u200B' ? '' : s.degree;
-            ctx.font = normalFont;
-            ctx.fillText('√', currentX, currentY);
-            let rootStartX = currentX + 7;
-            if (degreeText) {
-                ctx.font = smallFont;
-                ctx.fillText(degreeText, currentX + 5, currentY - baseSize * 0.3);
-                rootStartX += 8;
-            }
-            let valX = rootStartX;
-            if (s.value && Array.isArray(s.value)) {
-                s.value.forEach(vSeg => {
-                    if (vSeg.type === 'normal') {
-                        ctx.font = normalFont;
-                        ctx.fillText(vSeg.text, valX, currentY);
-                        valX += ctx.measureText(vSeg.text).width;
-                    } else if (vSeg.type === 'sup') {
-                        ctx.font = smallFont;
-                        ctx.fillText(vSeg.text, valX, currentY - baseSize * 0.5);
-                        valX += ctx.measureText(vSeg.text).width;
-                    } else if (vSeg.type === 'sub') {
-                        ctx.font = smallFont;
-                        ctx.fillText(vSeg.text, valX, currentY + baseSize * 0.3);
-                        valX += ctx.measureText(vSeg.text).width;
-                    }
-                });
-            }
-            const rootWidth = valX - rootStartX;
-            if (rootWidth > 0) {
-                ctx.beginPath();
-                ctx.moveTo(rootStartX, currentY - baseSize * 0.5);
-                ctx.lineTo(valX, currentY - baseSize * 0.5);
-                ctx.stroke();
-            }
-            currentX = valX;
         }
-        // 3. ОБЫЧНЫЙ ТЕКСТ
-        else if (s.type === 'normal') {
+        
+        if (s.type === 'normal') {
             ctx.font = normalFont;
             ctx.fillText(s.text, currentX, currentY);
             currentX += ctx.measureText(s.text).width;
-        } 
-        // 4. ВЕРХНИЙ ИНДЕКС
-        else if (s.type === 'sup') {
+        } else if (s.type === 'sup') {
             ctx.font = smallFont;
             ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
             currentX += ctx.measureText(s.text).width;
-        } 
-        // 5. НИЖНИЙ ИНДЕКС
-        else if (s.type === 'sub') {
+        } else if (s.type === 'sub') {
             ctx.font = smallFont;
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
             currentX += ctx.measureText(s.text).width;
-        } 
-        // 6. ДРОБЬ
-        else if (s.type === 'frac') {
+        } else if (s.type === 'frac') {
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            
             const fracW = Math.max(numMetrics.w, denMetrics.w);
             const gap = 3;
+            
             const numStartX = currentX + (fracW - numMetrics.w) / 2;
             const denStartX = currentX + (fracW - denMetrics.w) / 2;
+            
             const fractionCenterY = currentY - (baseSize * 0.15);
             const lineY = fractionCenterY;
+            
             const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
             const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
+            
             ctx.font = normalFont;
             let cx = numStartX;
             s.numerator.forEach(seg => {
@@ -1511,10 +1394,12 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                     cx += ctx.measureText(seg.text).width;
                 }
             });
+            
             ctx.beginPath();
             ctx.moveTo(currentX, lineY);
             ctx.lineTo(currentX + fracW, lineY);
             ctx.stroke();
+            
             let dx = denStartX;
             s.denominator.forEach(seg => {
                 if(seg.type === 'normal') {
@@ -1532,6 +1417,7 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                     dx += ctx.measureText(seg.text).width;
                 }
             });
+            
             currentX += fracW;
         }
     });
@@ -1981,43 +1867,6 @@ function insertFraction(editorDiv, numeratorContent) {
         editorDiv.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
-function insertMathSymbol(symbol) {
-    if (!textEditor) return;
-    const editorDiv = textEditor.querySelector('.text-edit-content');
-    editorDiv.focus();
-    document.execCommand('insertText', false, symbol);
-}
-
-function insertMathRoot() {
-    if (!textEditor) return;
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    
-    const range = sel.getRangeAt(0);
-    const rootDiv = document.createElement('div');
-    rootDiv.className = 'math-root';
-    
-    const degSpan = document.createElement('span');
-    degSpan.className = 'math-root-deg';
-    degSpan.textContent = '\u200B'; // Невидимый пробел
-    
-    const valSpan = document.createElement('span');
-    valSpan.className = 'math-root-val';
-    valSpan.textContent = '\u200B';
-    
-    rootDiv.appendChild(degSpan);
-    rootDiv.appendChild(valSpan);
-    
-    range.deleteContents();
-    range.insertNode(rootDiv);
-    
-    // Ставим курсор в поле подкоренного выражения
-    const newRange = document.createRange();
-    newRange.selectNodeContents(valSpan);
-    newRange.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-}
 
 // ============================================
 // ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА
@@ -2143,7 +1992,6 @@ function startTextEdit(obj) {
     wrapper.style.minWidth = '100px';
     wrapper.style.minHeight = (obj.size * 1.4 * scale) + 'px';
     
-    // Добавляем ручки изменения размера
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
         div.className = `handle ${h}`;
@@ -2167,7 +2015,6 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // Заполнение контентом
     if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else if (obj.text && obj.text.trim() !== '') {
@@ -2190,7 +2037,6 @@ function startTextEdit(obj) {
     
     updateSize();
     
-    // Фокусировка и установка курсора в конец
     setTimeout(() => {
         if (!editorDiv) return;
         editorDiv.focus();
@@ -2217,7 +2063,6 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
-        // 1. Вставка дроби через '/'
         if (e.key === '/') {
             e.preventDefault();
             const numeratorContent = collectNumeratorContent(range, editorDiv);
@@ -2226,15 +2071,6 @@ function startTextEdit(obj) {
             return;
         }
 
-        // 2. АВТОВМАТИЧЕСКАЯ ЗАМЕНА + И - НА ±
-        if (e.key === '+' || e.key === '-') {
-            e.preventDefault();
-            document.execCommand('insertText', false, '±');
-            updateSize();
-            return;
-        }
-
-        // 3. Индексы (степень и нижний индекс)
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const type = e.key === '^' ? 'sup' : 'sub';
@@ -2243,7 +2079,6 @@ function startTextEdit(obj) {
             return;
         }
         
-        // 4. Навигация стрелкой ВПРАВО
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
             
@@ -2314,7 +2149,6 @@ function startTextEdit(obj) {
             }
         }
         
-        // 5. Навигация стрелкой ВЛЕВО
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
             let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
@@ -2398,6 +2232,7 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
+            // Оновлюємо і текст, і сегменти (для математичних полів) у реальному часі
             const html = editorDiv.innerHTML;
             const segments = htmlToSegments(html);
             
@@ -3136,13 +2971,6 @@ function createNewText(coords) {
 // ============================================
 
 function setTool(tool) {
-// Внутри функции setTool(tool) { ... }
-    const mathToolbar = document.getElementById('math-sub-toolbar');
-    if (tool === 'text') {
-        mathToolbar.style.display = 'flex';
-    } else {
-        mathToolbar.style.display = 'none';
-    }
     currentTool = tool;
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
