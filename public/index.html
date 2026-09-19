@@ -639,8 +639,7 @@ function applyOperation(operation) {
     if (objects[operation.data.id]) {
         const localObj = objects[operation.data.id];
         // Обновляем только если данные с сервера новее локальных
-        if (!localObj.lastModified || (operation.data.lastModified && operation.data.lastModified > localObj.lastModified)) {
-            objects[operation.data.id] = {
+        if (!localObj.lastModified || (operation.data.lastModified && operation.data.lastModified >= localObj.lastModified)) {
                 ...localObj,
                 ...operation.data
             };
@@ -2207,9 +2206,18 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
+            // Оновлюємо і текст, і сегменти (для математичних полів) у реальному часі
+            const html = editorDiv.innerHTML;
+            const segments = htmlToSegments(html);
+            
+            if (segments && segments.length > 0) {
+                editingObject.segments = segments;
+            } else {
+                delete editingObject.segments;
+            }
+            
             editingObject.text = editorDiv.innerText;
             editingObject.lastModified = Date.now();
-            // Інкрементальне оновлення
             sendOperation('update', editingObject);
         }
     });
