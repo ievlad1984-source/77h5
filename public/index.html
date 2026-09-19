@@ -610,10 +610,10 @@ function updateConnectionStatus(status, text) {
 function sendOperation(type, data) {
     if (!syncState.connected) return;
     
-    // Локальне застосування
+    // 1. Локальне застосування змін (використовуємо вже існуючу функцію applyOperation)
     applyOperation({ type, data, id: Date.now(), timestamp: Date.now() });
     
-    // Відправка на сервер
+    // 2. Відправка на сервер
     switch (type) {
         case 'add':
             socket.emit('object:add', data);
