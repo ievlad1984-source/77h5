@@ -987,7 +987,8 @@ function measureSegments(segments, baseSize, isBold) {
             maxHeight = Math.max(maxHeight, fracHeight);
         } else if (s.type === 'root') {
             const contentMetrics = measureSegments(s.content, baseSize, isBold);
-            const symbolWidth = baseSize * 0.6; 
+            tempCtx.font = normalFont;
+            const symbolWidth = tempCtx.measureText('√').width; 
             totalWidth += symbolWidth + contentMetrics.w;
             maxHeight = Math.max(maxHeight, contentMetrics.h + 5);
         }
@@ -1394,13 +1395,17 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                 localX += fW;
             } else if (s.type === 'root') {
                 const cM = measureSegments(s.content, fontSize, bold);
-                const symW = fontSize * 0.6;
                 ctx.font = nFont;
+                const symW = ctx.measureText('√').width;
                 ctx.fillText('√', localX, startY);
-                renderSegmentList(s.content, localX + symW, startY, fontSize, bold);
+                
+                const contentStartX = localX + symW * 0.7; // Небольшой отступ от самого знака
+                renderSegmentList(s.content, contentStartX, startY, fontSize, bold);
+                
                 ctx.beginPath();
+                // Линия начинается чуть правее начала знака корня и идет до конца контента
                 ctx.moveTo(localX + symW * 0.5, startY - fontSize * 0.2);
-                ctx.lineTo(localX + symW + cM.w, startY - fontSize * 0.2);
+                ctx.lineTo(contentStartX + cM.w, startY - fontSize * 0.2);
                 ctx.stroke();
                 localX += symW + cM.w;
             }
@@ -1443,11 +1448,13 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             currentX += fracW;
         } else if (s.type === 'root') {
             const contentMetrics = measureSegments(s.content, baseSize, isBold);
-            const symbolWidth = baseSize * 0.6;
             ctx.font = normalFont;
+            const symbolWidth = ctx.measureText('√').width;
             ctx.fillText('√', currentX, currentY);
-            const contentStartX = currentX + symbolWidth;
+            
+            const contentStartX = currentX + symbolWidth * 0.7;
             renderSegmentList(s.content, contentStartX, currentY, baseSize, isBold);
+            
             ctx.beginPath();
             ctx.lineWidth = 1.5 * scale;
             ctx.moveTo(currentX + symbolWidth * 0.5, currentY - baseSize * 0.2);
