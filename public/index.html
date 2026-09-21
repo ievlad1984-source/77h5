@@ -2486,23 +2486,7 @@ canvas.addEventListener('mousedown', (e) => {
                 requestDraw();
                 return;
             }
-            // Создание точки среднего размера
-            const dotId = generateId();
-            const dot = {
-                type: 'shape',
-                shapeType: 'circle',
-                id: dotId,
-                x: coords.x - 5, 
-                y: coords.y - 5,
-                w: 10,
-                h: 10,
-                color: currentPenColor,
-                width: document.getElementById('lineWidth').value,
-                rotation: 0
-            };
-            saveHistory();
-            sendOperation('add', dot);
-            requestDraw();
+            createNewText(coords);
         }
         else if (currentTool === 'grid') {
             startDrawing(coords);
@@ -2691,12 +2675,33 @@ canvas.addEventListener('mouseup', () => {
     }
     
     if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen' && currentPath.points.length > 1) {
-            saveHistory();
-            currentPath.id = generateId();
-            objects[currentPath.id] = currentPath;
-            objectsArray.push(currentPath);
-            sendOperation('add', currentPath);
+        if (currentPath.type === 'pen') {
+            if (currentPath.points.length > 1) {
+                // Обычная линия (если было перемещение)
+                saveHistory();
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            } else {
+                // Одиночный клик -> Точка среднего размера
+                saveHistory();
+                const dot = {
+                    type: 'shape',
+                    shapeType: 'circle',
+                    id: generateId(),
+                    x: currentPath.x - 5, 
+                    y: currentPath.y - 5,
+                    w: 10,
+                    h: 10,
+                    color: currentPath.color,
+                    width: currentPath.width,
+                    rotation: 0
+                };
+                objects[dot.id] = dot;
+                objectsArray.push(dot);
+                sendOperation('add', dot);
+            }
         } else if (currentPath.type === 'shape') {
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
