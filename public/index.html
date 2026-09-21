@@ -972,12 +972,12 @@ function measureSegments(segments, baseSize, isBold) {
             tempCtx.font = smallFont;
             const metrics = tempCtx.measureText(s.text);
             totalWidth += metrics.width;
-            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5));
+            maxHeight = Math.max(maxHeight, baseSize * 1.1);
         } else if (s.type === 'sub') {
             tempCtx.font = smallFont;
             const metrics = tempCtx.measureText(s.text);
             totalWidth += metrics.width;
-            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.3));
+            maxHeight = Math.max(maxHeight, baseSize);
         } else if (s.type === 'frac') {
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
@@ -1395,18 +1395,23 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                 localX += fW;
             } else if (s.type === 'root') {
                 const cM = measureSegments(s.content, fontSize, bold);
-                ctx.font = nFont;
-                const symW = ctx.measureText('√').width;
-                ctx.fillText('√', localX, startY);
                 
-                const contentStartX = localX + symW * 0.7; 
+                // Динамическая высота корня: либо размер шрифта, либо высота контента
+                const rootH = Math.max(fontSize, cM.h);
+                const topY = startY - rootH;
+                const symW = fontSize * 0.6; 
+
+                ctx.beginPath();
+                // Рисуем знак корня линиями (как в iDroo)
+                ctx.moveTo(localX, topY + rootH * 0.2); // Маленький хвостик слева
+                ctx.lineTo(localX + symW * 0.3, startY); // Спуск вниз
+                ctx.lineTo(localX + symW * 0.6, topY);    // Подъем вверх
+                ctx.lineTo(localX + symW + cM.w, topY);  // Горизонтальная черта (потолок)
+                ctx.stroke();
+
+                const contentStartX = localX + symW * 0.6;
                 renderSegmentList(s.content, contentStartX, startY, fontSize, bold);
                 
-                ctx.beginPath();
-                // Линия теперь выше (0.3) и начинается точнее (0.6)
-                ctx.moveTo(localX + symW * 0.6, startY - fontSize * 0.3);
-                ctx.lineTo(contentStartX + cM.w, startY - fontSize * 0.3);
-                ctx.stroke();
                 localX += symW + cM.w;
             }
         });
@@ -1448,18 +1453,21 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             currentX += fracW;
         } else if (s.type === 'root') {
             const contentMetrics = measureSegments(s.content, baseSize, isBold);
-            ctx.font = normalFont;
-            const symbolWidth = ctx.measureText('√').width;
-            ctx.fillText('√', currentX, currentY);
-            
-            const contentStartX = currentX + symbolWidth * 0.7;
-            renderSegmentList(s.content, contentStartX, currentY, baseSize, isBold);
-            
+            const rootH = Math.max(baseSize, contentMetrics.h);
+            const topY = currentY - rootH;
+            const symbolWidth = baseSize * 0.6;
+
             ctx.beginPath();
             ctx.lineWidth = 1.5 * scale;
-            ctx.moveTo(currentX + symbolWidth * 0.6, currentY - baseSize * 0.3);
-            ctx.lineTo(contentStartX + contentMetrics.w, currentY - baseSize * 0.3);
+            ctx.moveTo(currentX, topY + rootH * 0.2);
+            ctx.lineTo(currentX + symbolWidth * 0.3, currentY);
+            ctx.lineTo(currentX + symbolWidth * 0.6, topY);
+            ctx.lineTo(currentX + symbolWidth + contentMetrics.w, topY);
             ctx.stroke();
+
+            const contentStartX = currentX + symbolWidth * 0.6;
+            renderSegmentList(s.content, contentStartX, currentY, baseSize, isBold);
+            
             currentX += symbolWidth + contentMetrics.w;
         }
     });
