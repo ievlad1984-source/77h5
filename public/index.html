@@ -231,27 +231,6 @@
             padding: 2px 4px;
             line-height: 1.0;
         }
-.math-root {
-            display: inline-flex;
-            align-items: flex-start;
-            vertical-align: middle;
-            border-top: 2px solid #2196F3;
-            margin: 0 2px;
-            padding-top: 1px;
-            position: relative;
-        }
-        .math-root-symbol {
-            border-top: none;
-            font-size: 1.2em;
-            margin-right: 1px;
-            position: relative;
-            top: -2px;
-            user-select: none;
-        }
-        .math-root-content {
-            outline: none;
-            min-width: 5px;
-        }
         .math-num {
             border-bottom: 2px solid currentColor;
             padding-bottom: 2px;
@@ -466,7 +445,7 @@
     
     <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
     <button class="tool-btn" data-tool="text" title="Текст">Т</button>
-    <button class="tool-btn" onclick="insertSquareRoot()" title="Квадратний корінь">√</button>
+    
     <button class="tool-btn" data-tool="eraser" title="Ластик">
         <svg class="tool-icon" viewBox="0 0 24 24">
             <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
@@ -972,25 +951,21 @@ function measureSegments(segments, baseSize, isBold) {
             tempCtx.font = smallFont;
             const metrics = tempCtx.measureText(s.text);
             totalWidth += metrics.width;
-            maxHeight = Math.max(maxHeight, baseSize * 1.1);
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5));
         } else if (s.type === 'sub') {
             tempCtx.font = smallFont;
             const metrics = tempCtx.measureText(s.text);
             totalWidth += metrics.width;
-            maxHeight = Math.max(maxHeight, baseSize);
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.3));
         } else if (s.type === 'frac') {
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            
             const fracWidth = Math.max(numMetrics.w, denMetrics.w);
             const fracHeight = numMetrics.h + denMetrics.h + 6;
+            
             totalWidth += fracWidth;
             maxHeight = Math.max(maxHeight, fracHeight);
-        } else if (s.type === 'root') {
-            const contentMetrics = measureSegments(s.content, baseSize, isBold);
-            tempCtx.font = normalFont;
-            const symbolWidth = tempCtx.measureText('√').width; 
-            totalWidth += symbolWidth + contentMetrics.w;
-            maxHeight = Math.max(maxHeight, contentMetrics.h + 5);
         }
     });
     
@@ -1018,16 +993,18 @@ function htmlToSegments(html) {
                 segments.push({ type: 'sup', text: node.textContent || '' });
             } else if (node.classList.contains('math-sub')) {
                 segments.push({ type: 'sub', text: node.textContent || '' });
-            } else if (node.classList.contains('math-root')) {
-                const contentNode = node.querySelector('.math-root-content');
-                const contentSegs = contentNode ? htmlToSegments(contentNode.innerHTML) : [];
-                segments.push({ type: 'root', content: contentSegs });
             } else if (node.classList.contains('math-frac')) {
                 const numNode = node.querySelector('.math-num');
                 const denNode = node.querySelector('.math-den');
+                
                 const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
                 const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
-                segments.push({ type: 'frac', numerator: numSegs, denominator: denSegs });
+                
+                segments.push({ 
+                    type: 'frac', 
+                    numerator: numSegs, 
+                    denominator: denSegs 
+                });
             } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
             } else if (node.tagName === 'DIV') {
@@ -1039,6 +1016,7 @@ function htmlToSegments(html) {
     }
     
     Array.from(doc.body.childNodes).forEach(processNode);
+    
     return segments;
 }
 
@@ -1360,70 +1338,16 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     let currentY = y;
     const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
     const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+    
     const lineH = baseSize * 1.4;
-
-    function renderSegmentList(segs, startX, startY, fontSize, bold) {
-        let localX = startX;
-        const nFont = `${bold ? 'bold' : ''} ${fontSize}px 'Segoe UI', sans-serif`;
-        const sFont = `${bold ? 'bold' : ''} ${fontSize * 0.6}px 'Segoe UI', sans-serif`;
-
-        segs.forEach(s => {
-            if (s.type === 'normal') {
-                ctx.font = nFont;
-                ctx.fillText(s.text, localX, startY);
-                localX += ctx.measureText(s.text).width;
-            } else if (s.type === 'sup') {
-                ctx.font = sFont;
-                ctx.fillText(s.text, localX, startY - fontSize * 0.5);
-                ctx.font = nFont;
-                localX += ctx.measureText(s.text).width;
-            } else if (s.type === 'sub') {
-                ctx.font = sFont;
-                ctx.fillText(s.text, localX, startY + fontSize * 0.3);
-                ctx.font = nFont;
-                localX += ctx.measureText(s.text).width;
-            } else if (s.type === 'frac') {
-                const numM = measureSegments(s.numerator, fontSize, bold);
-                const denM = measureSegments(s.denominator, fontSize, bold);
-                const fW = Math.max(numM.w, denM.w);
-                ctx.beginPath();
-                ctx.moveTo(localX, startY - fontSize * 0.1);
-                ctx.lineTo(localX + fW, startY - fontSize * 0.1);
-                ctx.stroke();
-                renderSegmentList(s.numerator, localX + (fW - numM.w)/2, startY - fontSize * 0.3, fontSize * 0.8, bold);
-                renderSegmentList(s.denominator, localX + (fW - denM.w)/2, startY + fontSize * 0.6, fontSize * 0.8, bold);
-                localX += fW;
-            } else if (s.type === 'root') {
-                const cM = measureSegments(s.content, fontSize, bold);
-                
-                // Динамическая высота корня: либо размер шрифта, либо высота контента
-                const rootH = Math.max(fontSize, cM.h);
-                const topY = startY - rootH;
-                const symW = fontSize * 0.6; 
-
-                ctx.beginPath();
-                // Рисуем знак корня линиями (как в iDroo)
-                ctx.moveTo(localX, topY + rootH * 0.2); // Маленький хвостик слева
-                ctx.lineTo(localX + symW * 0.3, startY); // Спуск вниз
-                ctx.lineTo(localX + symW * 0.6, topY);    // Подъем вверх
-                ctx.lineTo(localX + symW + cM.w, topY);  // Горизонтальная черта (потолок)
-                ctx.stroke();
-
-                const contentStartX = localX + symW * 0.6;
-                renderSegmentList(s.content, contentStartX, startY, fontSize, bold);
-                
-                localX += symW + cM.w;
-            }
-        });
-        return localX - startX;
-    }
-
+    
     segments.forEach(s => {
         if (s.text === '\n') {
             currentX = x;
             currentY += lineH;
             return;
         }
+        
         if (s.type === 'normal') {
             ctx.font = normalFont;
             ctx.fillText(s.text, currentX, currentY);
@@ -1431,44 +1355,70 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
         } else if (s.type === 'sup') {
             ctx.font = smallFont;
             ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
-            ctx.font = normalFont;
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'sub') {
             ctx.font = smallFont;
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
-            ctx.font = normalFont;
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'frac') {
             const numMetrics = measureSegments(s.numerator, baseSize, isBold);
             const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            
             const fracW = Math.max(numMetrics.w, denMetrics.w);
-            const lineY = currentY - (baseSize * 0.15);
-            renderSegmentList(s.numerator, currentX + (fracW - numMetrics.w)/2, lineY - 3 - (numMetrics.h * 0.25), baseSize * 0.9, isBold);
+            const gap = 3;
+            
+            const numStartX = currentX + (fracW - numMetrics.w) / 2;
+            const denStartX = currentX + (fracW - denMetrics.w) / 2;
+            
+            const fractionCenterY = currentY - (baseSize * 0.15);
+            const lineY = fractionCenterY;
+            
+            const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
+            const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
+            
+            ctx.font = normalFont;
+            let cx = numStartX;
+            s.numerator.forEach(seg => {
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, cx, numBaselineY);
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                }
+            });
+            
             ctx.beginPath();
-            ctx.lineWidth = 1.5 * scale;
             ctx.moveTo(currentX, lineY);
             ctx.lineTo(currentX + fracW, lineY);
             ctx.stroke();
-            renderSegmentList(s.denominator, currentX + (fracW - denMetrics.w)/2, lineY + 3 + (denMetrics.h * 0.75), baseSize * 0.9, isBold);
-            currentX += fracW;
-        } else if (s.type === 'root') {
-            const contentMetrics = measureSegments(s.content, baseSize, isBold);
-            const rootH = Math.max(baseSize, contentMetrics.h);
-            const topY = currentY - rootH;
-            const symbolWidth = baseSize * 0.6;
-
-            ctx.beginPath();
-            ctx.lineWidth = 1.5 * scale;
-            ctx.moveTo(currentX, topY + rootH * 0.2);
-            ctx.lineTo(currentX + symbolWidth * 0.3, currentY);
-            ctx.lineTo(currentX + symbolWidth * 0.6, topY);
-            ctx.lineTo(currentX + symbolWidth + contentMetrics.w, topY);
-            ctx.stroke();
-
-            const contentStartX = currentX + symbolWidth * 0.6;
-            renderSegmentList(s.content, contentStartX, currentY, baseSize, isBold);
             
-            currentX += symbolWidth + contentMetrics.w;
+            let dx = denStartX;
+            s.denominator.forEach(seg => {
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, dx, denBaselineY);
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                }
+            });
+            
+            currentX += fracW;
         }
     });
 }
@@ -1838,43 +1788,6 @@ function getCoords(e) {
 // ВСТАВКА МАТЕМАТИЧНИХ ПОЛІВ
 // ============================================
 
-function insertSquareRoot() {
-    if (!textEditor) return;
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-
-    const range = sel.getRangeAt(0);
-    const rootDiv = document.createElement('div');
-    rootDiv.className = 'math-root';
-    
-    const symbolSpan = document.createElement('span');
-    symbolSpan.className = 'math-root-symbol';
-    symbolSpan.textContent = '√';
-    
-    const contentSpan = document.createElement('span');
-    contentSpan.className = 'math-root-content';
-    contentSpan.textContent = '\u200B'; // Zero-width space для фокуса
-    
-    rootDiv.appendChild(symbolSpan);
-    rootDiv.appendChild(contentSpan);
-    
-    range.deleteContents();
-    range.insertNode(rootDiv);
-    
-    const newRange = document.createRange();
-    newRange.selectNodeContents(contentSpan);
-    newRange.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    
-    // Обновляем размер обертки редактора
-    const editorDiv = textEditor.querySelector('.text-edit-content');
-    const wrapper = textEditor;
-    const rect = editorDiv.getBoundingClientRect();
-    wrapper.style.width = (rect.width + 20) + 'px';
-    wrapper.style.height = (rect.height + 10) + 'px';
-}
-
 function insertMathField(type) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
@@ -2128,8 +2041,10 @@ function startTextEdit(obj) {
     setTimeout(() => {
         if (!editorDiv) return;
         editorDiv.focus();
+        
         const range = document.createRange();
         const sel = window.getSelection();
+        
         const lastDiv = editorDiv.lastElementChild;
         if (lastDiv) {
             range.selectNodeContents(lastDiv);
@@ -2138,6 +2053,7 @@ function startTextEdit(obj) {
             range.selectNodeContents(editorDiv);
             range.collapse(false);
         }
+        
         sel.removeAllRanges();
         sel.addRange(range);
     }, 50);
@@ -2167,20 +2083,55 @@ function startTextEdit(obj) {
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
             
-            // 1. Выход из поля ввода корня (если курсор в конце)
-            if (parent && parent.classList.contains('math-root-content')) {
-                const rootDiv = parent.parentElement;
-                const nextSibling = rootDiv.nextSibling;
-                let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
-                              (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
-                
-                if (isAtEnd) {
+            if (parent && parent.classList.contains('math-den')) {
+                e.preventDefault();
+                const frac = parent.parentElement;
+                const nextSibling = frac.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+            
+            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+            
+            if (isAtEnd && parent) {
+                if (parent.classList.contains('math-num')) {
                     e.preventDefault();
+                    const denSpan = parent.parentElement.querySelector('.math-den');
+                    if (denSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(denSpan);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const nextSibling = parent.nextSibling;
                     if (nextSibling) {
                         const newRange = document.createRange();
                         if (nextSibling.nodeType === Node.TEXT_NODE) {
                             newRange.setStart(nextSibling, 0);
-                        } else {
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
                             newRange.selectNodeContents(nextSibling);
                             newRange.collapse(true);
                         }
@@ -2188,7 +2139,7 @@ function startTextEdit(obj) {
                         sel.addRange(newRange);
                     } else {
                         const textNode = document.createTextNode('\u200B');
-                        rootDiv.parentNode.insertBefore(textNode, rootDiv.nextSibling);
+                        parent.parentNode.insertBefore(textNode, parent.nextSibling);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
                         sel.removeAllRanges();
@@ -2197,46 +2148,8 @@ function startTextEdit(obj) {
                     return;
                 }
             }
-            
-            // 2. Вход в поле ввода корня (если курсор перед корнем)
-            if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE) {
-                let nextNode = (node === range.startContainer) ? 
-                    (range.startOffset >= (node.childNodes?.length || 0) && range.startOffset >= (node.textContent?.length || 0) ? node.nextSibling : null) : null;
-                
-                if (nextNode && nextNode.classList && nextNode.classList.contains('math-root')) {
-                    e.preventDefault();
-                    const contentSpan = nextNode.querySelector('.math-root-content');
-                    const newRange = document.createRange();
-                    newRange.selectNodeContents(contentSpan);
-                    newRange.collapse(false);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                    return;
-                }
-            }
-
-            // 3. Выход из знаменателя дроби
-            if (parent && parent.classList.contains('math-den')) { 
-                const frac = parent.parentElement;
-                const nextSibling = frac.nextSibling;
-                if (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) {
-                    e.preventDefault();
-                    if (nextSibling) {
-                        const newRange = document.createRange();
-                        if (nextSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(nextSibling, 0);
-                        } else {
-                            newRange.selectNodeContents(nextSibling);
-                            newRange.collapse(true);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
-            }
         }
-
+        
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
             let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
@@ -2320,13 +2233,16 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
+            // Оновлюємо і текст, і сегменти (для математичних полів) у реальному часі
             const html = editorDiv.innerHTML;
             const segments = htmlToSegments(html);
+            
             if (segments && segments.length > 0) {
                 editingObject.segments = segments;
             } else {
                 delete editingObject.segments;
             }
+            
             editingObject.text = editorDiv.innerText;
             editingObject.lastModified = Date.now();
             sendOperation('update', editingObject);
