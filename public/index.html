@@ -5,19 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Математична Дошка Pro (Math Fields)</title>
     <script src="/socket.io/socket.io.js"></script>
-<!-- jQuery (необхідний для MathQuill) -->
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-
-<!-- MathQuill (Візуальний редактор формул) -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.js"></script>
-
-<!-- KaTeX (Рендеринг LaTeX) -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-
-<!-- html2canvas (Конвертація HTML в зображення) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body, html { 
             margin: 0; 
@@ -533,35 +520,7 @@
 function generateId() {
     return 'obj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
 }
-async function updateMathImage(obj) {
-    if (!obj.latex) return;
 
-    // 1. Створюємо тимчасовий елемент для рендерингу
-    const tempDiv = document.createElement('div');
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.left = '-9999px';
-    tempDiv.style.fontSize = `${obj.size}px`;
-    tempDiv.style.color = obj.color;
-    tempDiv.style.padding = '5px';
-    
-    // Рендеримо LaTeX через KaTeX
-    katex.render(obj.latex, tempDiv, { throwOnError: false });
-    document.body.appendChild(tempDiv);
-
-    try {
-        // 2. Робимо скріншот HTML-елемента через html2canvas
-        const canvasImg = await html2canvas(tempDiv, { 
-            backgroundColor: null, 
-            scale: 2 // Покращуємо якість (Retina)
-        });
-        obj.img = canvasImg; // Зберігаємо результат у об'єкті
-    } catch (e) {
-        console.error("Math render error:", e);
-    } finally {
-        document.body.removeChild(tempDiv);
-    }
-    requestDraw();
-}
 // ============================================
 // ІНІЦІАЛІЗАЦІЯ
 // ============================================
@@ -733,45 +692,6 @@ function applyBatchOperations(operations) {
             syncState.lastKnownOperationId = op.id;
         }
     });
-}
-
-function startMathEdit(obj) {
-    if (textEditor) stopTextEdit();
-    
-    editingObject = obj;
-    const bbox = getBBox(obj);
-    const screenX = bbox.x * scale + offsetX;
-    const screenY = bbox.y * scale + offsetY;
-    
-    const wrapper = document.createElement('div');
-    wrapper.className = 'text-edit-wrapper';
-    wrapper.style.left = (screenX - 10) + 'px';
-    wrapper.style.top = (screenY - 5) + 'px';
-    
-    const mathFieldSpan = document.createElement('span');
-    mathFieldSpan.className = 'math-edit-content';
-    wrapper.appendChild(mathFieldSpan);
-    document.body.appendChild(wrapper);
-    textEditor = wrapper;
-    
-    // Ініціалізація MathQuill
-    const MQ = MathQuill.getInterface(2);
-    const mathField = MQ.MathField(mathFieldSpan, {
-        handlers: {
-            edit: function() {
-                const latex = mathField.latex();
-                obj.latex = latex;
-                updateMathImage(obj); // Оновлюємо картинку в реальному часі
-                sendOperation('update', obj);
-            }
-        }
-    });
-    
-    mathField.latex(obj.latex || '');
-    mathField.focus();
-    
-    // Закриття по Esc
-    mathFieldSpan.onkeydown = (e) => { if(e.key === 'Escape') stopTextEdit(); };
 }
 
 // ============================================
@@ -1695,13 +1615,6 @@ function drawObject(obj, isTemp = false) {
     } else {
         ctx.setLineDash([]);
     }
-if (obj.type === 'math') {
-    if (obj.img) {
-        ctx.drawImage(obj.img, sx, sy);
-    } else if (obj.latex) {
-        updateMathImage(obj); // Генеруємо картинку, якщо її ще немає
-    }
-}
     
     if (obj.rotation) {
         ctx.translate(sx, sy);
@@ -2511,23 +2424,7 @@ canvas.addEventListener('mousedown', (e) => {
     if (e.detail === 2) {
         return;
     }
-    if (currentTool === 'math') {
-    const id = generateId();
-    const obj = {
-        type: 'math',
-        id: id,
-        x: coords.x,
-        y: coords.y,
-        latex: '',
-        color: currentPenColor,
-        size: 20,
-        rotation: 0
-    };
-    saveHistory();
-    sendOperation('add', obj);
-    startMathEdit(obj);
-    return;
-}
+    
     const coords = getCoords(e);
     
     if (textEditor && editingObject) {
@@ -2766,13 +2663,7 @@ canvas.addEventListener('mouseup', () => {
             if (!bbox) return false;
             return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
         });
-        const clickedMath = [...objectsArray].reverse().find(obj => 
-    obj.type === 'math' && hitTest(obj, coords.x, coords.y, 2)
-);
-if (clickedMath) {
-    startMathEdit(clickedMath);
-    return;
-}
+        
         if (newSelection.length > 0) {
             if (!shiftKey) selectedObjects = [];
             newSelection.forEach(obj => {
