@@ -1399,13 +1399,13 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
                 const symW = ctx.measureText('√').width;
                 ctx.fillText('√', localX, startY);
                 
-                const contentStartX = localX + symW * 0.7; // Небольшой отступ от самого знака
+                const contentStartX = localX + symW * 0.7; 
                 renderSegmentList(s.content, contentStartX, startY, fontSize, bold);
                 
                 ctx.beginPath();
-                // Линия начинается чуть правее начала знака корня и идет до конца контента
-                ctx.moveTo(localX + symW * 0.5, startY - fontSize * 0.2);
-                ctx.lineTo(contentStartX + cM.w, startY - fontSize * 0.2);
+                // Линия теперь выше (0.3) и начинается точнее (0.6)
+                ctx.moveTo(localX + symW * 0.6, startY - fontSize * 0.3);
+                ctx.lineTo(contentStartX + cM.w, startY - fontSize * 0.3);
                 ctx.stroke();
                 localX += symW + cM.w;
             }
@@ -1457,8 +1457,8 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             
             ctx.beginPath();
             ctx.lineWidth = 1.5 * scale;
-            ctx.moveTo(currentX + symbolWidth * 0.5, currentY - baseSize * 0.2);
-            ctx.lineTo(contentStartX + contentMetrics.w, currentY - baseSize * 0.2);
+            ctx.moveTo(currentX + symbolWidth * 0.6, currentY - baseSize * 0.3);
+            ctx.lineTo(contentStartX + contentMetrics.w, currentY - baseSize * 0.3);
             ctx.stroke();
             currentX += symbolWidth + contentMetrics.w;
         }
