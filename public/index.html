@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iDroo Clone - Optimized Math Board</title>
+    <title>iDroo Clone - Professional Math Board</title>
     
     <!-- Библиотеки -->
     <script defer src="https://cdn.jsdelivr.net/npm/mathlive"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     
     <style>
         :root {
@@ -27,6 +28,7 @@
             background: var(--bg-color); 
         }
 
+        /* --- ВЕРХНЯЯ ПАНЕЛЬ --- */
         #app-header {
             position: absolute;
             top: 0; left: 0; right: 0;
@@ -74,6 +76,7 @@
             border-color: #c2d7ff; 
         }
 
+        /* --- ПАНЕЛЬ ФОРМУЛ --- */
         #formula-bar {
             display: none; 
             background: #f9f9f9;
@@ -103,6 +106,8 @@
             font-family: 'Cambria Math', serif;
             font-size: 15px;
         }
+
+        .formula-btn:hover { background: #eee; }
 
         .property-group {
             display: flex;
@@ -208,15 +213,20 @@
 
 <script>
     // ===========================================================================
-    // 1. ЯДРО ОПТИМИЗАЦИИ (Spatial Index & BoardStore)
+    // 1. УТИЛИТЫ
     // ===========================================================================
-    
+    function generateId() {
+        return 'obj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // ===========================================================================
+    // 2. ЯДРО ОПТИМИЗАЦИИ (Spatial Index & BoardStore)
+    // ===========================================================================
     class SpatialIndex {
         constructor(tileSize = 500) {
             this.tileSize = tileSize;
             this.tiles = new Map(); 
         }
-
         updateObject(id, bounds, oldBounds = null) {
             if (oldBounds) this.removeObject(id, oldBounds);
             const { minX, minY, maxX, maxY } = bounds;
@@ -224,7 +234,6 @@
             const endX = Math.floor(maxX / this.tileSize);
             const startY = Math.floor(minY / this.tileSize);
             const endY = Math.floor(maxY / this.tileSize);
-
             for (let x = startX; x <= endX; x++) {
                 for (let y = startY; y <= endY; y++) {
                     const key = `${x}:${y}`;
@@ -233,14 +242,12 @@
                 }
             }
         }
-
         removeObject(id, bounds) {
             const { minX, minY, maxX, maxY } = bounds;
             const startX = Math.floor(minX / this.tileSize);
             const endX = Math.floor(maxX / this.tileSize);
             const startY = Math.floor(minY / this.tileSize);
             const endY = Math.floor(maxY / this.tileSize);
-
             for (let x = startX; x <= endX; x++) {
                 for (let y = startY; y <= endY; y++) {
                     const key = `${x}:${y}`;
@@ -248,7 +255,6 @@
                 }
             }
         }
-
         query(viewport) {
             const { x, y, width, height } = viewport;
             const found = new Set();
@@ -256,13 +262,10 @@
             const endX = Math.floor((x + width) / this.tileSize);
             const startY = Math.floor(y / this.tileSize);
             const endY = Math.floor((y + height) / this.tileSize);
-
             for (let tx = startX; tx <= endX; tx++) {
                 for (let ty = startY; ty <= endY; ty++) {
                     const key = `${tx}:${ty}`;
-                    if (this.tiles.has(key)) {
-                        this.tiles.get(key).forEach(id => found.add(id));
-                    }
+                    if (this.tiles.has(key)) this.tiles.get(key).forEach(id => found.add(id));
                 }
             }
             return Array.from(found);
@@ -275,16 +278,14 @@
             this.index = []; 
             this.spatialIndex = new SpatialIndex();
         }
-
         addObject(obj) {
-            const id = obj.id || `obj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const id = obj.id || generateId();
             obj.id = id;
             this.objects.set(id, obj);
             this.index.push(id);
             this.updateSpatialIndex(id);
             return id;
         }
-
         updateObject(id, newData) {
             const obj = this.objects.get(id);
             if (!obj) return;
@@ -295,31 +296,22 @@
                 this.spatialIndex.updateObject(id, newBounds, oldBounds);
             }
         }
-
         getBounds(obj) {
             let w = obj.w || 100, h = obj.h || 100;
             if (obj.type === 'pen' && obj.points) {
                 const xs = [obj.x, ...obj.points.map(p => p.x)];
                 const ys = [obj.y, ...obj.points.map(p => p.y)];
-                return {
-                    minX: Math.min(...xs), minY: Math.min(...ys),
-                    maxX: Math.max(...xs), maxY: Math.max(...ys)
-                };
+                return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
             }
             if (obj.type === 'line') {
-                return {
-                    minX: Math.min(obj.x, obj.ex), minY: Math.min(obj.y, obj.ey),
-                    maxX: Math.max(obj.x, obj.ex), maxY: Math.max(obj.y, obj.ey)
-                };
+                return { minX: Math.min(obj.x, obj.ex), minY: Math.min(obj.y, obj.ey), maxX: Math.max(obj.x, obj.ex), maxY: Math.max(obj.y, obj.ey) };
             }
             return { minX: obj.x, minY: obj.y, maxX: obj.x + w, maxY: obj.y + h };
         }
-
         updateSpatialIndex(id) {
             const obj = this.objects.get(id);
             this.spatialIndex.updateObject(id, this.getBounds(obj));
         }
-
         deleteObject(id) {
             const obj = this.objects.get(id);
             if (obj) {
@@ -328,21 +320,134 @@
                 this.index = this.index.filter(i => i !== id);
             }
         }
-
         getVisibleObjects(viewport) {
             const visibleIds = this.spatialIndex.query(viewport);
-            return this.index
-                .filter(id => visibleIds.includes(id))
-                .map(id => this.objects.get(id));
+            return this.index.filter(id => visibleIds.includes(id)).map(id => this.objects.get(id));
         }
     }
 
     const store = new BoardStore();
 
     // ===========================================================================
-    // 2. ОСНОВНОЙ ИНТЕРФЕЙС И РИСОВАНИЕ
+    // 3. СИСТЕМА КОМАНД (Undo/Redo)
     // ===========================================================================
-    
+    class Command {
+        execute() {}
+        undo() {}
+    }
+
+    class MoveCommand extends Command {
+        constructor(store, id, oldPos, newPos) {
+            super();
+            this.store = store;
+            this.id = id;
+            this.oldPos = oldPos;
+            this.newPos = newPos;
+        }
+        execute() { this.store.updateObject(this.id, this.newPos); }
+        undo() { this.store.updateObject(this.id, this.oldPos); }
+    }
+
+    class AddCommand extends Command {
+        constructor(store, obj) {
+            super();
+            this.store = store;
+            this.obj = obj;
+            this.id = obj.id;
+        }
+        execute() { this.store.addObject(this.obj); }
+        undo() { this.store.deleteObject(this.id); }
+    }
+
+    class DeleteCommand extends Command {
+        constructor(store, obj) {
+            super();
+            this.store = store;
+            this.obj = JSON.parse(JSON.stringify(obj));
+            this.id = obj.id;
+        }
+        execute() { this.store.deleteObject(this.id); }
+        undo() { this.store.addObject(this.obj); }
+    }
+
+    class HistoryManager {
+        constructor() {
+            this.undoStack = [];
+            this.redoStack = [];
+        }
+        do(command) {
+            command.execute();
+            this.undoStack.push(command);
+            this.redoStack = [];
+        }
+        undo() {
+            if (this.undoStack.length === 0) return;
+            const cmd = this.undoStack.pop();
+            cmd.undo();
+            this.redoStack.push(cmd);
+        }
+        redo() {
+            if (this.redoStack.length === 0) return;
+            const cmd = this.redoStack.pop();
+            cmd.execute();
+            this.undoStack.push(cmd);
+        }
+    }
+
+    const history = new HistoryManager();
+
+    // ===========================================================================
+    // 4. СИНХРОНІЗАЦІЯ (Socket.io)
+    // ===========================================================================
+    const boardId = window.location.pathname.replace('/', '') || 'main';
+    let socket;
+    try {
+        socket = io({ query: { boardId } });
+    } catch (e) {
+        socket = { emit: () => {}, on: () => {}, connected: false };
+    }
+
+    let syncState = { connected: false, lastKnownOperationId: 0 };
+
+    function sendOperation(type, data) {
+        if (!syncState.connected) return;
+        switch (type) {
+            case 'add': socket.emit('object:add', data); break;
+            case 'update': socket.emit('object:update', data); break;
+            case 'delete': socket.emit('object:delete', data.id); break;
+        }
+    }
+
+    function applyOperation(operation) {
+        const objId = operation.data?.id || operation.objectId;
+        if (!objId) return;
+        switch (operation.type) {
+            case 'add':
+                if (!store.objects.has(objId)) store.addObject(operation.data);
+                break;
+            case 'update':
+                if (store.objects.has(objId)) store.updateObject(objId, operation.data);
+                break;
+            case 'delete':
+                store.deleteObject(objId);
+                break;
+        }
+        requestDraw();
+    }
+
+    socket.on('connect', () => { syncState.connected = true; });
+    socket.on('operation', (op) => applyOperation(op));
+    socket.on('full-sync', (data) => {
+        store.objects.clear();
+        store.index = [];
+        store.spatialIndex.tiles.clear();
+        if (data.objects) data.objects.forEach(obj => store.addObject(obj));
+        requestDraw();
+    });
+
+    // ===========================================================================
+    // 5. ОСНОВНОЙ ИНТЕРФЕЙС И РИСОВАНИЕ
+    // ===========================================================================
     const canvas = document.getElementById('board');
     const ctx = canvas.getContext('2d');
     let scale = 1.0, offsetX = 0, offsetY = 0;
@@ -458,9 +563,7 @@
 
         if (obj.type === 'text') {
             const size = obj.size * scale;
-            // ИСПРАВЛЕНО: проверка на LaTeX теперь включает ^ и _, а также флаг isLatex
             const isFormula = obj.isLatex || (obj.text && (obj.text.includes('\\') || obj.text.includes('{') || obj.text.includes('^') || obj.text.includes('_')));
-            
             if (isFormula) {
                 const img = latexCache[`${obj.text}_${obj.color || '#000'}_${size}`];
                 if (img) ctx.drawImage(img, sx, sy);
@@ -550,6 +653,14 @@
     canvas.onmousemove = (e) => {
         const x = (e.clientX - offsetX) / scale;
         const y = (e.clientY - offsetY) / scale;
+        
+        if (currentTool === 'hand' && e.buttons === 1) {
+            offsetX += e.movementX;
+            offsetY += e.movementY;
+            requestDraw();
+            return;
+        }
+
         if (isDragging && selectedObjects.length > 0) {
             const dx = x - dragStartX;
             const dy = y - dragStartY;
@@ -575,7 +686,9 @@
 
     canvas.onmouseup = () => {
         if (isDrawing && currentPath) {
-            store.addObject(currentPath);
+            const addCmd = new AddCommand(store, currentPath);
+            history.do(addCmd);
+            sendOperation('add', currentPath);
         }
         isDragging = false; isDrawing = false; currentPath = null;
         requestDraw();
@@ -597,10 +710,12 @@
             type: 'text', x, y, text: '',
             color: colorPicker.value, size: 20,
             isBold: document.getElementById('boldText').checked,
-            isLatex: true // Флаг: этот текст создан через MathLive
+            isLatex: true
         };
-        const id = store.addObject(obj);
-        startTextEdit(store.objects.get(id));
+        const addCmd = new AddCommand(store, obj);
+        history.do(addCmd);
+        sendOperation('add', obj);
+        startTextEdit(store.objects.get(obj.id));
     }
 
     function startTextEdit(obj) {
@@ -616,6 +731,7 @@
         mf.value = obj.text;
         mf.oninput = () => {
             store.updateObject(obj.id, { text: mf.value });
+            sendOperation('update', { id: obj.id, text: mf.value });
             requestDraw();
         };
         mf.onblur = () => { document.body.removeChild(wrapper); textEditor = null; };
@@ -633,6 +749,19 @@
         document.getElementById('zoom-display').innerText = Math.round(scale * 100) + '%';
         requestDraw();
     };
+
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            e.preventDefault();
+            history.undo();
+            requestDraw();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+            e.preventDefault();
+            history.redo();
+            requestDraw();
+        }
+    });
 
 </script>
 </body>
