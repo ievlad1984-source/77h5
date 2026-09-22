@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Математична Дошка Pro (Math Fields)</title>
-<!-- MathLive для ввода -->
-<script defer src="https://cdn.jsdelivr.net/npm/mathlive"></script>
-<!-- KaTeX для рендеринга -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body, html { 
@@ -1793,20 +1788,6 @@ function getCoords(e) {
 // ВСТАВКА МАТЕМАТИЧНИХ ПОЛІВ
 // ============================================
 
-// Пример функции для вставки символа в MathLive
-function insertMathSymbol(latexCommand) {
-    const mf = document.querySelector('math-field');
-    if (mf) {
-        // Вставляем команду в позицию курсора
-        mf.insert(latexCommand); 
-        mf.focus();
-    }
-}
-
-// В HTML вашей панели:
-// <button onclick="insertMathSymbol('\\frac{}{}')">Дробь</button>
-// <button onclick="insertMathSymbol('\\int')">Интеграл</button>
-// <button onclick="insertMathSymbol('\\alpha')">α</button>
 function insertMathField(type) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
@@ -1994,28 +1975,23 @@ function collectNumeratorContent(range, editorDiv) {
 // ============================================
 
 function startTextEdit(obj) {
-    // 1. Закрываем предыдущий редактор, если он открыт
     if (textEditor) stopTextEdit();
     
     editingObject = obj;
     selectedObjects = [];
     requestDraw();
     
-    // 2. Определяем координаты для размещения редактора
     const bbox = getBBox(obj);
     const screenX = bbox.x * scale + offsetX;
     const screenY = bbox.y * scale + offsetY;
     
-    // 3. Создаем внешний контейнер (wrapper)
     const wrapper = document.createElement('div');
     wrapper.className = 'text-edit-wrapper';
     wrapper.style.left = (screenX - 10) + 'px';
     wrapper.style.top = (screenY - 5) + 'px';
     wrapper.style.minWidth = '100px';
-    // Высота зависит от размера шрифта объекта
     wrapper.style.minHeight = (obj.size * 1.4 * scale) + 'px';
     
-    // 4. Добавляем ручки изменения размера (handles)
     ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
         const div = document.createElement('div');
         div.className = `handle ${h}`;
@@ -2023,7 +1999,6 @@ function startTextEdit(obj) {
         wrapper.appendChild(div);
     });
     
-    // 5. Добавляем линию и ручку вращения
     const rotLine = document.createElement('div');
     rotLine.className = 'rotate-line';
     wrapper.appendChild(rotLine);
@@ -2033,98 +2008,265 @@ function startTextEdit(obj) {
     rotHandle.dataset.handle = 'rotate';
     wrapper.appendChild(rotHandle);
     
-    // 6. СОЗДАЕМ МАТЕМАТИЧЕСКОЕ ПОЛЕ (MathLive)
-    // Вместо 'div' используем 'math-field'
-    const mf = document.createElement('math-field'); 
-    mf.className = 'text-edit-content';
+    const editorDiv = document.createElement('div');
+    editorDiv.className = 'text-edit-content';
+    editorDiv.contentEditable = true;
+    editorDiv.spellcheck = false;
+    editorDiv.style.color = obj.color;
+    editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // Настройки внешнего вида
-    mf.style.color = obj.color;
-    mf.style.fontWeight = obj.isBold ? 'bold' : 'normal';
-    mf.style.fontSize = (obj.size * scale) + 'px';
-    
-    // Загружаем существующее значение
-    // MathLive работает с LaTeX. Если в obj.text хранится обычный текст или LaTeX, 
-    // библиотека попытается его отобразить.
-    if (obj.text) {
-        mf.value = obj.text;
+    if (obj.segments && obj.segments.length > 0) {
+        editorDiv.innerHTML = segmentsToHtml(obj.segments);
+    } else if (obj.text && obj.text.trim() !== '') {
+        const lines = obj.text.split('\n');
+        editorDiv.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
     } else {
-        mf.value = '';
+        editorDiv.innerHTML = '<div><br></div>';
     }
     
-    wrapper.appendChild(mf);
+    wrapper.appendChild(editorDiv);
     document.body.appendChild(wrapper);
     textEditor = wrapper;
     
-    // Функция для динамического обновления размера обертки под содержимое формулы
     function updateSize() {
-        if (!mf) return;
-        const rect = mf.getBoundingClientRect();
+        if (!editorDiv) return;
+        const rect = editorDiv.getBoundingClientRect();
         wrapper.style.width = (rect.width + 20) + 'px';
         wrapper.style.height = (rect.height + 10) + 'px';
     }
     
     updateSize();
     
-    // 7. Фокус и активация курсора
     setTimeout(() => {
-        if (!mf) return;
-        mf.focus();
+        if (!editorDiv) return;
+        editorDiv.focus();
+        
+        const range = document.createRange();
+        const sel = window.getSelection();
+        
+        const lastDiv = editorDiv.lastElementChild;
+        if (lastDiv) {
+            range.selectNodeContents(lastDiv);
+            range.collapse(false);
+        } else {
+            range.selectNodeContents(editorDiv);
+            range.collapse(false);
+        }
+        
+        sel.removeAllRanges();
+        sel.addRange(range);
     }, 50);
     
-    // 8. Обработка клавиш
-    mf.addEventListener('keydown', (e) => {
-        // Клавиша Escape — закрыть редактор с отменой или сохранением
+    editorDiv.addEventListener('keydown', (e) => {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        const node = range.startContainer;
+
+        if (e.key === '/') {
+            e.preventDefault();
+            const numeratorContent = collectNumeratorContent(range, editorDiv);
+            insertFraction(editorDiv, numeratorContent);
+            updateSize();
+            return;
+        }
+
+        if (e.key === '^' || e.key === '_') {
+            e.preventDefault();
+            const type = e.key === '^' ? 'sup' : 'sub';
+            insertMathField(type);
+            updateSize();
+            return;
+        }
+        
+        if (e.key === 'ArrowRight') {
+            let parent = node.parentElement;
+            
+            if (parent && parent.classList.contains('math-den')) {
+                e.preventDefault();
+                const frac = parent.parentElement;
+                const nextSibling = frac.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+            
+            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+            
+            if (isAtEnd && parent) {
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const denSpan = parent.parentElement.querySelector('.math-den');
+                    if (denSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(denSpan);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const nextSibling = parent.nextSibling;
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+            }
+        }
+        
+        if (e.key === 'ArrowLeft') {
+            let parent = node.parentElement;
+            let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
+                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
+            
+            if (isAtStart && parent) {
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const numSpan = parent.parentElement.querySelector('.math-num');
+                    if (numSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(numSpan);
+                        newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const prevSibling = frac.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(prevSibling);
+                            newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        frac.parentNode.insertBefore(textNode, frac);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const prevSibling = parent.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(prevSibling);
+                            newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+            }
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.execCommand('insertLineBreak');
+            updateSize();
+            return;
+        }
+
         if (e.key === 'Escape') { 
             stopTextEdit(true); 
         }
-        
-        // Клавиша Enter — в MathLive она обычно делает перенос строки внутри формулы,
-        // если вы хотите, чтобы Enter завершал редактирование, раскомментируйте строку ниже:
-        /*
-        if (e.key === 'Enter' && e.ctrlKey === false) {
-            e.preventDefault();
-            stopTextEdit();
-        }
-        */
     });
     
-    // 9. Синхронизация ввода в реальном времени
-    mf.addEventListener('input', () => {
+    editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
-            // Сохраняем значение в формате LaTeX
-            editingObject.text = mf.value; 
-            editingObject.lastModified = Date.now();
+            // Оновлюємо і текст, і сегменти (для математичних полів) у реальному часі
+            const html = editorDiv.innerHTML;
+            const segments = htmlToSegments(html);
             
-            // Отправляем обновление на сервер (socket.io)
+            if (segments && segments.length > 0) {
+                editingObject.segments = segments;
+            } else {
+                delete editingObject.segments;
+            }
+            
+            editingObject.text = editorDiv.innerText;
+            editingObject.lastModified = Date.now();
             sendOperation('update', editingObject);
         }
     });
     
-    // 10. Обработка потери фокуса (blur)
-    mf.addEventListener('blur', () => {
+    editorDiv.addEventListener('blur', () => {
         setTimeout(() => {
-            // Если фокус ушел не на ручки редактора, закрываем его
-            if (textEditor && document.activeElement !== mf) {
+            if (textEditor && document.activeElement !== editorDiv) {
                 stopTextEdit();
             }
         }, 200);
     });
     
-    // 11. Привязка событий к ручкам изменения размера и вращения
     const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
     handles.forEach(h => {
         h.addEventListener('mousedown', (e) => {
             e.stopPropagation();
-            // Передаем mf вместо editorDiv в функцию ресайза
-            startTextResize(obj, h.dataset.handle, e, wrapper, mf);
+            startTextResize(obj, h.dataset.handle, e, wrapper, editorDiv);
         });
     });
     
-    // 12. Перетаскивание всего текстового блока
-    mf.addEventListener('mousedown', (e) => {
-        if (e.target === mf) {
+    editorDiv.addEventListener('mousedown', (e) => {
+        if (e.target === editorDiv) {
             e.stopPropagation();
             startTextDrag(obj, e, wrapper);
         }
