@@ -297,7 +297,6 @@
         }
 
         getBounds(obj) {
-            // Расчет границ для разных типов объектов
             let w = obj.w || 100, h = obj.h || 100;
             if (obj.type === 'pen' && obj.points) {
                 const xs = [obj.x, ...obj.points.map(p => p.x)];
@@ -338,7 +337,6 @@
         }
     }
 
-    // Создаем экземпляр хранилища
     const store = new BoardStore();
 
     // ===========================================================================
@@ -363,7 +361,6 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // UI Управление
     document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         btn.onclick = () => {
             currentTool = btn.dataset.tool;
@@ -430,7 +427,6 @@
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawBackgroundGrid();
 
-        // ОПТИМИЗАЦИЯ: Рендерим только то, что видит пользователь
         const viewport = {
             x: -offsetX / scale,
             y: -offsetY / scale,
@@ -462,7 +458,10 @@
 
         if (obj.type === 'text') {
             const size = obj.size * scale;
-            if (obj.text && (obj.text.includes('\\') || obj.text.includes('{'))) {
+            // ИСПРАВЛЕНО: проверка на LaTeX теперь включает ^ и _, а также флаг isLatex
+            const isFormula = obj.isLatex || (obj.text && (obj.text.includes('\\') || obj.text.includes('{') || obj.text.includes('^') || obj.text.includes('_')));
+            
+            if (isFormula) {
                 const img = latexCache[`${obj.text}_${obj.color || '#000'}_${size}`];
                 if (img) ctx.drawImage(img, sx, sy);
                 else getLatexImage(obj.text, obj.color || '#000', size).then(requestDraw);
@@ -597,7 +596,8 @@
         const obj = {
             type: 'text', x, y, text: '',
             color: colorPicker.value, size: 20,
-            isBold: document.getElementById('boldText').checked
+            isBold: document.getElementById('boldText').checked,
+            isLatex: true // Флаг: этот текст создан через MathLive
         };
         const id = store.addObject(obj);
         startTextEdit(store.objects.get(id));
