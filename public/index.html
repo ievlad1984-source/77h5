@@ -3,536 +3,3260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iDroo Clone - Stable Version</title>
-    
-    <!-- Библиотеки -->
-    <script src="https://cdn.jsdelivr.net/npm/mathlive"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    
+    <title>Математична Дошка Pro (Math Fields)</title>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root {
-            --bg-color: #fcfcfc;
-            --panel-bg: #ffffff;
-            --border-color: #e0e0e0;
-            --accent-color: #007bff;
-            --handle-color: #7CFC00; 
-            --rotate-color: #2196F3;
-        }
-
         body, html { 
-            margin: 0; padding: 0; overflow: hidden; height: 100%; 
-            font-family: 'Segoe UI', Roboto, sans-serif; 
-            background: var(--bg-color); 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            height: 100%; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #ffffff; 
+        }
+        
+        #toolbar {
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            background: white; 
+            padding: 8px;
+            display: flex; 
+            gap: 6px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
+            z-index: 1000; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            max-width: 90vw;
         }
 
-        #app-header {
+        .tool-btn { 
+            padding: 8px 14px; 
+            cursor: pointer; 
+            border: 1px solid #e0e0e0; 
+            background: #fff; 
+            border-radius: 6px; 
+            font-size: 14px; 
+            transition: all 0.2s;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            user-select: none;
+            position: relative;
+        }
+        
+        .tool-btn.split-btn {
+            padding-right: 24px;
+        }
+        
+        .dropdown-arrow {
             position: absolute;
-            top: 0; left: 0; right: 0;
-            background: var(--panel-bg);
-            border-bottom: 1px solid var(--border-color);
-            z-index: 1000;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: #666;
+            pointer-events: none;
             user-select: none;
         }
 
-        .toolbar-main {
-            display: flex;
-            align-items: center;
-            padding: 5px 10px;
-            gap: 5px;
-            height: 45px;
-        }
-
-        .tool-group {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            padding: 0 8px;
-            border-right: 1px solid var(--border-color);
-        }
-
-        .tool-btn {
-            height: 32px; min-width: 32px;
-            padding: 0 8px; cursor: pointer;
-            border: 1px solid transparent;
-            background: transparent;
-            border-radius: 4px;
-            font-size: 16px;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.1s;
-        }
-
-        .tool-btn:hover { background: #f0f0f0; }
-        .tool-btn.active { 
-            background: #e8f0fe; 
-            color: var(--accent-color); 
-            border-color: #c2d7ff; 
-        }
-
-        #formula-bar {
-            display: none; 
-            background: #f9f9f9;
-            border-bottom: 1px solid var(--border-color);
-            padding: 8px 15px;
-            align-items: center;
-            gap: 15px;
-            font-size: 14px;
-            overflow-x: auto;
-            white-space: nowrap;
-        }
-
-        .formula-section {
-            display: flex; gap: 4px; align-items: center;
-            padding-right: 15px; border-right: 1px solid #ddd;
-        }
-
-        .formula-btn {
-            padding: 4px 8px; background: white;
-            border: 1px solid #ccc; border-radius: 3px;
-            cursor: pointer; font-family: 'Cambria Math', serif;
-        }
-
-        .property-group {
-            display: flex; align-items: center; gap: 10px;
-            margin-left: auto; padding-right: 15px;
-        }
-
-        .color-dot {
-            width: 20px; height: 20px; border-radius: 50%;
-            border: 2px solid white; box-shadow: 0 0 0 1px #ccc;
+        .dropdown-trigger {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 20px;
             cursor: pointer;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 1px solid rgba(0,0,0,0.1);
+            border-top-right-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }
+        .dropdown-trigger:hover {
+            background: rgba(0,0,0,0.05);
+        }
+        
+        .tool-btn:hover { 
+            background: #f0f7ff; 
+            border-color: #007bff; 
+        }
+        .tool-btn.active { 
+            background: #007bff; 
+            color: white; 
+            border-color: #0056b3; 
+        }
+        .tool-btn.active .dropdown-arrow { 
+            color: white; 
+        }
+        
+        .color-picker-btn {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #000000;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .color-picker-btn:hover {
+            transform: scale(1.1);
+            border-color: #007bff;
         }
 
-        canvas { display: block; touch-action: none; }
+        .tool-icon {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            fill: currentColor;
+        }
+
+        #zoom-display { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            background: rgba(255,255,255,0.9); 
+            padding: 8px 15px; 
+            border-radius: 20px; 
+            font-weight: bold; 
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            z-index: 1000; 
+            border: 1px solid #ddd;
+        }
+        
+        #status-display {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        #status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+        }
+        
+        #status-dot.disconnected {
+            background: #f44336;
+        }
+        
+        #status-dot.syncing {
+            background: #ff9800;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
 
         .text-edit-wrapper {
-            position: absolute; z-index: 2000;
-            border: 1px solid var(--handle-color);
-            background: transparent; padding: 2px;
+            position: absolute;
+            z-index: 2000;
+            border: 2px dashed #4CAF50;
+            background: transparent;
+            box-sizing: border-box;
+            min-width: 100px;
+            padding: 5px;
+            user-select: none; 
         }
 
         .text-edit-content {
-            outline: none; background: white;
+            outline: none;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 4px;
+            font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
+            color: #333;
+            white-space: pre !important;
+            overflow: visible;
+            display: inline-block;
+            box-sizing: border-box;
+            line-height: 1.4;
             min-width: 50px;
+            max-width: none !important;
+            width: auto !important;
+            cursor: text;
+            vertical-align: baseline;
         }
 
-        #zoom-display {
-            position: absolute; bottom: 20px; right: 20px;
-            background: white; padding: 5px 12px;
-            border-radius: 15px; border: 1px solid #ddd;
-            font-size: 12px; z-index: 1000;
+        .math-sup, .math-sub {
+            display: inline-block;
+            font-size: 0.6em;
+            border: 1px dashed #2196F3;
+            background: rgba(33, 150, 243, 0.15);
+            border-radius: 3px;
+            padding: 0 3px;
+            margin: 0 1px;
+            min-width: 10px;
+            min-height: 1em;
+            line-height: 1.2;
+            vertical-align: baseline;
         }
 
-        input[type="color"] { display: none; }
+        .math-sup { 
+            vertical-align: super; 
+        }
+        .math-sub { 
+            vertical-align: sub; 
+        }
+
+        .math-frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 8px;
+            border: 1px dashed #9C27B0;
+            background: rgba(156, 39, 176, 0.1);
+            border-radius: 3px;
+            padding: 2px 4px;
+            line-height: 1.0;
+        }
+        .math-num {
+            border-bottom: 2px solid currentColor;
+            padding-bottom: 2px;
+            margin-bottom: 2px;
+            display: block;
+            text-align: center;
+            width: 100%;
+            white-space: nowrap;
+            line-height: 1.2;
+            min-width: 10px;
+        }
+        .math-den {
+            display: block;
+            text-align: center;
+            width: 100%;
+            white-space: nowrap;
+            line-height: 1.2;
+            padding-top: 2px;
+            min-width: 10px;
+        }
+
+        .handle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #4CAF50;
+            border: 1px solid white;
+            border-radius: 2px;
+            z-index: 2001;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .handle:hover { 
+            background: #45a049; 
+            transform: scale(1.2); 
+        }
+        .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
+        .handle.n { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
+        .handle.e { top: 50%; right: -4px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
+        .handle.s { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+        .handle.w { top: 50%; left: -4px; transform: translateY(-50%); cursor: ew-resize; }
+        
+        .rotate-handle {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 10px;
+            background: #2196F3;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: alias;
+            z-index: 2001;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .rotate-line {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            width: 1px;
+            height: 10px;
+            background: #2196F3;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        input[type="color"] { 
+            border: none; 
+            width: 0; 
+            height: 0; 
+            overflow: hidden; 
+            padding: 0; 
+            position: absolute; 
+        }
+        input[type="range"] { 
+            cursor: pointer; 
+        }
+        .separator { 
+            width: 1px; 
+            height: 25px; 
+            background: #ddd; 
+            margin: 0 5px; 
+        }
+        
+        canvas { 
+            display: block; 
+            touch-action: none; 
+            background: #ffffff; 
+        }
+        
+        .cursor-default { cursor: default !important; }
+        .cursor-move { cursor: move !important; }
+        .cursor-crosshair { cursor: crosshair !important; }
+        .cursor-grab { cursor: grab !important; }
+        .cursor-grabbing { cursor: grabbing !important; }
+        .cursor-eraser { cursor: cell !important; }
+        .cursor-text { cursor: text !important; }
+        
+        .cursor-pencil { 
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>') 0 24, auto !important; 
+        }
+        
+        .cursor-grid { 
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
+        }
+
+        #shapes-palette, #line-palette {
+            position: absolute;
+            top: 70px;
+            left: 15px;
+            width: 240px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 1001;
+            display: none;
+            flex-direction: column;
+            padding: 10px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .shape-category {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 3px;
+        }
+
+        .shape-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .shape-item {
+            width: 45px;
+            height: 45px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shape-item:hover {
+            background: #f0f7ff;
+            border-color: #007bff;
+        }
+
+        .shape-item svg {
+            width: 28px;
+            height: 28px;
+            stroke: #333;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .compass-icon-bg {
+            width: 32px;
+            height: 32px;
+            background-color: #5a7d9a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .compass-icon-bg svg {
+            stroke: white;
+            fill: white;
+            width: 20px;
+            height: 20px;
+        }
     </style>
 </head>
 <body>
 
-<div id="app-header">
-    <div class="toolbar-main">
-        <div class="tool-group">
-            <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
-            <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
+<div id="toolbar">
+    <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
+    <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
+    <div class="separator"></div>
+    <button class="tool-btn" data-tool="pen" id="penToolBtn" title="Олівець">✏️</button>
+    
+    <button class="tool-btn split-btn" data-tool="line" id="lineToolBtn" title="Лінія">
+        <svg class="tool-icon" viewBox="0 0 24 24" style="transform: rotate(-45deg);">
+            <line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        </svg>
+        <div class="dropdown-trigger" id="lineDropdownTrigger" title="Інші інструменти">
+            <span class="dropdown-arrow">▼</span>
         </div>
-        <div class="tool-group">
-            <button class="tool-btn" data-tool="pen" title="Карандаш">✏️</button>
-            <button class="tool-btn" data-tool="line" title="Линия">╱</button>
-            <button class="tool-btn" data-tool="rect" title="Фигуры">⬜</button>
-            <button class="tool-btn" data-tool="grid" title="Сетка">📊</button>
-            <button class="tool-btn" data-tool="text" title="Текст">T</button>
+    </button>
+    
+    <button class="tool-btn split-btn" data-tool="rect" id="rectToolBtn" title="Прямокутник">
+        <span>⬜</span>
+        <div class="dropdown-trigger" id="rectDropdownTrigger" title="Інші фігури">
+            <span class="dropdown-arrow">▼</span>
         </div>
-        <div class="tool-group">
-            <button class="tool-btn" id="fxBtn" title="Формулы">fx</button>
-            <button class="tool-btn" data-tool="eraser" title="Ластик">🧹</button>
+    </button>
+    
+    <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
+    <button class="tool-btn" data-tool="text" title="Текст">Т</button>
+    
+    <button class="tool-btn" data-tool="eraser" title="Ластик">
+        <svg class="tool-icon" viewBox="0 0 24 24">
+            <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
+        </svg>
+    </button>
+
+    <div class="separator"></div>
+    
+    <div class="color-picker-btn" id="colorPickerBtn" title="Вибір кольору"></div>
+    <input type="color" id="colorPickerInput" value="#000000">
+    
+    <div class="separator"></div>
+    <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
+    <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
+    <div class="separator"></div>
+    <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
+    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
+</div>
+
+<div id="line-palette">
+    <div class="shape-category">Інструменти</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectLineTool('line')" title="Лінія">
+            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);"><line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-linecap="round" /></svg>
         </div>
-        <div class="property-group">
-            <div class="color-dot" id="colorPreview" style="background: #000000;"></div>
-            <input type="color" id="colorPicker">
-            <input type="range" id="lineWidth" min="1" max="20" value="3" style="width: 80px;">
-            <label style="font-size: 12px; cursor: pointer;"><input type="checkbox" id="boldText"> <b>B</b></label>
-            <button class="tool-btn" id="clearBtn" style="color: red; font-size: 12px; border: 1px solid #ffcccc;">Очистить</button>
+        <div class="shape-item" onclick="selectLineTool('dotted')" title="Пунктирна лінія">
+            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);">
+                <line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-dasharray="4,4" stroke-linecap="round" />
+            </svg>
         </div>
     </div>
+</div>
 
-    <div id="formula-bar">
-        <div class="formula-section">
-            <span style="color: #888; margin-right: 5px;">База:</span>
-            <button class="formula-btn" onclick="insertMathSymbol('\\frac{}{}')">$\frac{a}{b}$</button>
-            <button class="formula-btn" onclick="insertMathSymbol('^{}')">$x^n$</button>
-            <button class="formula-btn" onclick="insertMathSymbol('_{}')">$x_n$</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\sqrt{}')">$\sqrt{x}$</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\pm')">±</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\approx')">≈</button>
-        </div>
-        <div class="formula-section">
-            <span style="color: #888; margin-right: 5px;">Греч:</span>
-            <button class="formula-btn" onclick="insertMathSymbol('\\alpha')">α</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\beta')">β</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\gamma')">γ</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\pi')">π</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\theta')">θ</button>
-        </div>
-        <div class="formula-section">
-            <span style="color: #888; margin-right: 5px;">Исчисление:</span>
-            <button class="formula-btn" onclick="insertMathSymbol('\\sum_{}^{}')">$\sum$</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\int_{}^{}')">$\int$</button>
-            <button class="formula-btn" onclick="insertMathSymbol('\\lim_{}')">$\lim$</button>
-        </div>
-        <div style="margin-left: auto; color: #aaa; font-size: 11px;">MathLive Engine</div>
+<div id="shapes-palette">
+    <div class="shape-category">Основні</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" /></svg></div>
+        <div class="shape-item" onclick="selectShape('circle')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg></div>
+        <div class="shape-item" onclick="selectShape('triangle')"><svg viewBox="0 0 24 24"><path d="M12 3 L22 21 L2 21 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('diamond')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 12 L12 22 L2 12 Z" /></svg></div>
+    </div>
+
+    <div class="shape-category">Багатокутники</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('pentagon')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 9 L18 21 L6 21 L2 9 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('hexagon')"><svg viewBox="0 0 24 24"><path d="M7 2 L17 2 L22 12 L17 22 L7 22 L2 12 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('star')"><svg viewBox="0 0 24 24"><path d="M12 2 L15 9 L22 9 L16 14 L18 21 L12 17 L6 21 L8 14 L2 9 L9 9 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('parallelogram')"><svg viewBox="0 0 24 24"><path d="M6 4 L20 4 L18 20 L4 20 Z" /></svg></div>
+    </div>
+
+    <div class="shape-category">Округлені</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('rounded-rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" /></svg></div>
+        <div class="shape-item" onclick="selectShape('semi-circle')"><svg viewBox="0 0 24 24"><path d="M2 12 A10 10 0 0 1 22 12 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('quarter-circle')"><svg viewBox="0 0 24 24"><path d="M2 22 A20 20 0 0 1 22 2 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('heart')"><svg viewBox="0 0 24 24"><path d="M12 21 C12 21 2 14 2 8 C2 5 5 2 8 2 C10 2 12 4 12 4 C12 4 14 2 16 2 C19 2 22 5 22 8 C22 14 12 21 12 21 Z" /></svg></div>
     </div>
 </div>
 
 <div id="zoom-display">100%</div>
+<div id="status-display">
+    <div id="status-dot"></div>
+    <span id="status-text">Підключено</span>
+</div>
 <canvas id="board"></canvas>
 
 <script>
-    // ===========================================================================
-    // 1. ХРАНИЛИЩЕ (BoardStore) - Упрощенная и стабильная версия
-    // ===========================================================================
-    class BoardStore {
-        constructor() {
-            this.objects = new Map(); 
-            this.index = []; 
-        }
-        addObject(obj) {
-            const id = obj.id || `obj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            obj.id = id;
-            this.objects.set(id, obj);
-            this.index.push(id);
-            return id;
-        }
-        updateObject(id, newData) {
-            const obj = this.objects.get(id);
-            if (obj) Object.assign(obj, newData);
-        }
-        deleteObject(id) {
-            this.objects.delete(id);
-            this.index = this.index.filter(i => i !== id);
-        }
-        getObjects() {
-            return this.index.map(id => this.objects.get(id));
-        }
-        getBounds(obj) {
-            let w = obj.w || 100, h = obj.h || 100;
-            if (obj.type === 'pen' && obj.points) {
-                const xs = [obj.x, ...obj.points.map(p => p.x)];
-                const ys = [obj.y, ...obj.points.map(p => p.y)];
-                return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
-            }
-            if (obj.type === 'line') {
-                return { minX: Math.min(obj.x, obj.ex), minY: Math.min(obj.y, obj.ey), maxX: Math.max(obj.x, obj.ex), maxY: Math.max(obj.y, obj.ey) };
-            }
-            return { minX: obj.x, minY: obj.y, maxX: obj.x + w, maxY: obj.y + h };
-        }
+// ============================================
+// УТИЛІТИ
+// ============================================
+
+function generateId() {
+    return 'obj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// ============================================
+// ІНІЦІАЛІЗАЦІЯ
+// ============================================
+const boardId = window.location.pathname.replace('/', '') || 'main';
+let socket;
+try {
+    socket = io({ query: { boardId } });
+} catch (e) {
+    console.warn("Socket.io not loaded or connection failed. Running in local mode.");
+    socket = { 
+        emit: () => {}, 
+        on: () => {},
+        connected: false
+    };
+}
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+
+// Стан синхронізації
+let syncState = {
+    connected: false,
+    lastKnownOperationId: 0,
+    pendingOperations: [],
+    isSyncing: false
+};
+
+// Змінні стану
+let scale = 1.0, offsetX = 0, offsetY = 0;
+let objects = {}; // Змінено на Map для швидкого доступу
+let objectsArray = []; // Для зворотньої сумісності
+const imageCache = {}; // Кеш для завантажених зображень
+let currentTool = 'select';
+let selectedObjects = []; 
+let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
+let isDrawing = false, currentPath = null;
+let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
+let startResizeState = {};
+let shiftKey = false, ctrlKey = false;
+
+let isSelectingArea = false;
+let selectionStart = { x: 0, y: 0 };
+let selectionEnd = { x: 0, y: 0 };
+
+let textEditor = null;
+let editingObject = null;
+
+let historyStack = [];
+let historyIndex = -1;
+let isUndoing = false;
+
+let needsRedraw = false;
+let animationFrameId = null;
+
+const MAX_HISTORY = 50;
+const SMOOTHING_FACTOR = 0.5;
+
+let selectedShapeType = null;
+let selectedLineToolType = 'line';
+let currentPenColor = '#000000';
+
+// ============================================
+// ОНОВЛЕННЯ СТАТУСУ ПІДКЛЮЧЕННЯ
+// ============================================
+
+function updateConnectionStatus(status, text) {
+    const dot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    
+    dot.className = '';
+    if (status === 'connected') {
+        dot.style.background = '#4CAF50';
+        syncState.connected = true;
+    } else if (status === 'disconnected') {
+        dot.classList.add('disconnected');
+        syncState.connected = false;
+    } else if (status === 'syncing') {
+        dot.classList.add('syncing');
     }
+    
+    if (text) statusText.textContent = text;
+}
 
-    const store = new BoardStore();
+// ============================================
+// ФУНКЦІЇ СИНХРОНІЗАЦІЇ
+// ============================================
 
-    // ===========================================================================
-    // 2. ОСНОВНОЙ ИНТЕРФЕЙС И РИСОВАНИЕ
-    // ===========================================================================
-    const canvas = document.getElementById('board');
-    const ctx = canvas.getContext('2d');
-    let scale = 1.0, offsetX = 0, offsetY = 0;
-    let currentTool = 'select';
-    let selectedObjects = [];
-    let isDragging = false, isDrawing = false, isPanning = false, currentPath = null;
-    let dragStartX, dragStartY;
-    let textEditor = null, editingObject = null;
-    const latexCache = {};
-
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        requestDraw();
+function sendOperation(type, data) {
+    if (!syncState.connected) return;
+    
+    // 1. Локальне застосування змін (використовуємо вже існуючу функцію applyOperation)
+    applyOperation({ type, data, id: Date.now(), timestamp: Date.now() });
+    
+    // 2. Відправка на сервер
+    switch (type) {
+        case 'add':
+            socket.emit('object:add', data);
+            break;
+        case 'update':
+            socket.emit('object:update', data);
+            break;
+        case 'delete':
+            socket.emit('object:delete', data.id);
+            break;
     }
-    window.addEventListener('resize', resize);
-    resize();
+}
 
-    document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
-        btn.onclick = () => {
-            currentTool = btn.dataset.tool;
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+function applyOperation(operation) {
+    // Визначаємо ID об'єкта
+    const objId = operation.data?.id || operation.objectId;
+    if (!objId) return;
+
+    switch (operation.type) {
+        case 'add':
+            if (!objects[objId]) {
+                objects[objId] = operation.data;
+                objectsArray.push(operation.data);
+            }
+            break;
+        case 'update':
+            if (!objects[objId]) {
+                // КРИТИЧНА ЗМІНА: Не створюємо об'єкт з дельти!
+                // Якщо об'єкта немає, ми не можемо його відновити з {x, y}.
+                // Просто ігноруємо або можна додати socket.emit('request-full-sync')
+                console.warn(`[SYNC] Отримано update для відсутнього об'єкта ${objId}. Ігноруємо.`);
+                return; 
+            } else {
+                const localObj = objects[objId];
+                const isEditingLocally = (editingObject && editingObject.id === objId);
+                
+                // Перевіряємо, чи дані новіші (якщо є timestamp)
+                const isNewer = !localObj.lastModified || 
+                                (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
+
+                if (!isEditingLocally || isNewer) {
+                    // Просто оновлюємо дані. Картинки тепер беруться з imageCache, тому _img не потрібен
+                    objects[objId] = {
+                        ...localObj,
+                        ...operation.data
+                    };
+                    const idx = objectsArray.findIndex(o => o.id === objId);
+                    if (idx !== -1) {
+                        objectsArray[idx] = objects[objId];
+                    }
+                }
+            }
+            break;
+        case 'delete':
+            if (objects[objId]) {
+                delete objects[objId];
+                objectsArray = objectsArray.filter(o => o.id !== objId);
+                selectedObjects = selectedObjects.filter(o => o.id !== objId);
+            }
+            break;
+        case 'clear':
+            objects = {};
+            objectsArray = [];
             selectedObjects = [];
-            requestDraw();
-        };
+            break;
+    }
+    
+    requestDraw();
+}
+
+function applyBatchOperations(operations) {
+    operations.forEach(op => {
+        applyOperation(op);
+        if (op.id > syncState.lastKnownOperationId) {
+            syncState.lastKnownOperationId = op.id;
+        }
     });
+}
 
-    const fxBtn = document.getElementById('fxBtn');
-    const formulaBar = document.getElementById('formula-bar');
-    fxBtn.onclick = () => {
-        const isVisible = formulaBar.style.display === 'flex';
-        formulaBar.style.display = isVisible ? 'none' : 'flex';
-        fxBtn.classList.toggle('active');
-    };
+// ============================================
+// ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
+// ============================================
 
-    const colorPicker = document.getElementById('colorPicker');
-    const colorPreview = document.getElementById('colorPreview');
-    colorPreview.onclick = () => colorPicker.click();
-    colorPicker.oninput = (e) => { colorPreview.style.background = e.target.value; };
-
-    document.getElementById('clearBtn').onclick = () => {
-        if(confirm("Очистить всё?")) {
-            store.objects.clear();
-            store.index = [];
-            selectedObjects = [];
-            requestDraw();
-        }
-    };
-
-    function insertMathSymbol(latex) {
-        const mf = document.querySelector('math-field');
-        if (mf) { mf.insert(latex); mf.focus(); }
-    }
-
-    async function getLatexImage(latex, color, size) {
-        const cacheKey = `${latex}_${color}_${size}`;
-        if (latexCache[cacheKey]) return latexCache[cacheKey];
-        return new Promise((resolve) => {
-            const div = document.createElement('div');
-            div.style.position = 'absolute'; div.style.left = '-9999px';
-            div.style.color = color; div.style.fontSize = `${size}px`;
-            document.body.appendChild(div);
-            try {
-                katex.render(latex, div, { throwOnError: false, displayMode: false });
-                const svg = div.querySelector('svg');
-                if (!svg) { document.body.removeChild(div); resolve(null); return; }
-                const svgData = new XMLSerializer().serializeToString(svg);
-                const url = URL.createObjectURL(new Blob([svgData], {type: 'image/svg+xml'}));
-                const img = new Image();
-                img.src = url;
-                img.onload = () => { latexCache[cacheKey] = img; document.body.removeChild(div); resolve(img); };
-            } catch (e) { resolve(null); }
+function requestDraw() {
+    if (!needsRedraw) {
+        needsRedraw = true;
+        animationFrameId = requestAnimationFrame(() => {
+            draw();
+            needsRedraw = false;
         });
     }
+}
 
-    function requestDraw() { requestAnimationFrame(draw); }
+function saveHistory() {
+    if (isUndoing) return;
+    if (historyIndex < historyStack.length - 1) {
+        historyStack = historyStack.slice(0, historyIndex + 1);
+    }
+    const state = {
+        objects: JSON.parse(JSON.stringify(objectsArray)),
+        view: { scale, offsetX, offsetY }
+    };
+    historyStack.push(state);
+    if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+    } else {
+        historyIndex++;
+    }
+}
 
-    function draw() {
-        ctx.fillStyle = '#fcfcfc';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawBackgroundGrid();
-
-        const visibleObjects = store.getObjects();
-        visibleObjects.forEach(obj => drawObject(obj));
-        if (isDrawing && currentPath) drawObject(currentPath);
-        if (selectedObjects.length > 0 && currentTool === 'select') drawSelection();
+function undo() {
+    if (historyIndex <= 0 || isUndoing) return;
+    isUndoing = true;
+    historyIndex--;
+    const state = historyStack[historyIndex];
+    
+    // Відправляємо повну синхронізацію
+    if (syncState.connected) {
+        // Для undo надсилаємо операції видалення для всіх об'єктів, 
+        // а потім додаємо їх з історії
+        const batchOps = [];
+        Object.keys(objects).forEach(id => {
+            batchOps.push({ type: 'delete', data: { id } });
+        });
+        
+        if (batchOps.length > 0) {
+            socket.emit('batch-operation', { operations: batchOps });
+        }
+        
+        // Додаємо об'єкти з історії
+        state.objects.forEach(obj => {
+            const newObj = { ...obj, id: obj.id || generateId() };
+            objects[obj.id] = newObj;
+            objectsArray.push(newObj);
+            socket.emit('object:add', newObj);
+        });
+        
+        objects = {};
+        objectsArray = [];
+        state.objects.forEach(obj => {
+            const id = obj.id || generateId();
+            obj.id = id;
+            objects[id] = obj;
+            objectsArray.push(obj);
+        });
+    } else {
+        objects = {};
+        objectsArray = [];
+        state.objects.forEach(obj => {
+            const id = obj.id || generateId();
+            obj.id = id;
+            objects[id] = obj;
+            objectsArray.push(obj);
+        });
+    }
+    
+    if (state.view) {
+        scale = state.view.scale;
+        offsetX = state.view.offsetX;
+        offsetY = state.view.offsetY;
+        updateZoomDisplay();
     }
 
-    function drawBackgroundGrid() {
-        const step = 30 * scale;
-        ctx.beginPath(); ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
-        for (let x = offsetX % step; x < canvas.width; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
-        for (let y = offsetY % step; y < canvas.height; y += step) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
+    selectedObjects = [];
+    if (textEditor) stopTextEdit(true);
+    requestDraw();
+    isUndoing = false;
+}
+
+function updateZoomDisplay() {
+    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
+}
+
+// ============================================
+// ОБРОБКА КЛАВІШ
+// ============================================
+
+window.addEventListener('keydown', (e) => { 
+    if (e.key === 'Shift') shiftKey = true; 
+    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
+    
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        if (!textEditor) {
+            e.preventDefault();
+            selectedObjects = [...objectsArray];
+            requestDraw();
+            return;
+        }
+    }
+    
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+    }
+    
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedObjects.length > 0 && !textEditor) {
+            e.preventDefault();
+            saveHistory();
+            
+            // Відправляємо операції видалення
+            selectedObjects.forEach(obj => {
+                delete objects[obj.id];
+                sendOperation('delete', { id: obj.id });
+            });
+            
+            objectsArray = objectsArray.filter(o => !selectedObjects.some(s => s.id === o.id));
+            selectedObjects = [];
+            requestDraw();
+            return;
+        }
+    }
+    
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'h' || e.key === 'H') setTool('hand');
+    if (e.key === 'g' || e.key === 'G') setTool('grid');
+});
+
+window.addEventListener('keyup', (e) => { 
+    if (e.key === 'Shift') shiftKey = false;
+    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
+});
+
+// ============================================
+// ІНСТРУМЕНТИ ТА ПАЛІТРИ
+// ============================================
+
+function selectPenColor(color) {
+    currentPenColor = color;
+    document.getElementById('colorPickerInput').value = color;
+    document.getElementById('colorPickerBtn').style.backgroundColor = color;
+}
+
+function selectShape(type) {
+    selectedShapeType = type;
+    currentTool = 'shape';
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('rectToolBtn').classList.add('active');
+    document.getElementById('shapes-palette').style.display = 'none';
+    canvas.className = 'cursor-crosshair';
+}
+
+function selectLineTool(type) {
+    selectedLineToolType = type;
+    currentTool = 'line';
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('lineToolBtn').classList.add('active');
+    document.getElementById('line-palette').style.display = 'none';
+    canvas.className = 'cursor-crosshair';
+}
+
+const lineBtn = document.getElementById('lineToolBtn');
+const lineTrigger = document.getElementById('lineDropdownTrigger');
+
+lineTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const palette = document.getElementById('line-palette');
+    if (palette.style.display === 'flex') {
+        palette.style.display = 'none';
+    } else {
+        palette.style.display = 'flex';
+        if (currentTool !== 'line') {
+            selectedLineToolType = 'line';
+        }
+    }
+});
+
+lineBtn.addEventListener('click', (e) => {
+    if (e.target === lineTrigger || lineTrigger.contains(e.target)) return;
+    selectLineTool('line');
+});
+
+const rectBtn = document.getElementById('rectToolBtn');
+const rectTrigger = document.getElementById('rectDropdownTrigger');
+
+rectTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const palette = document.getElementById('shapes-palette');
+    if (palette.style.display === 'flex') {
+        palette.style.display = 'none';
+    } else {
+        palette.style.display = 'flex';
+        if (currentTool !== 'shape') {
+            selectedShapeType = null;
+        }
+    }
+});
+
+rectBtn.addEventListener('click', (e) => {
+    if (e.target === rectTrigger || rectTrigger.contains(e.target)) return;
+    setTool('rect');
+});
+
+document.addEventListener('mousedown', (e) => {
+    const linePalette = document.getElementById('line-palette');
+    const shapePalette = document.getElementById('shapes-palette');
+    
+    if (linePalette.style.display === 'flex' && 
+        !linePalette.contains(e.target) && 
+        !lineBtn.contains(e.target)) {
+        linePalette.style.display = 'none';
+    }
+    
+    if (shapePalette.style.display === 'flex' && 
+        !shapePalette.contains(e.target) && 
+        !rectBtn.contains(e.target)) {
+        shapePalette.style.display = 'none';
+    }
+});
+
+// ============================================
+// ВИМІРЮВАННЯ СЕГМЕНТІВ ТЕКСТУ
+// ============================================
+
+function measureSegments(segments, baseSize, isBold) {
+    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+    const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+    
+    let totalWidth = 0;
+    let maxHeight = 0;
+    let maxAscent = 0;
+    
+    const tempCtx = canvas.getContext('2d');
+    
+    segments.forEach(s => {
+        if (s.type === 'normal') {
+            tempCtx.font = normalFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize);
+            maxAscent = Math.max(maxAscent, metrics.actualBoundingBoxAscent || baseSize * 0.8);
+        } else if (s.type === 'sup') {
+            tempCtx.font = smallFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5));
+        } else if (s.type === 'sub') {
+            tempCtx.font = smallFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.3));
+        } else if (s.type === 'frac') {
+            const numMetrics = measureSegments(s.numerator, baseSize, isBold);
+            const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            
+            const fracWidth = Math.max(numMetrics.w, denMetrics.w);
+            const fracHeight = numMetrics.h + denMetrics.h + 6;
+            
+            totalWidth += fracWidth;
+            maxHeight = Math.max(maxHeight, fracHeight);
+        }
+    });
+    
+    return { w: totalWidth, h: maxHeight, ascent: maxAscent };
+}
+
+// ============================================
+// КОНВЕРТАЦІЯ HTML <-> СЕГМЕНТИ
+// ============================================
+
+function htmlToSegments(html) {
+    if (!html || html.trim() === '') return [];
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const segments = [];
+    
+    function processNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (node.textContent.length > 0) {
+                segments.push({ type: 'normal', text: node.textContent });
+            }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList.contains('math-sup')) {
+                segments.push({ type: 'sup', text: node.textContent || '' });
+            } else if (node.classList.contains('math-sub')) {
+                segments.push({ type: 'sub', text: node.textContent || '' });
+            } else if (node.classList.contains('math-frac')) {
+                const numNode = node.querySelector('.math-num');
+                const denNode = node.querySelector('.math-den');
+                
+                const numSegs = numNode ? htmlToSegments(numNode.innerHTML) : [];
+                const denSegs = denNode ? htmlToSegments(denNode.innerHTML) : [];
+                
+                segments.push({ 
+                    type: 'frac', 
+                    numerator: numSegs, 
+                    denominator: denSegs 
+                });
+            } else if (node.tagName === 'BR') {
+                 segments.push({ type: 'normal', text: '\n' });
+            } else if (node.tagName === 'DIV') {
+                node.childNodes.forEach(processNode);
+            } else {
+                node.childNodes.forEach(processNode);
+            }
+        }
+    }
+    
+    Array.from(doc.body.childNodes).forEach(processNode);
+    
+    return segments;
+}
+
+function segmentsToHtml(segments) {
+    if (!segments || segments.length === 0) return '';
+    return segments.map(s => {
+        if (s.type === 'sup') return `<span class="math-sup">${s.text}</span>`;
+        if (s.type === 'sub') return `<span class="math-sub">${s.text}</span>`;
+        if (s.type === 'frac') {
+            const numHtml = segmentsToHtml(s.numerator);
+            const denHtml = segmentsToHtml(s.denominator);
+            return `<div class="math-frac"><span class="math-num">${numHtml}</span><span class="math-den">${denHtml}</span></div>`;
+        }
+        if (s.text === '\n') return '<br>';
+        return s.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }).join('');
+}
+
+// ============================================
+// ОБЧИСЛЕННЯ РАМОК (BOUNDING BOX)
+// ============================================
+
+function getBBox(obj) {
+    if (!obj) return null;
+    if (obj.type === 'text') {
+        const baseSize = obj.size; 
+        
+        if (obj.segments && obj.segments.length > 0) {
+            const metrics = measureSegments(obj.segments, baseSize, obj.isBold);
+            return { 
+                x: obj.x, 
+                y: obj.y - (metrics.ascent * 0.2),
+                w: metrics.w || 2, 
+                h: metrics.h * 1.2 
+            };
+        }
+
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+        const lineH = baseSize * 1.4;
+        
+        let maxW = 0;
+        let lines = 1;
+        
+        const text = obj.text || ''; 
+        const textLines = text.split('\n');
+        lines = textLines.length;
+        
+        textLines.forEach(line => {
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+            const w = ctx.measureText(line).width;
+            if (w > maxW) maxW = w;
+        });
+        
+        return { 
+            x: obj.x, 
+            y: obj.y, 
+            w: maxW || 2, 
+            h: (lineH * lines) 
+        };
+    }
+    if (obj.type === 'rect' || obj.type === 'shape') {
+        return { x: obj.x, y: obj.y, w: Math.abs(obj.w), h: Math.abs(obj.h) };
+    }
+    if (obj.type === 'image') {
+        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
+    }
+    if (obj.type === 'line' || obj.type === 'arrow') {
+        return { x: Math.min(obj.x, obj.ex), y: Math.min(obj.y, obj.ey), w: Math.abs(obj.ex - obj.x), h: Math.abs(obj.ey - obj.y) };
+    }
+    if (obj.type === 'pen') {
+        if (!obj.points || obj.points.length === 0) return { x: obj.x, y: obj.y, w: 0, h: 0 };
+        const xs = [obj.x, ...obj.points.map(p => p.x)];
+        const ys = [obj.y, ...obj.points.map(p => p.y)];
+        return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    }
+    if (obj.type === 'grid') {
+        return { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
+    }
+    return { x: obj.x, y: obj.y, w: 0, h: 0 };
+}
+
+function getGroupBBox(objs) {
+    if (!objs || objs.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    
+    objs.forEach(obj => {
+        const bbox = getBBox(obj);
+        if (bbox) {
+            if (bbox.x < minX) minX = bbox.x;
+            if (bbox.y < minY) minY = bbox.y;
+            if (bbox.x + bbox.w > maxX) maxX = bbox.x + bbox.w;
+            if (bbox.y + bbox.h > maxY) maxY = bbox.y + bbox.h;
+        }
+    });
+    
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+function hitTest(obj, mx, my, padding = 0) {
+    const bbox = getBBox(obj);
+    if (!bbox) return false;
+    return mx >= bbox.x - padding && mx <= bbox.x + bbox.w + padding && 
+           my >= bbox.y - padding && my <= bbox.y + bbox.h + padding;
+}
+
+function hitHandle(mx, my) {
+    if (selectedObjects.length === 0) return null;
+
+    const bbox = getGroupBBox(selectedObjects);
+    if (!bbox) return null;
+    
+    const h = 10 / scale;
+    const cx = bbox.x + bbox.w / 2;
+    const cy = bbox.y + bbox.h / 2;
+    
+    const handles = {
+        nw: { x: bbox.x, y: bbox.y },
+        n: { x: cx, y: bbox.y },
+        ne: { x: bbox.x + bbox.w, y: bbox.y },
+        e: { x: bbox.x + bbox.w, y: cy },
+        se: { x: bbox.x + bbox.w, y: bbox.y + bbox.h },
+        s: { x: cx, y: bbox.y + bbox.h },
+        sw: { x: bbox.x, y: bbox.y + bbox.h },
+        w: { x: bbox.x, y: cy },
+        rotate: { x: cx, y: bbox.y - 20 / scale }
+    };
+    
+    for (let [name, pos] of Object.entries(handles)) {
+        if (Math.abs(mx - pos.x) < h && Math.abs(my - pos.y) < h) return name;
+    }
+    return null;
+}
+
+function distToSegment(px, py, x1, y1, x2, y2) {
+    const A = px - x1;
+    const B = py - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+    const dot = A * C + B * D;
+    const len_sq = C * C + D * D;
+    let param = -1;
+    if (len_sq != 0) param = dot / len_sq;
+    let xx, yy;
+    if (param < 0) { xx = x1; yy = y1; }
+    else if (param > 1) { xx = x2; yy = y2; }
+    else { xx = x1 + param * C; yy = y1 + param * D; }
+    return Math.hypot(px - xx, py - yy);
+}
+
+function getCursor(handle) {
+    if (!handle) return 'default';
+    if (handle === 'rotate') return 'alias';
+    if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+    if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+    if (handle === 'n' || handle === 's') return 'ns-resize';
+    if (handle === 'e' || handle === 'w') return 'ew-resize';
+    return 'move';
+}
+
+// ============================================
+// РОЗМІР ВІКНА
+// ============================================
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    requestDraw();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ============================================
+// МАЛЮВАННЯ СІТКИ
+// ============================================
+
+function drawGrid() {
+    const smallStep = 20 * scale;
+    const largeStep = 100 * scale;
+    
+    ctx.beginPath();
+    ctx.strokeStyle = '#e8e8e8';
+    ctx.lineWidth = 0.5;
+    
+    let startX = offsetX % smallStep;
+    let startY = offsetY % smallStep;
+    
+    for (let x = startX; x < canvas.width; x += smallStep) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+    }
+    for (let y = startY; y < canvas.height; y += smallStep) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+    }
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 0.5;
+    
+    startX = offsetX % largeStep;
+    startY = offsetY % largeStep;
+    
+    for (let x = startX; x < canvas.width; x += largeStep) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+    }
+    for (let y = startY; y < canvas.height; y += largeStep) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+    }
+    ctx.stroke();
+}
+
+// ============================================
+// МАЛЮВАННЯ ВИДІЛЕННЯ
+// ============================================
+
+function drawSelection() {
+    if (selectedObjects.length === 0) return;
+    
+    const bbox = getGroupBBox(selectedObjects);
+    if (!bbox) return;
+    
+    const sx = bbox.x * scale + offsetX;
+    const sy = bbox.y * scale + offsetY;
+    const sw = bbox.w * scale;
+    const sh = bbox.h * scale;
+    
+    if (sw < 5 || sh < 5) return;
+    
+    ctx.save();
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = '#4CAF50';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(sx, sy, sw, sh);
+    ctx.restore();
+    
+    const handleSize = 8;
+    const handles = [
+        { x: sx, y: sy }, { x: sx + sw/2, y: sy }, { x: sx + sw, y: sy },
+        { x: sx + sw, y: sy + sh/2 }, { x: sx + sw, y: sy + sh },
+        { x: sx + sw/2, y: sy + sh }, { x: sx, y: sy + sh }, { x: sx, y: sy + sh/2 }
+    ];
+    
+    ctx.fillStyle = '#4CAF50';
+    handles.forEach(h => {
+        ctx.fillRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize);
+    });
+    
+    ctx.fillStyle = '#2196F3';
+    ctx.beginPath();
+    ctx.arc(sx + sw/2, sy - 15, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(sx + sw/2, sy);
+    ctx.lineTo(sx + sw/2, sy - 10);
+    ctx.strokeStyle = '#2196F3';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.stroke();
+}
+
+function drawMarqueeSelection() {
+    if (!isSelectingArea) return;
+    
+    const x1 = selectionStart.x * scale + offsetX;
+    const y1 = selectionStart.y * scale + offsetY;
+    const x2 = selectionEnd.x * scale + offsetX;
+    const y2 = selectionEnd.y * scale + offsetY;
+    
+    const width = x2 - x1;
+    const height = y2 - y1;
+    
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 123, 255, 0.15)';
+    ctx.strokeStyle = '#007bff';
+    ctx.lineWidth = 1;
+    ctx.fillRect(x1, y1, width, height);
+    ctx.strokeRect(x1, y1, width, height);
+    ctx.restore();
+}
+
+// ============================================
+// ГОЛОВНА ФУНКЦІЯ МАЛЮВАННЯ
+// ============================================
+
+function draw() {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    drawGrid();
+    
+    // Малюємо всі об'єкти з objectsArray
+    objectsArray.forEach(obj => drawObject(obj));
+    
+    if (isDrawing && currentPath) drawObject(currentPath, true);
+    
+    if (selectedObjects.length > 0 && currentTool === 'select' && !textEditor) {
+        drawSelection();
+    }
+    
+    drawMarqueeSelection();
+}
+
+// ============================================
+// МАЛЮВАННЯ СЕГМЕНТОВАНОГО ТЕКСТУ
+// ============================================
+
+function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
+    let currentX = x;
+    let currentY = y;
+    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+    const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+    
+    const lineH = baseSize * 1.4;
+    
+    segments.forEach(s => {
+        if (s.text === '\n') {
+            currentX = x;
+            currentY += lineH;
+            return;
+        }
+        
+        if (s.type === 'normal') {
+            ctx.font = normalFont;
+            ctx.fillText(s.text, currentX, currentY);
+            currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'sup') {
+            ctx.font = smallFont;
+            ctx.fillText(s.text, currentX, currentY - baseSize * 0.5);
+            currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'sub') {
+            ctx.font = smallFont;
+            ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
+            currentX += ctx.measureText(s.text).width;
+        } else if (s.type === 'frac') {
+            const numMetrics = measureSegments(s.numerator, baseSize, isBold);
+            const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            
+            const fracW = Math.max(numMetrics.w, denMetrics.w);
+            const gap = 3;
+            
+            const numStartX = currentX + (fracW - numMetrics.w) / 2;
+            const denStartX = currentX + (fracW - denMetrics.w) / 2;
+            
+            const fractionCenterY = currentY - (baseSize * 0.15);
+            const lineY = fractionCenterY;
+            
+            const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
+            const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
+            
+            ctx.font = normalFont;
+            let cx = numStartX;
+            s.numerator.forEach(seg => {
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, cx, numBaselineY);
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                }
+            });
+            
+            ctx.beginPath();
+            ctx.moveTo(currentX, lineY);
+            ctx.lineTo(currentX + fracW, lineY);
+            ctx.stroke();
+            
+            let dx = denStartX;
+            s.denominator.forEach(seg => {
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, dx, denBaselineY);
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                }
+            });
+            
+            currentX += fracW;
+        }
+    });
+}
+
+// ============================================
+// МАЛЮВАННЯ КООРДИНАТНОЇ СІТКИ
+// ============================================
+
+function drawCoordinateGrid(obj) {
+    const sx = obj.x * scale + offsetX;
+    const sy = obj.y * scale + offsetY;
+    const sw = obj.w * scale;
+    const sh = obj.h * scale;
+    
+    const gridSpacing = obj.gridSpacing || 40;
+    const axisColor = obj.axisColor || '#000000';
+    const gridColor = obj.gridColor || '#cccccc';
+    
+    ctx.save();
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(sx, sy, sw, sh);
+    
+    ctx.strokeStyle = '#dddddd';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx, sy, sw, sh);
+    
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    
+    for (let x = 0; x <= sw; x += gridSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(sx + x, sy);
+        ctx.lineTo(sx + x, sy + sh);
         ctx.stroke();
     }
-
-    function drawObject(obj) {
-        ctx.save();
-        const sx = obj.x * scale + offsetX;
-        const sy = obj.y * scale + offsetY;
-        ctx.strokeStyle = obj.color || '#000';
-        ctx.fillStyle = obj.color || '#000';
-        ctx.lineWidth = (obj.width || 2) * scale;
-
-        if (obj.type === 'text') {
-            const size = obj.size * scale;
-            const isFormula = obj.isLatex || (obj.text && (obj.text.includes('\\') || obj.text.includes('{') || obj.text.includes('^') || obj.text.includes('_')));
-            if (isFormula) {
-                const img = latexCache[`${obj.text}_${obj.color || '#000'}_${size}`];
-                if (img) ctx.drawImage(img, sx, sy);
-                else getLatexImage(obj.text, obj.color || '#000', size).then(requestDraw);
-            } else {
-                ctx.font = `${obj.isBold ? 'bold' : ''} ${size}px Segoe UI`;
-                ctx.fillText(obj.text || '', sx, sy + size);
-            }
-        } else if (obj.type === 'pen') {
-            ctx.beginPath(); ctx.moveTo(sx, sy);
-            (obj.points || []).forEach(p => ctx.lineTo(p.x * scale + offsetX, p.y * scale + offsetY));
-            ctx.stroke();
-        } else if (obj.type === 'rect') {
-            ctx.strokeRect(sx, sy, obj.w * scale, obj.h * scale);
-        } else if (obj.type === 'line') {
-            ctx.beginPath(); ctx.moveTo(sx, sy);
-            ctx.lineTo(obj.ex * scale + offsetX, obj.ey * scale + offsetY);
-            ctx.stroke();
-        } else if (obj.type === 'grid') {
-            drawCoordGrid(obj);
-        }
-        ctx.restore();
-    }
-
-    function drawCoordGrid(obj) {
-        const sx = obj.x * scale + offsetX;
-        const sy = obj.y * scale + offsetY;
-        const sw = obj.w * scale;
-        const sh = obj.h * scale;
-        ctx.fillStyle = "white"; ctx.fillRect(sx, sy, sw, sh);
-        ctx.strokeStyle = "#ccc"; ctx.strokeRect(sx, sy, sw, sh);
+    
+    for (let y = 0; y <= sh; y += gridSpacing) {
         ctx.beginPath();
-        ctx.moveTo(sx + sw/2, sy); ctx.lineTo(sx + sw/2, sy + sh);
-        ctx.moveTo(sx, sy + sh/2); ctx.lineTo(sx + sw, sy + sh/2);
-        ctx.strokeStyle = "black"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.moveTo(sx, sy + y);
+        ctx.lineTo(sx + sw, sy + y);
+        ctx.stroke();
     }
-
-    function drawSelection() {
-        const bbox = getGroupBBox(selectedObjects);
-        if (!bbox) return;
-        const sx = bbox.x * scale + offsetX;
-        const sy = bbox.y * scale + offsetY;
-        const sw = bbox.w * scale;
-        const sh = bbox.h * scale;
-        ctx.setLineDash([5, 5]); ctx.strokeStyle = '#4CAF50';
-        ctx.strokeRect(sx, sy, sw, sh); ctx.setLineDash([]);
-        ctx.fillStyle = '#7CFC00';
-        const handles = [[sx, sy], [sx+sw/2, sy], [sx+sw, sy], [sx+sw, sy+sh/2], [sx+sw, sy+sh], [sx+sw/2, sy+sh], [sx, sy+sh], [sx, sy+sh/2]];
-        handles.forEach(h => ctx.fillRect(h[0]-4, h[1]-4, 8, 8));
-        ctx.fillStyle = '#2196F3';
-        ctx.beginPath(); ctx.arc(sx + sw/2, sy - 15, 5, 0, Math.PI*2); ctx.fill();
-    }
-
-    function getGroupBBox(objs) {
-        if (!objs.length) return null;
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        objs.forEach(obj => {
-            const b = store.getBounds(obj);
-            minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
-            maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
-        });
-        return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-    }
-
-    canvas.onmousedown = (e) => {
-        const x = (e.clientX - offsetX) / scale;
-        const y = (e.clientY - offsetY) / scale;
-        
-        if (currentTool === 'hand') {
-            isPanning = true;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            return;
-        }
-
-        if (currentTool === 'select') {
-            const hit = store.getObjects().slice().reverse().find(o => {
-                const b = store.getBounds(o);
-                return x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY;
-            });
-            if (hit) {
-                if (!e.shiftKey) selectedObjects = [];
-                selectedObjects.push(hit);
-                isDragging = true;
-                dragStartX = x; dragStartY = y;
-            } else { selectedObjects = []; }
-        } else if (currentTool === 'text') {
-            createNewText(x, y);
-        } else {
-            startDrawing(x, y);
-        }
-        requestDraw();
-    };
-
-    canvas.onmousemove = (e) => {
-        const x = (e.clientX - offsetX) / scale;
-        const y = (e.clientY - offsetY) / scale;
-        
-        if (isPanning) {
-            offsetX += e.clientX - dragStartX;
-            offsetY += e.clientY - dragStartY;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            requestDraw();
-            return;
-        }
-
-        if (isDragging && selectedObjects.length > 0) {
-            const dx = x - dragStartX;
-            const dy = y - dragStartY;
-            selectedObjects.forEach(o => {
-                const newData = { x: o.x + dx, y: o.y + dy };
-                if (o.ex !== undefined) newData.ex = o.ex + dx;
-                if (o.ey !== undefined) newData.ey = o.ey + dy;
-                store.updateObject(o.id, newData);
-            });
-            dragStartX = x; dragStartY = y;
-            requestDraw();
-        } else if (isDrawing && currentPath) {
-            if (currentPath.type === 'pen') currentPath.points.push({x, y});
-            else if (currentPath.type === 'rect' || currentPath.type === 'grid') {
-                currentPath.w = x - currentPath.x;
-                currentPath.h = y - currentPath.y;
-            } else {
-                currentPath.ex = x; currentPath.ey = y;
+    
+    const rawCenterX = sx + sw / 2;
+    const rawCenterY = sy + sh / 2;
+    
+    const offsetXFromStart = rawCenterX - sx;
+    const offsetYFromStart = rawCenterY - sy;
+    
+    const stepsX = Math.round(offsetXFromStart / gridSpacing);
+    const stepsY = Math.round(offsetYFromStart / gridSpacing);
+    
+    const centerX = sx + stepsX * gridSpacing;
+    const centerY = sy + stepsY * gridSpacing;
+    
+    ctx.strokeStyle = axisColor;
+    ctx.lineWidth = 2;
+    
+    ctx.beginPath();
+    ctx.moveTo(sx, centerY);
+    ctx.lineTo(sx + sw, centerY);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX, sy + sh);
+    ctx.stroke();
+    
+    const arrowSize = 10;
+    
+    ctx.beginPath();
+    ctx.moveTo(sx + sw, centerY);
+    ctx.lineTo(sx + sw - arrowSize, centerY - arrowSize);
+    ctx.moveTo(sx + sw, centerY);
+    ctx.lineTo(sx + sw - arrowSize, centerY + arrowSize);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX - arrowSize, sy + arrowSize);
+    ctx.moveTo(centerX, sy);
+    ctx.lineTo(centerX + arrowSize, sy + arrowSize);
+    ctx.stroke();
+    
+    ctx.fillStyle = axisColor;
+    ctx.font = '12px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    const cellsRight = Math.floor((sx + sw - centerX) / gridSpacing);
+    const cellsLeft = Math.floor((centerX - sx) / gridSpacing);
+    const cellsUp = Math.floor((centerY - sy) / gridSpacing);
+    const cellsDown = Math.floor((sy + sh - centerY) / gridSpacing);
+    
+    for (let i = -cellsLeft; i <= cellsRight; i++) {
+        if (i !== 0) {
+            const x = centerX + i * gridSpacing;
+            if (x >= sx + 15 && x <= sx + sw - 15) {
+                ctx.fillText(i.toString(), x, centerY + 5);
             }
-            requestDraw();
         }
-    };
+    }
+    
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = -cellsDown; i <= cellsUp; i++) {
+        if (i !== 0) {
+            const y = centerY - i * gridSpacing;
+            if (y >= sy + 15 && y <= sy + sh - 15) {
+                ctx.fillText(i.toString(), centerX - 5, y);
+            }
+        }
+    }
+    
+    ctx.font = 'bold 14px Segoe UI';
+    ctx.fillText('X', sx + sw - 15, centerY - 20);
+    ctx.fillText('Y', centerX + 10, sy + 15);
+    
+    ctx.font = '10px Segoe UI';
+    ctx.fillText('0', centerX - 8, centerY + 15);
+    
+    ctx.restore();
+}
 
-    canvas.onmouseup = () => {
-        if (isDrawing && currentPath) {
-            store.addObject(currentPath);
+// ============================================
+// МАЛЮВАННЯ ПЛАВНИХ ЛІНІЙ
+// ============================================
+
+function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
+    if (points.length === 0) return;
+    
+    if (points.length === 1) {
+        const p = points[0];
+        ctx.beginPath();
+        ctx.arc(p.x * scaleX + offsetX, p.y * scaleX + offsetY, 1, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+    }
+    
+    if (points.length === 2) {
+        const p0 = points[0];
+        const p1 = points[1];
+        ctx.beginPath();
+        ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+        ctx.lineTo(p1.x * scaleX + offsetX, p1.y * scaleX + offsetY);
+        ctx.stroke();
+        return;
+    }
+    
+    ctx.beginPath();
+    
+    const p0 = points[0];
+    ctx.moveTo(p0.x * scaleX + offsetX, p0.y * scaleX + offsetY);
+    
+    for (let i = 1; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        
+        ctx.quadraticCurveTo(
+            p1.x * scaleX + offsetX, 
+            p1.y * scaleX + offsetY, 
+            midX * scaleX + offsetX, 
+            midY * scaleX + offsetY
+        );
+    }
+    
+    const lastPoint = points[points.length - 1];
+    ctx.lineTo(lastPoint.x * scaleX + offsetX, lastPoint.y * scaleX + offsetY);
+    
+    ctx.stroke();
+}
+
+// ============================================
+// МАЛЮВАННЯ ОБ'ЄКТА
+// ============================================
+
+function drawObject(obj, isTemp = false) {
+    ctx.save();
+    const sx = obj.x * scale + offsetX;
+    const sy = obj.y * scale + offsetY;
+    
+    ctx.lineWidth = (obj.width || 2) * scale;
+    ctx.strokeStyle = obj.color || '#000';
+    ctx.fillStyle = obj.color || '#000';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    if (obj.lineStyle === 'dotted') {
+        ctx.setLineDash([5 * scale, 5 * scale]);
+    } else {
+        ctx.setLineDash([]);
+    }
+    
+    if (obj.rotation) {
+        ctx.translate(sx, sy);
+        ctx.rotate(obj.rotation * Math.PI / 180);
+        ctx.translate(-sx, -sy);
+    }
+    
+    if (obj.type === 'pen') {
+        if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
+        const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
+        drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
+    } else if (obj.type === 'line' || obj.type === 'arrow') {
+        const ex = obj.ex * scale + offsetX;
+        const ey = obj.ey * scale + offsetY;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        if (obj.type === 'arrow') {
+            const headlen = 15 * scale;
+            const angle = Math.atan2(ey - sy, ex - sx);
+            ctx.beginPath();
+            ctx.moveTo(ex, ey);
+            ctx.lineTo(ex - headlen * Math.cos(angle - Math.PI / 6), ey - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(ex, ey);
+            ctx.lineTo(ex - headlen * Math.cos(angle + Math.PI / 6), ey - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
         }
-        isDragging = false; isDrawing = false; isPanning = false; currentPath = null;
+    } else if (obj.type === 'rect') {
+        const w = obj.w * scale;
+        const h = obj.h * scale;
+        ctx.strokeRect(sx, sy, w, h);
+    } else if (obj.type === 'shape') {
+        const w = obj.w * scale;
+        const h = obj.h * scale;
+        const cx = sx + w / 2;
+        const cy = sy + h / 2;
+        const minDim = Math.min(Math.abs(w), Math.abs(h));
+        
+        ctx.beginPath();
+        
+        if (obj.shapeType === 'circle') {
+            ctx.ellipse(cx, cy, minDim/2, minDim/2, 0, 0, Math.PI * 2);
+        } else if (obj.shapeType === 'triangle') {
+            ctx.moveTo(cx, sy);
+            ctx.lineTo(sx + w, sy + h);
+            ctx.lineTo(sx, sy + h);
+            ctx.closePath();
+        } else if (obj.shapeType === 'diamond') {
+            ctx.moveTo(cx, sy);
+            ctx.lineTo(sx + w, cy);
+            ctx.lineTo(cx, sy + h);
+            ctx.lineTo(sx, cy);
+            ctx.closePath();
+        } else if (obj.shapeType === 'pentagon') {
+            const r = minDim / 2;
+            for (let i = 0; i < 5; i++) {
+                const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+                const px = cx + r * Math.cos(angle);
+                const py = cy + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+        } else if (obj.shapeType === 'hexagon') {
+            const r = minDim / 2;
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * 2 * Math.PI / 6) - Math.PI / 2;
+                const px = cx + r * Math.cos(angle);
+                const py = cy + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+        } else if (obj.shapeType === 'star') {
+            const r = minDim / 2;
+            const innerR = r * 0.4;
+            for (let i = 0; i < 10; i++) {
+                const angle = (i * Math.PI / 5) - Math.PI / 2;
+                const rad = (i % 2 === 0) ? r : innerR;
+                const px = cx + rad * Math.cos(angle);
+                const py = cy + rad * Math.sin(angle);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+        } else if (obj.shapeType === 'parallelogram') {
+            const offset = w * 0.2;
+            ctx.moveTo(sx + offset, sy);
+            ctx.lineTo(sx + w, sy);
+            ctx.lineTo(sx + w - offset, sy + h);
+            ctx.lineTo(sx, sy + h);
+            ctx.closePath();
+        } else if (obj.shapeType === 'rounded-rect') {
+            const radius = Math.min(Math.abs(w), Math.abs(h)) * 0.2;
+            ctx.roundRect(sx, sy, w, h, radius);
+        } else if (obj.shapeType === 'semi-circle') {
+            ctx.arc(cx, cy, minDim/2, Math.PI, 0);
+            ctx.lineTo(sx + w, cy);
+            ctx.lineTo(sx, cy);
+            ctx.closePath();
+        } else if (obj.shapeType === 'quarter-circle') {
+            ctx.arc(sx, sy + h, minDim, -Math.PI/2, 0);
+            ctx.lineTo(sx, sy + h);
+            ctx.closePath();
+        } else if (obj.shapeType === 'heart') {
+            const topCurveHeight = h * 0.3;
+            ctx.moveTo(cx, sy + h * 0.2);
+            ctx.bezierCurveTo(cx, sy, sx, sy, sx, cy);
+            ctx.bezierCurveTo(sx, sy + h, cx, sy + h * 1.2, sx + w, sy + h);
+            ctx.bezierCurveTo(sx + w, cy, sx + w, sy, cx, sy);
+            ctx.closePath();
+        }
+        
+        ctx.stroke();
+    } else if (obj.type === 'text') {
+        ctx.fillStyle = obj.color || '#000';
+        ctx.textBaseline = 'alphabetic';
+        
+        const baseSize = obj.size * scale;
+        
+        if (obj.segments && obj.segments.length > 0) {
+            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
+        } else if (obj.text && obj.text.trim() !== '') {
+            ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+            const textLines = obj.text.split('\n');
+            const lineH = baseSize * 1.4;
+            textLines.forEach((line, i) => {
+                ctx.fillText(line, sx, sy + (baseSize * 0.8) + (i * lineH));
+            });
+        }
+    } else if (obj.type === 'grid') {
+        drawCoordinateGrid(obj);
+    } else if (obj.type === 'image') {
+        const src = obj.src;
+        // Перевіряємо, чи картинка вже є в кеші
+        if (!imageCache[src]) {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                imageCache[src] = img;
+                requestDraw();
+            };
+            imageCache[src] = null; // Позначаємо, що завантаження розпочато
+        }
+        
+        const cachedImg = imageCache[src];
+        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+            ctx.drawImage(cachedImg, sx, sy, obj.w * scale, obj.h * scale);
+        }
+    }
+    ctx.restore();
+}
+
+// ============================================
+// ОТРИМАННЯ КООРДИНАТ
+// ============================================
+
+function getCoords(e) {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { 
+        x: (clientX - offsetX) / scale, 
+        y: (clientY - offsetY) / scale,
+        rawX: clientX, 
+        rawY: clientY 
+    };
+}
+
+// ============================================
+// ВСТАВКА МАТЕМАТИЧНИХ ПОЛІВ
+// ============================================
+
+function insertMathField(type) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+    const span = document.createElement('span');
+    span.className = type === 'sup' ? 'math-sup' : 'math-sub';
+    span.textContent = '\u200B'; 
+    
+    range.deleteContents();
+    range.insertNode(span);
+    
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    newRange.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    
+    return span;
+}
+
+function insertFraction(editorDiv, numeratorContent) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    
+    const range = sel.getRangeAt(0);
+    
+    const fracDiv = document.createElement('div');
+    fracDiv.className = 'math-frac';
+    fracDiv.style.display = 'inline-flex';
+    fracDiv.style.flexDirection = 'column';
+    fracDiv.style.verticalAlign = 'middle';
+    
+    const numSpan = document.createElement('span');
+    numSpan.className = 'math-num';
+    
+    if (numeratorContent) {
+        if (typeof numeratorContent === 'string') {
+            numSpan.textContent = numeratorContent;
+        } else {
+            numSpan.appendChild(numeratorContent);
+        }
+    } else {
+        numSpan.textContent = '\u200B';
+    }
+    
+    const denSpan = document.createElement('span');
+    denSpan.className = 'math-den';
+    denSpan.textContent = '\u200B';
+    
+    fracDiv.appendChild(numSpan);
+    fracDiv.appendChild(denSpan);
+    
+    range.deleteContents();
+    range.insertNode(fracDiv);
+    
+    const hasNumeratorContent = numSpan.textContent && 
+                                 numSpan.textContent.trim() !== '' && 
+                                 numSpan.textContent !== '\u200B';
+
+    const newRange = document.createRange();
+    if (hasNumeratorContent) {
+        newRange.selectNodeContents(denSpan);
+        newRange.collapse(true);
+    } else {
+        newRange.selectNodeContents(numSpan);
+        newRange.collapse(false);
+    }
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    
+    if (editorDiv) {
+        const wrapper = editorDiv.parentElement;
+        const rect = editorDiv.getBoundingClientRect();
+        wrapper.style.width = (rect.width + 20) + 'px';
+        wrapper.style.height = (rect.height + 10) + 'px';
+        editorDiv.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+// ============================================
+// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА
+// ============================================
+
+function collectNumeratorContent(range, editorDiv) {
+    let currentNode = range.startContainer;
+    let currentOffset = range.startOffset;
+    const fragment = document.createDocumentFragment();
+    
+    const separatorChars = /[+\-*/:><=\s]/;
+    
+    let hasContent = false;
+    
+    let nodeBeforeCursor = null;
+    
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+        if (currentOffset === 0) {
+            nodeBeforeCursor = currentNode.previousSibling;
+        }
+    } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+        if (currentOffset > 0) {
+            nodeBeforeCursor = currentNode.childNodes[currentOffset - 1];
+        }
+    }
+
+    while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
+        nodeBeforeCursor = nodeBeforeCursor.previousSibling;
+    }
+
+    if (nodeBeforeCursor && nodeBeforeCursor.classList && 
+        (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
+        
+        let baseNode = nodeBeforeCursor.previousSibling;
+        while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
+            baseNode = baseNode.previousSibling;
+        }
+
+        if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
+            const baseText = baseNode.textContent.trim();
+            if (baseText.length > 0) {
+                let lastSepIndex = -1;
+                for (let i = baseText.length - 1; i >= 0; i--) {
+                    if (separatorChars.test(baseText[i])) {
+                        lastSepIndex = i;
+                        break;
+                    }
+                }
+                
+                if (lastSepIndex === -1) {
+                    const textNode = document.createTextNode(baseText);
+                    fragment.insertBefore(textNode, fragment.firstChild);
+                    hasContent = true;
+                    baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
+                } else {
+                    const numeratorText = baseText.substring(lastSepIndex + 1);
+                    if (numeratorText.trim().length > 0) {
+                        const textNode = document.createTextNode(numeratorText);
+                        fragment.insertBefore(textNode, fragment.firstChild);
+                        hasContent = true;
+                        baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
+                    }
+                }
+            }
+        }
+        
+        fragment.appendChild(nodeBeforeCursor);
+        hasContent = true;
+    }
+    
+    if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
+        const textBefore = currentNode.textContent.substring(0, currentOffset);
+        
+        let lastSepIndex = -1;
+        for (let i = textBefore.length - 1; i >= 0; i--) {
+            if (separatorChars.test(textBefore[i])) {
+                lastSepIndex = i;
+                break;
+            }
+        }
+
+        let startOffset = 0;
+        if (lastSepIndex !== -1) {
+            startOffset = lastSepIndex + 1;
+        }
+
+        if (currentOffset > startOffset) {
+            const numeratorText = textBefore.substring(startOffset);
+            if (numeratorText.trim().length > 0) {
+                const textNode = document.createTextNode(numeratorText);
+                fragment.appendChild(textNode);
+                hasContent = true;
+                currentNode.textContent = textBefore.substring(0, startOffset) + 
+                                         currentNode.textContent.substring(currentOffset);
+                range.setStart(currentNode, startOffset);
+            }
+        }
+    }
+
+    if (!hasContent) return null;
+    return fragment;
+}
+
+// ============================================
+// ПОЧАТОК РЕДАГУВАННЯ ТЕКСТУ
+// ============================================
+
+function startTextEdit(obj) {
+    if (textEditor) stopTextEdit();
+    
+    editingObject = obj;
+    selectedObjects = [];
+    requestDraw();
+    
+    const bbox = getBBox(obj);
+    const screenX = bbox.x * scale + offsetX;
+    const screenY = bbox.y * scale + offsetY;
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'text-edit-wrapper';
+    wrapper.style.left = (screenX - 10) + 'px';
+    wrapper.style.top = (screenY - 5) + 'px';
+    wrapper.style.minWidth = '100px';
+    wrapper.style.minHeight = (obj.size * 1.4 * scale) + 'px';
+    
+    ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
+        const div = document.createElement('div');
+        div.className = `handle ${h}`;
+        div.dataset.handle = h;
+        wrapper.appendChild(div);
+    });
+    
+    const rotLine = document.createElement('div');
+    rotLine.className = 'rotate-line';
+    wrapper.appendChild(rotLine);
+    
+    const rotHandle = document.createElement('div');
+    rotHandle.className = 'rotate-handle';
+    rotHandle.dataset.handle = 'rotate';
+    wrapper.appendChild(rotHandle);
+    
+    const editorDiv = document.createElement('div');
+    editorDiv.className = 'text-edit-content';
+    editorDiv.contentEditable = true;
+    editorDiv.spellcheck = false;
+    editorDiv.style.color = obj.color;
+    editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
+    editorDiv.style.fontSize = (obj.size * scale) + 'px';
+    
+    if (obj.segments && obj.segments.length > 0) {
+        editorDiv.innerHTML = segmentsToHtml(obj.segments);
+    } else if (obj.text && obj.text.trim() !== '') {
+        const lines = obj.text.split('\n');
+        editorDiv.innerHTML = lines.map(line => `<div>${line}</div>`).join('');
+    } else {
+        editorDiv.innerHTML = '<div><br></div>';
+    }
+    
+    wrapper.appendChild(editorDiv);
+    document.body.appendChild(wrapper);
+    textEditor = wrapper;
+    
+    function updateSize() {
+        if (!editorDiv) return;
+        const rect = editorDiv.getBoundingClientRect();
+        wrapper.style.width = (rect.width + 20) + 'px';
+        wrapper.style.height = (rect.height + 10) + 'px';
+    }
+    
+    updateSize();
+    
+    setTimeout(() => {
+        if (!editorDiv) return;
+        editorDiv.focus();
+        
+        const range = document.createRange();
+        const sel = window.getSelection();
+        
+        const lastDiv = editorDiv.lastElementChild;
+        if (lastDiv) {
+            range.selectNodeContents(lastDiv);
+            range.collapse(false);
+        } else {
+            range.selectNodeContents(editorDiv);
+            range.collapse(false);
+        }
+        
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }, 50);
+    
+    editorDiv.addEventListener('keydown', (e) => {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        const node = range.startContainer;
+
+        if (e.key === '/') {
+            e.preventDefault();
+            const numeratorContent = collectNumeratorContent(range, editorDiv);
+            insertFraction(editorDiv, numeratorContent);
+            updateSize();
+            return;
+        }
+
+        if (e.key === '^' || e.key === '_') {
+            e.preventDefault();
+            const type = e.key === '^' ? 'sup' : 'sub';
+            insertMathField(type);
+            updateSize();
+            return;
+        }
+        
+        if (e.key === 'ArrowRight') {
+            let parent = node.parentElement;
+            
+            if (parent && parent.classList.contains('math-den')) {
+                e.preventDefault();
+                const frac = parent.parentElement;
+                const nextSibling = frac.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+            
+            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+            
+            if (isAtEnd && parent) {
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const denSpan = parent.parentElement.querySelector('.math-den');
+                    if (denSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(denSpan);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const nextSibling = parent.nextSibling;
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+            }
+        }
+        
+        if (e.key === 'ArrowLeft') {
+            let parent = node.parentElement;
+            let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
+                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
+            
+            if (isAtStart && parent) {
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const numSpan = parent.parentElement.querySelector('.math-num');
+                    if (numSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(numSpan);
+                        newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const prevSibling = frac.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(prevSibling);
+                            newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        frac.parentNode.insertBefore(textNode, frac);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const prevSibling = parent.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(prevSibling);
+                            newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+            }
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.execCommand('insertLineBreak');
+            updateSize();
+            return;
+        }
+
+        if (e.key === 'Escape') { 
+            stopTextEdit(true); 
+        }
+    });
+    
+    editorDiv.addEventListener('input', () => {
+        updateSize();
+        if (editingObject) {
+            // Оновлюємо і текст, і сегменти (для математичних полів) у реальному часі
+            const html = editorDiv.innerHTML;
+            const segments = htmlToSegments(html);
+            
+            if (segments && segments.length > 0) {
+                editingObject.segments = segments;
+            } else {
+                delete editingObject.segments;
+            }
+            
+            editingObject.text = editorDiv.innerText;
+            editingObject.lastModified = Date.now();
+            sendOperation('update', editingObject);
+        }
+    });
+    
+    editorDiv.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (textEditor && document.activeElement !== editorDiv) {
+                stopTextEdit();
+            }
+        }, 200);
+    });
+    
+    const handles = wrapper.querySelectorAll('.handle, .rotate-handle');
+    handles.forEach(h => {
+        h.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            startTextResize(obj, h.dataset.handle, e, wrapper, editorDiv);
+        });
+    });
+    
+    editorDiv.addEventListener('mousedown', (e) => {
+        if (e.target === editorDiv) {
+            e.stopPropagation();
+            startTextDrag(obj, e, wrapper);
+        }
+    });
+}
+
+// ============================================
+// ЗАВЕРШЕННЯ РЕДАГУВАННЯ ТЕКСТУ
+// ============================================
+
+function stopTextEdit(cancel = false) {
+    if (!textEditor) return;
+    const editorDiv = textEditor.querySelector('.text-edit-content');
+    if (!cancel && editingObject) {
+        saveHistory();
+        
+        const html = editorDiv.innerHTML;
+        const segments = htmlToSegments(html);
+        
+        if (segments && segments.length > 0) {
+            editingObject.segments = segments;
+        } else {
+            delete editingObject.segments;
+        }
+        
+        editingObject.text = editorDiv.innerText;
+        editingObject.lastModified = Date.now();
+        
+        // Оновлюємо об'єкт в локальному сховищі
+        if (objects[editingObject.id]) {
+            objects[editingObject.id] = editingObject;
+            const idx = objectsArray.findIndex(o => o.id === editingObject.id);
+            if (idx !== -1) {
+                objectsArray[idx] = editingObject;
+            }
+        }
+        
+        sendOperation('update', editingObject);
+    }
+    if (textEditor.parentNode) {
+        document.body.removeChild(textEditor);
+    }
+    textEditor = null;
+    editingObject = null;
+    requestDraw();
+}
+
+// ============================================
+// ЗМІНА РОЗМІРУ ТЕКСТУ
+// ============================================
+
+function startTextResize(obj, handle, e, wrapper, editorDiv) {
+    isResizing = true;
+    resizeHandle = handle;
+    const coords = getCoords(e);
+    dragStartX = coords.x;
+    dragStartY = coords.y;
+    const bbox = getBBox(obj);
+    startResizeState = { size: obj.size, x: obj.x, y: obj.y, w: bbox.w, h: bbox.h };
+    const startFontSize = obj.size;
+    
+    const onMove = (e) => {
+        if (!isResizing) return;
+        const c = getCoords(e);
+        const dx = c.x - dragStartX;
+        const dy = c.y - dragStartY;
+        
+        let scaleFactor = 1;
+        if (handle === 'se' || handle === 's' || handle === 'e') {
+            scaleFactor = Math.max(0.5, 1 + (dx + dy) / 200);
+        } else if (handle === 'n') {
+            scaleFactor = Math.max(0.5, 1 - dy / 100);
+        } else if (handle === 'w') {
+            scaleFactor = Math.max(0.5, 1 - dx / 100);
+        }
+        
+        obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
+        obj.lastModified = Date.now();
+        
+        editorDiv.style.fontSize = (obj.size * scale) + 'px';
+        updateSize();
         requestDraw();
     };
+    
+    const onUp = () => {
+        isResizing = false;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        saveHistory();
+        sendOperation('update', obj);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
 
-    function startDrawing(x, y) {
-        isDrawing = true;
-        currentPath = {
-            type: currentTool, x, y, ex: x, ey: y, w: 0, h: 0,
-            color: colorPicker.value,
-            width: document.getElementById('lineWidth').value,
-            points: []
-        };
-        if (currentTool === 'grid') { currentPath.w = 200; currentPath.h = 200; }
-    }
+// ============================================
+// ПЕРЕМІЩЕННЯ ТЕКСТУ
+// ============================================
 
-    function createNewText(x, y) {
-        const obj = {
-            type: 'text', x, y, text: '',
-            color: colorPicker.value, size: 20,
-            isBold: document.getElementById('boldText').checked,
-            isLatex: true
-        };
-        const id = store.addObject(obj);
-        startTextEdit(store.objects.get(id));
-    }
+function startTextDrag(obj, e, wrapper) {
+    isDragging = true;
+    const coords = getCoords(e);
+    dragStartX = coords.x - obj.x;
+    dragStartY = coords.y - obj.y;
+    const editorDiv = wrapper.querySelector('.text-edit-content');
+    editorDiv.style.cursor = 'grabbing';
+    
+    const onMove = (e) => {
+        if (!isDragging) return;
+        const c = getCoords(e);
+        obj.x = c.x - dragStartX;
+        obj.y = c.y - dragStartY;
+        obj.lastModified = Date.now();
+        const bbox = getBBox(obj);
+        wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
+        wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+        requestDraw();
+    };
+    
+    const onUp = () => {
+        isDragging = false;
+        editorDiv.style.cursor = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        saveHistory();
+        sendOperation('update', obj);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
 
-    function startTextEdit(obj) {
-        if (textEditor) document.body.removeChild(textEditor);
-        const wrapper = document.createElement('div');
-        wrapper.className = 'text-edit-wrapper';
-        wrapper.style.left = (obj.x * scale + offsetX) + 'px';
-        wrapper.style.top = (obj.y * scale + offsetY) + 'px';
-        
-        const mf = document.createElement('math-field');
-        mf.className = 'text-edit-content';
-        mf.style.fontSize = (obj.size * scale) + 'px';
-        mf.style.color = obj.color;
-        mf.value = obj.text;
-        
-        mf.oninput = () => {
-            store.updateObject(obj.id, { text: mf.value });
-            requestDraw();
-        };
-        mf.onblur = () => { document.body.removeChild(wrapper); textEditor = null; };
-        
-        wrapper.appendChild(mf);
-        document.body.appendChild(wrapper);
-        textEditor = wrapper;
-        setTimeout(() => mf.focus(), 10);
-    }
+// ============================================
+// ПОДІЇ CANVAS
+// ============================================
 
-    canvas.onwheel = (e) => {
+canvas.addEventListener('dblclick', (e) => {
+    const coords = getCoords(e);
+    
+    const clickedObj = [...objectsArray].reverse().find(obj => {
+        if (obj.type === 'text') {
+            return hitTest(obj, coords.x, coords.y, 2);
+        }
+        return false;
+    });
+
+    if (clickedObj) {
         e.preventDefault();
-        const zoom = e.deltaY > 0 ? 0.9 : 1.1;
-        scale *= zoom;
-        scale = Math.min(Math.max(scale, 0.1), 10);
-        document.getElementById('zoom-display').innerText = Math.round(scale * 100) + '%';
+        e.stopPropagation();
+        startTextEdit(clickedObj);
+        requestDraw();
+    }
+});
+
+canvas.addEventListener('mousedown', (e) => {
+    if (e.detail === 2) {
+        return;
+    }
+    
+    const coords = getCoords(e);
+    
+    if (textEditor && editingObject) {
+        const clickedText = [...objectsArray].reverse().find(obj => {
+            if (obj.type === 'text' && obj !== editingObject) {
+                return hitTest(obj, coords.x, coords.y, 2);
+            }
+            return false;
+        });
+        
+        if (clickedText) {
+            saveHistory();
+            const editorDiv = textEditor.querySelector('.text-edit-content');
+            const html = editorDiv.innerHTML;
+            const segments = htmlToSegments(html);
+            if (segments && segments.length > 0) {
+                editingObject.segments = segments;
+            } else {
+                delete editingObject.segments;
+            }
+            editingObject.text = editorDiv.innerText;
+            editingObject.lastModified = Date.now();
+            
+            if (textEditor.parentNode) {
+                document.body.removeChild(textEditor);
+            }
+            textEditor = null;
+            
+            startTextEdit(clickedText);
+            requestDraw();
+            return;
+        }
+    }
+    
+    if (textEditor) { 
+        stopTextEdit(); 
+        selectedObjects = [];
+        requestDraw();
+        return; 
+    }
+    
+    if (currentTool === 'shape' && selectedShapeType) {
+        startDrawing(coords);
+        return;
+    }
+
+    if (currentTool !== 'select' && currentTool !== 'hand') {
+        if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
+        else if (currentTool === 'text') {
+            const existingText = [...objectsArray].reverse().find(obj => {
+                if (obj.type === 'text') {
+                    return hitTest(obj, coords.x, coords.y, 2);
+                }
+                return false;
+            });
+            
+            if (existingText) {
+                startTextEdit(existingText);
+                requestDraw();
+                return;
+            }
+            createNewText(coords);
+        }
+        else if (currentTool === 'grid') {
+            startDrawing(coords);
+            return;
+        }
+        else startDrawing(coords);
+        return;
+    }
+    
+    if (currentTool === 'select') {
+        let clickedObj = null;
+        let clickedHandle = null;
+        
+        if (selectedObjects.length > 0) {
+            clickedHandle = hitHandle(coords.x, coords.y);
+        }
+        
+        if (!clickedHandle) {
+            clickedObj = [...objectsArray].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
+        }
+        
+        if (clickedHandle) {
+            if (clickedHandle === 'rotate') startRotate(e);
+            else startResizeGroup(clickedHandle, e);
+            return;
+        }
+        
+        if (clickedObj) {
+            if (!selectedObjects.includes(clickedObj)) {
+                if (!shiftKey) selectedObjects = [];
+                selectedObjects.push(clickedObj);
+            } else if (shiftKey) {
+                selectedObjects = selectedObjects.filter(o => o !== clickedObj);
+            }
+            
+            isDragging = true;
+            dragStartX = coords.x;
+            dragStartY = coords.y;
+            
+            startResizeState = selectedObjects.map(o => ({
+                obj: o,
+                x: o.x, y: o.y,
+                ex: o.ex, ey: o.ey,
+                points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
+                w: o.w, h: o.h
+            }));
+            
+            requestDraw();
+        } else {
+            selectedObjects = [];
+            isSelectingArea = true;
+            selectionStart = { x: coords.x, y: coords.y };
+            selectionEnd = { x: coords.x, y: coords.y };
+            requestDraw();
+        }
+    } else if (currentTool === 'hand') {
+        isDragging = true;
+        dragStartX = coords.rawX;
+        dragStartY = coords.rawY;
+    }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    const coords = getCoords(e);
+    
+    if (currentTool === 'select' && selectedObjects.length > 0 && !isDragging && !isResizing && !isRotating && !isSelectingArea) {
+        const handle = hitHandle(coords.x, coords.y);
+        canvas.style.cursor = getCursor(handle);
+    } else if (currentTool === 'select') canvas.style.cursor = isSelectingArea ? 'crosshair' : 'default';
+    else if (currentTool === 'hand') canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
+    else if (currentTool === 'eraser') {
+        canvas.style.cursor = 'cell';
+        if (e.buttons === 1) eraseAt(coords.x, coords.y);
+    } else if (currentTool === 'pen') {
+        canvas.style.cursor = 'pencil';
+    } else if (currentTool === 'line' || currentTool === 'arrow' || currentTool === 'shape' || currentTool === 'rect') {
+        canvas.style.cursor = 'crosshair';
+    } else if (currentTool === 'grid') {
+        canvas.style.cursor = 'crosshair';
+    } else canvas.style.cursor = 'crosshair';
+    
+    if (!isDragging && !isResizing && !isRotating && !isDrawing && !isSelectingArea) return;
+    
+    if (isDragging && selectedObjects.length > 0) {
+        const dx = coords.x - dragStartX;
+        const dy = coords.y - dragStartY;
+        
+        startResizeState.forEach(state => {
+            const o = state.obj;
+            if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid' || o.type === 'shape') {
+                o.x = state.x + dx;
+                o.y = state.y + dy;
+                o.ex = state.ex + dx;
+                o.ey = state.ey + dy;
+                if (o.w !== undefined) o.w = state.w;
+                if (o.h !== undefined) o.h = state.h;
+            } else if (o.type === 'pen') {
+                o.x = state.x + dx;
+                o.y = state.y + dy;
+                o.points = state.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+            } else {
+                o.x = state.x + dx;
+                o.y = state.y + dy;
+            }
+        });
+        requestDraw();
+    } 
+    else if (isSelectingArea) {
+        selectionEnd = { x: coords.x, y: coords.y };
+        requestDraw();
+    }
+    else if (isDragging && currentTool === 'hand') {
+        offsetX += coords.rawX - dragStartX;
+        offsetY += coords.rawY - dragStartY;
+        dragStartX = coords.rawX;
+        dragStartY = coords.rawY;
+        requestDraw();
+    } 
+    else if (isDrawing && currentPath) {
+        if (currentPath.type === 'pen') {
+            const lastPoint = currentPath.points.length > 0 
+                ? currentPath.points[currentPath.points.length - 1] 
+                : { x: currentPath.x, y: currentPath.y };
+            
+            const dist = Math.hypot(coords.x - lastPoint.x, coords.y - lastPoint.y);
+            if (dist > 2 / scale) {
+                const smoothedX = lastPoint.x + (coords.x - lastPoint.x) * SMOOTHING_FACTOR;
+                const smoothedY = lastPoint.y + (coords.y - lastPoint.y) * SMOOTHING_FACTOR;
+                currentPath.points.push({ x: smoothedX, y: smoothedY });
+            }
+        }
+        else if (currentPath.type === 'shape' || currentPath.type === 'rect') {
+            currentPath.w = coords.x - currentPath.x;
+            currentPath.h = coords.y - currentPath.y;
+        }
+        else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
+            currentPath.ex = coords.x;
+            currentPath.ey = coords.y;
+        }
+        else if (currentPath.type === 'grid') {
+            currentPath.w = coords.x - currentPath.x;
+            currentPath.h = coords.y - currentPath.y;
+        }
+        requestDraw();
+    } 
+    else if (isRotating && selectedObjects.length > 0) {
+        const bbox = getGroupBBox(selectedObjects);
+        const centerX = bbox.x + bbox.w / 2;
+        const centerY = bbox.y + bbox.h / 2;
+        
+        const angle = Math.atan2(coords.y - centerY, coords.x - centerX);
+        const degrees = angle * 180 / Math.PI + 90;
+        
+        selectedObjects.forEach(obj => {
+            if (!obj.rotation) obj.rotation = 0;
+            const originalRotation = startResizeState.originalRotation || 0;
+            obj.rotation = originalRotation + (degrees - startResizeState.startAngle);
+        });
+        requestDraw();
+    }
+});
+
+canvas.addEventListener('mouseup', () => {
+    if (isSelectingArea) {
+        isSelectingArea = false;
+        
+        const minX = Math.min(selectionStart.x, selectionEnd.x);
+        const maxX = Math.max(selectionStart.x, selectionEnd.x);
+        const minY = Math.min(selectionStart.y, selectionEnd.y);
+        const maxY = Math.max(selectionStart.y, selectionEnd.y);
+        
+        const newSelection = objectsArray.filter(obj => {
+            const bbox = getBBox(obj);
+            if (!bbox) return false;
+            return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
+        });
+        
+        if (newSelection.length > 0) {
+            if (!shiftKey) selectedObjects = [];
+            newSelection.forEach(obj => {
+                if (!selectedObjects.includes(obj)) selectedObjects.push(obj);
+            });
+        }
+        requestDraw();
+        return;
+    }
+    
+    if (isDrawing && currentPath) {
+        if (currentPath.type === 'pen') {
+            if (currentPath.points.length > 1) {
+                // Обычная линия (если было перемещение)
+                saveHistory();
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            } else {
+                // Одиночный клик -> Точка среднего размера
+                saveHistory();
+                const dot = {
+                    type: 'shape',
+                    shapeType: 'circle',
+                    id: generateId(),
+                    x: currentPath.x - 1, 
+                    y: currentPath.y - 1,
+                    w: 1,
+                    h: 1,
+                    color: currentPath.color,
+                    width: currentPath.width,
+                    rotation: 0
+                };
+                objects[dot.id] = dot;
+                objectsArray.push(dot);
+                sendOperation('add', dot);
+            }
+        } else if (currentPath.type === 'shape') {
+            if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
+                saveHistory();
+                currentPath.type = 'shape';
+                currentPath.shapeType = selectedShapeType;
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            }
+        } else if (currentPath.type === 'rect') {
+            if (Math.abs(currentPath.w) > 2 && Math.abs(currentPath.h) > 2) {
+                saveHistory();
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            }
+        } else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
+            if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
+                saveHistory();
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            }
+        } else if (currentPath.type === 'grid') {
+            if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
+                saveHistory();
+                currentPath.type = 'grid';
+                currentPath.gridSpacing = 40;
+                currentPath.axisColor = '#000000';
+                currentPath.gridColor = '#cccccc';
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            }
+        }
+        isDrawing = false;
+        currentPath = null;
+        requestDraw();
+    }
+    
+    if (isDragging || isResizing || isRotating) {
+        if (isRotating || isResizing || (isDragging && selectedObjects.length > 0)) {
+            saveHistory();
+            // Відправляємо оновлення для всіх переміщених об'єктів
+            selectedObjects.forEach(obj => {
+                obj.lastModified = Date.now();
+                sendOperation('update', obj);
+            });
+        }
+        isDragging = false; isResizing = false; isRotating = false;
+    }
+});
+
+// ============================================
+// ЛАСТИК
+// ============================================
+
+function eraseAt(mx, my) {
+    const eraserRadius = 30 / scale;
+    let changed = false;
+    const toDelete = [];
+    
+    for (let i = objectsArray.length - 1; i >= 0; i--) {
+        const obj = objectsArray[i];
+        let shouldRemove = false;
+        
+        if (obj.type === 'pen') {
+            const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
+            for (let p of allPoints) {
+                if (Math.hypot(p.x - mx, p.y - my) < eraserRadius) {
+                    shouldRemove = true;
+                    break;
+                }
+            }
+        } else if (obj.type === 'line' || obj.type === 'arrow') {
+            if (distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < eraserRadius) shouldRemove = true;
+        } else if (obj.type === 'rect' || obj.type === 'shape') {
+            const bbox = getBBox(obj);
+            if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
+                shouldRemove = true;
+            }
+        } else if (obj.type === 'text' || obj.type === 'image' || obj.type === 'grid') {
+            const bbox = getBBox(obj);
+            if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
+                shouldRemove = true;
+            }
+        }
+        
+        if (shouldRemove) {
+            toDelete.push(obj.id);
+            delete objects[obj.id];
+            objectsArray.splice(i, 1);
+            selectedObjects = selectedObjects.filter(o => o.id !== obj.id);
+            changed = true;
+        }
+    }
+    
+    if (changed) { 
+        saveHistory();
+        // Відправляємо операції видалення
+        toDelete.forEach(id => {
+            sendOperation('delete', { id });
+        });
+        requestDraw(); 
+    }
+}
+
+// ============================================
+// ПОЧАТОК МАЛЮВАННЯ
+// ============================================
+
+function startDrawing(coords) {
+    isDrawing = true;
+    currentPath = {
+        type: currentTool,
+        color: currentPenColor,
+        width: document.getElementById('lineWidth').value,
+        x: coords.x, y: coords.y, ex: coords.x, ey: coords.y,
+        w: 0, h: 0
+    };
+    
+    if (selectedLineToolType === 'dotted') {
+        currentPath.lineStyle = 'dotted';
+    }
+    
+    if (currentTool === 'pen') currentPath.points = [];
+    if (currentTool === 'shape') {
+        currentPath.shapeType = selectedShapeType;
+    }
+    if (currentTool === 'line' && selectedLineToolType === 'compass') {
+        currentPath.type = 'compass';
+        currentPath.radius = 0;
+    }
+}
+
+// ============================================
+// ЗМІНА РОЗМІРУ ГРУПИ
+// ============================================
+
+function startResizeGroup(handle, e) {
+    isResizing = true;
+    resizeHandle = handle;
+    const coords = getCoords(e);
+    dragStartX = coords.x; dragStartY = coords.y;
+    
+    const groupBBox = getGroupBBox(selectedObjects);
+    
+    startResizeState = {
+        objects: selectedObjects.map(o => ({
+            obj: o,
+            x: o.x, y: o.y, 
+            ex: o.ex, ey: o.ey, 
+            w: o.w, h: o.h, 
+            points: o.points ? JSON.parse(JSON.stringify(o.points)) : null,
+            rotation: o.rotation || 0
+        })),
+        groupBBox: groupBBox,
+        originalRotation: selectedObjects[0]?.rotation || 0,
+        startAngle: 0
+    };
+    
+    if (handle === 'rotate') {
+        isRotating = true;
+        const centerX = groupBBox.x + groupBBox.w / 2;
+        const centerY = groupBBox.y + groupBBox.h / 2;
+        startResizeState.startAngle = Math.atan2(coords.y - centerY, coords.x - centerX) * 180 / Math.PI;
+    }
+
+    const onMove = (e) => {
+        if (!isResizing && !isRotating) return;
+        const c = getCoords(e);
+        
+        if (isRotating) {
+            const centerX = startResizeState.groupBBox.x + startResizeState.groupBBox.w / 2;
+            const centerY = startResizeState.groupBBox.y + startResizeState.groupBBox.h / 2;
+            const currentAngle = Math.atan2(c.y - centerY, c.x - centerX) * 180 / Math.PI;
+            const deltaAngle = currentAngle - startResizeState.startAngle;
+            
+            selectedObjects.forEach(obj => {
+                obj.rotation = (startResizeState.originalRotation + deltaAngle) % 360;
+                obj.lastModified = Date.now();
+            });
+        } else {
+            const oldBBox = startResizeState.groupBBox;
+            let newW = oldBBox.w;
+            let newH = oldBBox.h;
+            let newX = oldBBox.x;
+            let newY = oldBBox.y;
+            
+            if (handle.includes('e')) newW = c.x - oldBBox.x;
+            if (handle.includes('w')) { newW = oldBBox.w + (oldBBox.x - c.x); newX = c.x; }
+            if (handle.includes('s')) newH = c.y - oldBBox.y;
+            if (handle.includes('n')) { newH = oldBBox.h + (oldBBox.y - c.y); newY = c.y; }
+            
+            if (newW < 10) newW = 10;
+            if (newH < 10) newH = 10;
+            if (handle.includes('e') && newW < 10) newW = 10;
+            if (handle.includes('w') && newW < 10) { newX = oldBBox.x + oldBBox.w - 10; newW = 10; }
+            if (handle.includes('s') && newH < 10) newH = 10;
+            if (handle.includes('n') && newH < 10) { newY = oldBBox.y + oldBBox.h - 10; newH = 10; }
+
+            const scaleX = newW / oldBBox.w;
+            const scaleY = newH / oldBBox.h;
+
+            startResizeState.objects.forEach(state => {
+                const o = state.obj;
+                
+                if (o.type === 'line' || o.type === 'arrow' || o.type === 'rect' || o.type === 'grid' || o.type === 'shape') {
+                    o.x = newX + (state.x - oldBBox.x) * scaleX;
+                    o.y = newY + (state.y - oldBBox.y) * scaleY;
+                    o.ex = newX + (state.ex - oldBBox.x) * scaleX;
+                    o.ey = newY + (state.ey - oldBBox.y) * scaleY;
+                    if (o.type === 'grid' || o.type === 'shape') {
+                        o.w = state.w * scaleX;
+                        o.h = state.h * scaleY;
+                    }
+                } else if (o.type === 'pen') {
+                    o.x = newX + (state.x - oldBBox.x) * scaleX;
+                    o.y = newY + (state.y - oldBBox.y) * scaleY;
+                    o.points = state.points.map(p => ({
+                        x: newX + (p.x - oldBBox.x) * scaleX,
+                        y: newY + (p.y - oldBBox.y) * scaleY
+                    }));
+                } else {
+                    o.x = newX + (state.x - oldBBox.x) * scaleX;
+                    o.y = newY + (state.y - oldBBox.y) * scaleY;
+                    
+                    if (o.type === 'image') {
+                        o.w = state.w * scaleX;
+                        o.h = state.h * scaleY;
+                    } else if (o.type === 'text') {
+                        const avgScale = (scaleX + scaleY) / 2;
+                        o.size = Math.max(8, state.obj.size * avgScale);
+                    }
+                }
+                
+                o.lastModified = Date.now();
+            });
+        }
         requestDraw();
     };
+    
+    const onUp = () => { 
+        isResizing = false; 
+        isRotating = false;
+        document.removeEventListener('mousemove', onMove); 
+        document.removeEventListener('mouseup', onUp); 
+        saveHistory();
+        // Оновлюємо всі об'єкти
+        selectedObjects.forEach(obj => {
+            sendOperation('update', obj);
+        });
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+function startRotate(e) {}
+
+// ============================================
+// СТВОРЕННЯ НОВОГО ТЕКСТУ
+// ============================================
+
+function createNewText(coords) {
+    const id = generateId();
+    const obj = {
+        type: 'text', 
+        id: id,
+        x: coords.x, 
+        y: coords.y, 
+        text: '', 
+        color: currentPenColor,
+        size: 20, 
+        isBold: document.getElementById('boldText').checked,
+        rotation: 0
+    };
+    saveHistory();
+    sendOperation('add', obj);
+    requestDraw();
+    startTextEdit(obj);
+}
+
+// ============================================
+// ВИБІР ІНСТРУМЕНТУ
+// ============================================
+
+function setTool(tool) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
+    if (tool !== 'select' && selectedObjects.length > 0) { selectedObjects = []; requestDraw(); }
+    
+    if (tool === 'select') canvas.className = 'cursor-default';
+    else if (tool === 'hand') canvas.className = 'cursor-grab';
+    else if (tool === 'eraser') canvas.className = 'cursor-eraser';
+    else if (tool === 'pen') canvas.className = 'cursor-pencil';
+    else if (tool === 'line' || tool === 'arrow' || tool === 'shape' || tool === 'rect') canvas.className = 'cursor-crosshair';
+    else if (tool === 'grid') canvas.className = 'cursor-grid';
+    else if (tool === 'text') canvas.className = 'cursor-text';
+    else canvas.className = 'cursor-crosshair';
+}
+
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = () => setTool(btn.dataset.tool));
+
+// ============================================
+// КНОПКИ ПАНЕЛІ
+// ============================================
+
+document.getElementById('clearBtn').onclick = () => { 
+    if(confirm("Очистити дошку?")) {
+        saveHistory();
+        
+        // Відправляємо операцію очищення
+        if (syncState.connected) {
+            socket.emit('delete-board');
+        }
+        
+        objects = {};
+        objectsArray = [];
+        selectedObjects = [];
+        
+        if (textEditor) stopTextEdit();
+        requestDraw();
+    }
+};
+
+function createNewBoard() { 
+    const newId = Math.random().toString(36).substr(2, 9);
+    window.location.href = '/' + newId; 
+}
+
+const colorPickerBtn = document.getElementById('colorPickerBtn');
+const colorPickerInput = document.getElementById('colorPickerInput');
+
+colorPickerBtn.addEventListener('click', () => {
+    colorPickerInput.click();
+});
+
+colorPickerInput.addEventListener('input', (e) => {
+    selectPenColor(e.target.value);
+});
+
+// ============================================
+// МАСШТАБУВАННЯ
+// ============================================
+
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const oldScale = scale;
+    scale *= delta;
+    scale = Math.min(Math.max(scale, 0.2), 5.0);
+    
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const mx = (mouseX - offsetX) / oldScale;
+    const my = (mouseY - offsetY) / oldScale;
+    
+    offsetX = mouseX - mx * scale;
+    offsetY = mouseY - my * scale;
+    
+    updateZoomDisplay();
+    
+    if (textEditor && editingObject) {
+        const bbox = getBBox(editingObject);
+        textEditor.style.left = (bbox.x * scale + offsetX - 10) + 'px';
+        textEditor.style.top = (bbox.y * scale + offsetY - 5) + 'px';
+    }
+    
+    requestDraw();
+}, { passive: false });
+
+// ============================================
+// ВСТАВКА ЗОБРАЖЕНЬ
+// ============================================
+
+window.addEventListener('paste', (e) => {
+    if (textEditor) return;
+    const items = e.clipboardData.items;
+    for (let item of items) {
+        if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const centerX = (canvas.width/2 - offsetX) / scale;
+                    const centerY = (canvas.height/2 - offsetY) / scale;
+                    const id = generateId();
+                    const obj = { 
+                        type: 'image', 
+                        id: id,
+                        src: event.target.result, 
+                        x: centerX - img.width/4, 
+                        y: centerY - img.height/4, 
+                        w: img.width/2, 
+                        h: img.height/2, 
+                        rotation: 0 
+                    };
+                    
+                    // Сначала добавляем в локальный стейт
+                    objects[id] = obj;
+                    objectsArray.push(obj);
+                    selectedObjects = [obj];
+                    
+                    // Затем отправляем на сервер
+                    sendOperation('add', obj);
+                    
+                    saveHistory();
+                    requestDraw();
+                };
+            };
+            reader.readAsDataURL(blob);
+        }
+    }
+});
+
+// ============================================
+// SOCKET.IO ПОДІЇ - ВИПРАВЛЕНА СИНХРОНІЗАЦІЯ
+// ============================================
+
+socket.on('connect', () => {
+    updateConnectionStatus('syncing', 'Синхронізація...');
+    syncState.connected = true;
+});
+
+socket.on('disconnect', () => {
+    updateConnectionStatus('disconnected', 'Відключено');
+    syncState.connected = false;
+});
+
+socket.on('connect_error', () => {
+    updateConnectionStatus('disconnected', 'Немає зв\'язку');
+    syncState.connected = false;
+});
+
+// Повна синхронізація при підключенні
+// Повна синхронізація при підключенні
+socket.on('full-sync', (data) => {
+    console.log('[CLIENT] Отримано повну синхронізацію:', data.objects?.length, 'об\'єктів');
+    
+    objects = {};
+    objectsArray = [];
+    selectedObjects = [];
+    
+    if (data.objects && Array.isArray(data.objects)) {
+        data.objects.forEach(obj => {
+            if (obj && obj.id) {
+                objects[obj.id] = obj;
+                objectsArray.push(obj);
+            }
+        });
+    }
+    
+    syncState.lastKnownOperationId = data.lastOperationId || 0;
+    
+    // Ініціалізуємо історію
+    historyStack = [{ objects: JSON.parse(JSON.stringify(objectsArray)), view: { scale, offsetX, offsetY } }];
+    historyIndex = 0;
+    
+    // Завантажуємо зображення в кеш
+    let imagesLoaded = 0;
+    const totalImages = objectsArray.filter(o => o.type === 'image').length;
+    
+    if (totalImages === 0) {
+        updateConnectionStatus('connected', 'Підключено');
+        requestDraw();
+    } else {
+        updateConnectionStatus('syncing', `Завантаження зображень...`);
+        objectsArray.forEach(obj => {
+            if (obj.type === 'image') {
+                const img = new Image();
+                img.src = obj.src;
+                img.onload = () => {
+                    imageCache[obj.src] = img;
+                    imagesLoaded++;
+                    if (imagesLoaded >= totalImages) {
+                        updateConnectionStatus('connected', 'Підключено');
+                        requestDraw();
+                    }
+                };
+                img.onerror = () => {
+                    imagesLoaded++;
+                    if (imagesLoaded >= totalImages) {
+                        updateConnectionStatus('connected', 'Підключено');
+                        requestDraw();
+                    }
+                };
+            }
+        });
+    }
+}); // <--- ОСЬ ЦЯ ДУЖКА МАЄ БУТИ ТУТ, ПІСЛЯ ЦИКЛУ
+
+// Обробка інкрементальних операцій (рухи, додавання, видалення в реальному часі)
+socket.on('operation', (op) => {
+    console.log('[CLIENT] Отримано операцію:', op.type, op.objectId);
+    
+    // Оновлюємо lastKnownOperationId
+    if (op.id > syncState.lastKnownOperationId) {
+        syncState.lastKnownOperationId = op.id;
+    }
+    
+    // Застосовуємо операцію
+    applyOperation(op);
+});
+// Повна синхронізація при підключенні
+socket.on('operations-batch', (data) => {
+    console.log('[CLIENT] Отримано пакет операцій:', data.operations?.length);
+    
+    if (data.operations && Array.isArray(data.operations)) {
+        data.operations.forEach(op => {
+            if (op.id > syncState.lastKnownOperationId) {
+                syncState.lastKnownOperationId = op.id;
+            }
+            applyOperation(op);
+        });
+    }
+    
+    if (data.currentOperationId > syncState.lastKnownOperationId) {
+        syncState.lastKnownOperationId = data.currentOperationId;
+    }
+});
+
+socket.on('batch-operation', (data) => {
+    console.log('[CLIENT] Отримано batch операцію:', data.operations?.length);
+    
+    if (data.operations && Array.isArray(data.operations)) {
+        applyBatchOperations(data.operations);
+    }
+});
+
+socket.on('board-cleared', () => {
+    console.log('[CLIENT] Дошку очищено');
+    objects = {};
+    objectsArray = [];
+    selectedObjects = [];
+    historyStack = [];
+    historyIndex = -1;
+    requestDraw();
+});
+
+// Періодична синхронізація для отримання пропущених операцій
+setInterval(() => {
+    if (syncState.connected) {
+        socket.emit('sync', { lastKnownOperationId: syncState.lastKnownOperationId });
+    }
+}, 5000);
 
 </script>
 </body>
