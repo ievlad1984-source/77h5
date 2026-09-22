@@ -608,6 +608,8 @@
 // ФУНКЦИОНАЛ МАТЕМАТИЧЕСКОЙ ПАНЕЛИ
 // ============================================
 
+// Кэш для отрендеренных формул LaTeX -> Image
+const latexCache = {};
 /**
  * Вставляет LaTeX команду в активное поле MathLive
  * @param {string} latex - команда LaTeX (например, '\\frac{}{}')
@@ -660,6 +662,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+async function getLatexImage(latex, color, size) {
+    const cacheKey = `${latex}_${color}_${size}`;
+    if (latexCache[cacheKey]) return latexCache[cacheKey];
+
+    return new Promise((resolve) => {
+        // Создаем временный элемент для рендеринга KaTeX
+        const div = document.createElement('div');
+        div.style.position = 'absolute';
+        div.style.left = '-9999px';
+        div.style.color = color;
+        div.style.fontSize = `${size}px`;
+        document.body.appendChild(div);
+
+        try {
+            katex.render(latex, div, {
+                throwOnError: false,
+                displayMode: false
+            });
+
+            // Превращаем HTML в SVG/Canvas через временный холст
+            const svgElement = div.querySelector('svg');
+            if (!svgElement) {
+                // Если KaTeX не создал SVG, используем простой текст
+                const canvasTemp = document.createElement('canvas');
+                const tCtx = canvasTemp.getContext('2d');
+                tCtx.font = `${size}px Segoe UI`;
+                const metrics = tCtx.measureText(latex);
+                canvasTemp.width = metrics.width;
+                canvasTemp.height = size * 1.5;
+                tCtx.font = `${size}px Segoe UI`;
+                tCtx.fillStyle = color;
+                tCtx.fillText(latex, 0, size);
+                
+                const img = new Image();
+                img.src = canvasTemp.toDataURL();
+                img.onload = () => {
+                    latexCache[cacheKey] = img;
+                    resolve(img);
+                };
+                return;
+            }
+
+            // Превращаем SVG в Image
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
+            
+            const img = new Image();
+            img.src = url;
+            img.onload = () => {
+                latexCache[cacheKey] = img;
+                document.body.removeChild(div);
+                resolve(img);
+            };
+        } catch (e) {
+            console.error("KaTeX error:", e);
+            resolve(null);
+        }
+    });
+}
 
 function generateId() {
     return 'obj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
@@ -1745,38 +1807,51 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
 
 function drawObject(obj, isTemp = false) {
     ctx.save();
+    
+    // 1. Расчет базовых координат с учетом масштаба и смещения
     const sx = obj.x * scale + offsetX;
     const sy = obj.y * scale + offsetY;
     
+    // 2. Настройка стилей кисти
     ctx.lineWidth = (obj.width || 2) * scale;
     ctx.strokeStyle = obj.color || '#000';
     ctx.fillStyle = obj.color || '#000';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
+    // Поддержка пунктирных линий
     if (obj.lineStyle === 'dotted') {
         ctx.setLineDash([5 * scale, 5 * scale]);
     } else {
         ctx.setLineDash([]);
     }
     
+    // 3. Применение вращения (если объект повернут)
     if (obj.rotation) {
         ctx.translate(sx, sy);
         ctx.rotate(obj.rotation * Math.PI / 180);
         ctx.translate(-sx, -sy);
     }
     
+    // 4. Отрисовка в зависимости от типа объекта
     if (obj.type === 'pen') {
-        if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
+        // Рисование плавных линий пером
+        if (!obj.points || obj.points.length === 0) { 
+            ctx.restore(); 
+            return; 
+        }
         const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
         drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
+
     } else if (obj.type === 'line' || obj.type === 'arrow') {
+        // Отрисовка линий и стрелок
         const ex = obj.ex * scale + offsetX;
         const ey = obj.ey * scale + offsetY;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         ctx.lineTo(ex, ey);
         ctx.stroke();
+        
         if (obj.type === 'arrow') {
             const headlen = 15 * scale;
             const angle = Math.atan2(ey - sy, ex - sx);
@@ -1787,11 +1862,15 @@ function drawObject(obj, isTemp = false) {
             ctx.lineTo(ex - headlen * Math.cos(angle + Math.PI / 6), ey - headlen * Math.sin(angle + Math.PI / 6));
             ctx.stroke();
         }
+
     } else if (obj.type === 'rect') {
+        // Обычный прямоугольник
         const w = obj.w * scale;
         const h = obj.h * scale;
         ctx.strokeRect(sx, sy, w, h);
+
     } else if (obj.type === 'shape') {
+        // Геометрические фигуры
         const w = obj.w * scale;
         const h = obj.h * scale;
         const cx = sx + w / 2;
@@ -1819,8 +1898,7 @@ function drawObject(obj, isTemp = false) {
                 const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
                 const px = cx + r * Math.cos(angle);
                 const py = cy + r * Math.sin(angle);
-                if (i === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
             }
             ctx.closePath();
         } else if (obj.shapeType === 'hexagon') {
@@ -1829,8 +1907,7 @@ function drawObject(obj, isTemp = false) {
                 const angle = (i * 2 * Math.PI / 6) - Math.PI / 2;
                 const px = cx + r * Math.cos(angle);
                 const py = cy + r * Math.sin(angle);
-                if (i === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
             }
             ctx.closePath();
         } else if (obj.shapeType === 'star') {
@@ -1841,8 +1918,7 @@ function drawObject(obj, isTemp = false) {
                 const rad = (i % 2 === 0) ? r : innerR;
                 const px = cx + rad * Math.cos(angle);
                 const py = cy + rad * Math.sin(angle);
-                if (i === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
             }
             ctx.closePath();
         } else if (obj.shapeType === 'parallelogram') {
@@ -1865,36 +1941,53 @@ function drawObject(obj, isTemp = false) {
             ctx.lineTo(sx, sy + h);
             ctx.closePath();
         } else if (obj.shapeType === 'heart') {
-            const topCurveHeight = h * 0.3;
             ctx.moveTo(cx, sy + h * 0.2);
             ctx.bezierCurveTo(cx, sy, sx, sy, sx, cy);
             ctx.bezierCurveTo(sx, sy + h, cx, sy + h * 1.2, sx + w, sy + h);
             ctx.bezierCurveTo(sx + w, cy, sx + w, sy, cx, sy);
             ctx.closePath();
         }
-        
         ctx.stroke();
+
     } else if (obj.type === 'text') {
-        ctx.fillStyle = obj.color || '#000';
-        ctx.textBaseline = 'alphabetic';
-        
+        // === ЛОГИКА ТЕКСТА И ФОРМУЛ ===
         const baseSize = obj.size * scale;
         
-        if (obj.segments && obj.segments.length > 0) {
-            drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
-        } else if (obj.text && obj.text.trim() !== '') {
-            ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-            const textLines = obj.text.split('\n');
-            const lineH = baseSize * 1.4;
-            textLines.forEach((line, i) => {
-                ctx.fillText(line, sx, sy + (baseSize * 0.8) + (i * lineH));
+        // Проверяем, является ли текст формулой LaTeX (содержит \, { или ^)
+        if (obj.text && (obj.text.includes('\\') || obj.text.includes('{') || obj.text.includes('^'))) {
+            // Рендерим LaTeX через KaTeX -> Image
+            getLatexImage(obj.text, obj.color || '#000', baseSize).then(img => {
+                if (img) {
+                    ctx.drawImage(img, sx, sy);
+                    requestDraw(); // Перерисовываем холст, когда картинка формулы загрузилась
+                }
             });
+        } else {
+            // Рендерим обычный текст
+            ctx.fillStyle = obj.color || '#000';
+            ctx.textBaseline = 'alphabetic';
+            
+            if (obj.segments && obj.segments.length > 0) {
+                // Старая система сегментов (если осталась)
+                drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
+            } else if (obj.text && obj.text.trim() !== '') {
+                // Простой текст
+                ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+                const textLines = obj.text.split('\n');
+                const lineH = baseSize * 1.4;
+                textLines.forEach((line, i) => {
+                    ctx.fillText(line, sx, sy + (baseSize * 0.8) + (i * lineH));
+                });
+            }
         }
+
     } else if (obj.type === 'grid') {
+        // Отрисовка координатной сетки
         drawCoordinateGrid(obj);
+
     } else if (obj.type === 'image') {
+        // Отрисовка вставленных картинок
         const src = obj.src;
-        // Перевіряємо, чи картинка вже є в кеші
         if (!imageCache[src]) {
             const img = new Image();
             img.src = src;
@@ -1902,14 +1995,14 @@ function drawObject(obj, isTemp = false) {
                 imageCache[src] = img;
                 requestDraw();
             };
-            imageCache[src] = null; // Позначаємо, що завантаження розпочато
+            imageCache[src] = null;
         }
-        
         const cachedImg = imageCache[src];
         if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
             ctx.drawImage(cachedImg, sx, sy, obj.w * scale, obj.h * scale);
         }
     }
+    
     ctx.restore();
 }
 
@@ -2276,23 +2369,21 @@ function startTextEdit(obj) {
 
 function stopTextEdit(cancel = false) {
     if (!textEditor) return;
-    const editorDiv = textEditor.querySelector('.text-edit-content');
-    if (!cancel && editingObject) {
+    
+    // Находим именно math-field
+    const mf = textEditor.querySelector('math-field');
+    
+    if (!cancel && editingObject && mf) {
         saveHistory();
         
-        const html = editorDiv.innerHTML;
-        const segments = htmlToSegments(html);
-        
-        if (segments && segments.length > 0) {
-            editingObject.segments = segments;
-        } else {
-            delete editingObject.segments;
-        }
-        
-        editingObject.text = editorDiv.innerText;
+        // ВАЖНО: сохраняем именно .value (LaTeX код), а не innerText
+        editingObject.text = mf.value; 
         editingObject.lastModified = Date.now();
         
-        // Оновлюємо об'єкт в локальному сховищі
+        // Очищаем сегменты, так как для MathLive мы используем LaTeX рендеринг, а не ручной
+        delete editingObject.segments;
+        
+        // Обновляем объект в локальном хранилище
         if (objects[editingObject.id]) {
             objects[editingObject.id] = editingObject;
             const idx = objectsArray.findIndex(o => o.id === editingObject.id);
@@ -2303,6 +2394,7 @@ function stopTextEdit(cancel = false) {
         
         sendOperation('update', editingObject);
     }
+    
     if (textEditor.parentNode) {
         document.body.removeChild(textEditor);
     }
