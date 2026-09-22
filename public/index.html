@@ -667,7 +667,6 @@ async function getLatexImage(latex, color, size) {
     if (latexCache[cacheKey]) return latexCache[cacheKey];
 
     return new Promise((resolve) => {
-        // Создаем временный элемент для рендеринга KaTeX
         const div = document.createElement('div');
         div.style.position = 'absolute';
         div.style.left = '-9999px';
@@ -676,35 +675,15 @@ async function getLatexImage(latex, color, size) {
         document.body.appendChild(div);
 
         try {
-            katex.render(latex, div, {
-                throwOnError: false,
-                displayMode: false
-            });
-
-            // Превращаем HTML в SVG/Canvas через временный холст
+            katex.render(latex, div, { throwOnError: false, displayMode: false });
             const svgElement = div.querySelector('svg');
+            
             if (!svgElement) {
-                // Если KaTeX не создал SVG, используем простой текст
-                const canvasTemp = document.createElement('canvas');
-                const tCtx = canvasTemp.getContext('2d');
-                tCtx.font = `${size}px Segoe UI`;
-                const metrics = tCtx.measureText(latex);
-                canvasTemp.width = metrics.width;
-                canvasTemp.height = size * 1.5;
-                tCtx.font = `${size}px Segoe UI`;
-                tCtx.fillStyle = color;
-                tCtx.fillText(latex, 0, size);
-                
-                const img = new Image();
-                img.src = canvasTemp.toDataURL();
-                img.onload = () => {
-                    latexCache[cacheKey] = img;
-                    resolve(img);
-                };
+                document.body.removeChild(div);
+                resolve(null);
                 return;
             }
 
-            // Превращаем SVG в Image
             const svgData = new XMLSerializer().serializeToString(svgElement);
             const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
             const url = URL.createObjectURL(svgBlob);
@@ -712,12 +691,13 @@ async function getLatexImage(latex, color, size) {
             const img = new Image();
             img.src = url;
             img.onload = () => {
-                latexCache[cacheKey] = img;
+                latexCache[cacheKey] = img; // Сохраняем в кэш
                 document.body.removeChild(div);
                 resolve(img);
             };
         } catch (e) {
             console.error("KaTeX error:", e);
+            document.body.removeChild(div);
             resolve(null);
         }
     });
@@ -1808,50 +1788,39 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
 function drawObject(obj, isTemp = false) {
     ctx.save();
     
-    // 1. Расчет базовых координат с учетом масштаба и смещения
     const sx = obj.x * scale + offsetX;
     const sy = obj.y * scale + offsetY;
     
-    // 2. Настройка стилей кисти
     ctx.lineWidth = (obj.width || 2) * scale;
     ctx.strokeStyle = obj.color || '#000';
     ctx.fillStyle = obj.color || '#000';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
-    // Поддержка пунктирных линий
     if (obj.lineStyle === 'dotted') {
         ctx.setLineDash([5 * scale, 5 * scale]);
     } else {
         ctx.setLineDash([]);
     }
     
-    // 3. Применение вращения (если объект повернут)
     if (obj.rotation) {
         ctx.translate(sx, sy);
         ctx.rotate(obj.rotation * Math.PI / 180);
         ctx.translate(-sx, -sy);
     }
     
-    // 4. Отрисовка в зависимости от типа объекта
     if (obj.type === 'pen') {
-        // Рисование плавных линий пером
-        if (!obj.points || obj.points.length === 0) { 
-            ctx.restore(); 
-            return; 
-        }
+        if (!obj.points || obj.points.length === 0) { ctx.restore(); return; }
         const allPoints = [{x: obj.x, y: obj.y}, ...obj.points];
         drawSmoothPath(ctx, allPoints, scale, offsetX, offsetY);
 
     } else if (obj.type === 'line' || obj.type === 'arrow') {
-        // Отрисовка линий и стрелок
         const ex = obj.ex * scale + offsetX;
         const ey = obj.ey * scale + offsetY;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         ctx.lineTo(ex, ey);
         ctx.stroke();
-        
         if (obj.type === 'arrow') {
             const headlen = 15 * scale;
             const angle = Math.atan2(ey - sy, ex - sx);
@@ -1864,35 +1833,19 @@ function drawObject(obj, isTemp = false) {
         }
 
     } else if (obj.type === 'rect') {
-        // Обычный прямоугольник
-        const w = obj.w * scale;
-        const h = obj.h * scale;
-        ctx.strokeRect(sx, sy, w, h);
+        ctx.strokeRect(sx, sy, obj.w * scale, obj.h * scale);
 
     } else if (obj.type === 'shape') {
-        // Геометрические фигуры
         const w = obj.w * scale;
         const h = obj.h * scale;
         const cx = sx + w / 2;
         const cy = sy + h / 2;
         const minDim = Math.min(Math.abs(w), Math.abs(h));
-        
         ctx.beginPath();
-        
-        if (obj.shapeType === 'circle') {
-            ctx.ellipse(cx, cy, minDim/2, minDim/2, 0, 0, Math.PI * 2);
-        } else if (obj.shapeType === 'triangle') {
-            ctx.moveTo(cx, sy);
-            ctx.lineTo(sx + w, sy + h);
-            ctx.lineTo(sx, sy + h);
-            ctx.closePath();
-        } else if (obj.shapeType === 'diamond') {
-            ctx.moveTo(cx, sy);
-            ctx.lineTo(sx + w, cy);
-            ctx.lineTo(cx, sy + h);
-            ctx.lineTo(sx, cy);
-            ctx.closePath();
-        } else if (obj.shapeType === 'pentagon') {
+        if (obj.shapeType === 'circle') ctx.ellipse(cx, cy, minDim/2, minDim/2, 0, 0, Math.PI * 2);
+        else if (obj.shapeType === 'triangle') { ctx.moveTo(cx, sy); ctx.lineTo(sx + w, sy + h); ctx.lineTo(sx, sy + h); ctx.closePath(); }
+        else if (obj.shapeType === 'diamond') { ctx.moveTo(cx, sy); ctx.lineTo(sx + w, cy); ctx.lineTo(cx, sy + h); ctx.lineTo(sx, cy); ctx.closePath(); }
+        else if (obj.shapeType === 'pentagon') {
             const r = minDim / 2;
             for (let i = 0; i < 5; i++) {
                 const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
@@ -1923,23 +1876,13 @@ function drawObject(obj, isTemp = false) {
             ctx.closePath();
         } else if (obj.shapeType === 'parallelogram') {
             const offset = w * 0.2;
-            ctx.moveTo(sx + offset, sy);
-            ctx.lineTo(sx + w, sy);
-            ctx.lineTo(sx + w - offset, sy + h);
-            ctx.lineTo(sx, sy + h);
-            ctx.closePath();
+            ctx.moveTo(sx + offset, sy); ctx.lineTo(sx + w, sy); ctx.lineTo(sx + w - offset, sy + h); ctx.lineTo(sx, sy + h); ctx.closePath();
         } else if (obj.shapeType === 'rounded-rect') {
-            const radius = Math.min(Math.abs(w), Math.abs(h)) * 0.2;
-            ctx.roundRect(sx, sy, w, h, radius);
+            ctx.roundRect(sx, sy, w, h, Math.min(Math.abs(w), Math.abs(h)) * 0.2);
         } else if (obj.shapeType === 'semi-circle') {
-            ctx.arc(cx, cy, minDim/2, Math.PI, 0);
-            ctx.lineTo(sx + w, cy);
-            ctx.lineTo(sx, cy);
-            ctx.closePath();
+            ctx.arc(cx, cy, minDim/2, Math.PI, 0); ctx.lineTo(sx + w, cy); ctx.lineTo(sx, cy); ctx.closePath();
         } else if (obj.shapeType === 'quarter-circle') {
-            ctx.arc(sx, sy + h, minDim, -Math.PI/2, 0);
-            ctx.lineTo(sx, sy + h);
-            ctx.closePath();
+            ctx.arc(sx, sy + h, minDim, -Math.PI/2, 0); ctx.lineTo(sx, sy + h); ctx.closePath();
         } else if (obj.shapeType === 'heart') {
             ctx.moveTo(cx, sy + h * 0.2);
             ctx.bezierCurveTo(cx, sy, sx, sy, sx, cy);
@@ -1950,28 +1893,34 @@ function drawObject(obj, isTemp = false) {
         ctx.stroke();
 
     } else if (obj.type === 'text') {
-        // === ЛОГИКА ТЕКСТА И ФОРМУЛ ===
         const baseSize = obj.size * scale;
         
-        // Проверяем, является ли текст формулой LaTeX (содержит \, { или ^)
-        if (obj.text && (obj.text.includes('\\') || obj.text.includes('{') || obj.text.includes('^'))) {
-            // Рендерим LaTeX через KaTeX -> Image
-            getLatexImage(obj.text, obj.color || '#000', baseSize).then(img => {
-                if (img) {
-                    ctx.drawImage(img, sx, sy);
-                    requestDraw(); // Перерисовываем холст, когда картинка формулы загрузилась
-                }
-            });
+        // СТРОГА ПРОВІРКА: Це LaTeX чи звичайний текст?
+        const isLatex = obj.text && (obj.text.includes('\\') || obj.text.includes('{') || obj.text.includes('^'));
+        
+        if (isLatex) {
+            // 1. Пробуем взять из кэша мгновенно
+            const cacheKey = `${obj.text}_${obj.color || '#000'}_${baseSize}`;
+            if (latexCache[cacheKey]) {
+                ctx.drawImage(latexCache[cacheKey], sx, sy);
+            } else {
+                // 2. Если в кэше нет, запрашиваем рендер
+                getLatexImage(obj.text, obj.color || '#000', baseSize).then(img => {
+                    if (img) {
+                        // Когда картинка пришла, заставляем доску перерисоваться
+                        requestDraw();
+                    }
+                });
+                // ВАЖНО: Здесь мы НИЧЕГО не рисуем. 
+                // Мы не рисуем текст-заглушку, чтобы не было прыжков текста в картинку.
+            }
         } else {
-            // Рендерим обычный текст
+            // Рендерим только если это реально обычный текст
             ctx.fillStyle = obj.color || '#000';
             ctx.textBaseline = 'alphabetic';
-            
             if (obj.segments && obj.segments.length > 0) {
-                // Старая система сегментов (если осталась)
                 drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
             } else if (obj.text && obj.text.trim() !== '') {
-                // Простой текст
                 ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
                 const textLines = obj.text.split('\n');
                 const lineH = baseSize * 1.4;
@@ -1982,27 +1931,20 @@ function drawObject(obj, isTemp = false) {
         }
 
     } else if (obj.type === 'grid') {
-        // Отрисовка координатной сетки
         drawCoordinateGrid(obj);
-
     } else if (obj.type === 'image') {
-        // Отрисовка вставленных картинок
         const src = obj.src;
         if (!imageCache[src]) {
             const img = new Image();
             img.src = src;
-            img.onload = () => {
-                imageCache[src] = img;
-                requestDraw();
-            };
+            img.onload = () => { imageCache[src] = img; requestDraw(); };
             imageCache[src] = null;
         }
         const cachedImg = imageCache[src];
-        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+        if (cachedImg && cachedImg.complete) {
             ctx.drawImage(cachedImg, sx, sy, obj.w * scale, obj.h * scale);
         }
     }
-    
     ctx.restore();
 }
 
