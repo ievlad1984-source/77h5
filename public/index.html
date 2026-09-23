@@ -520,7 +520,73 @@
 function generateId() {
     return 'obj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
 }
+class SpatialGrid {
+    constructor(cellSize = 100) {
+        this.cellSize = cellSize;
+        this.grid = new Map();
+    }
 
+    _getKey(x, y) {
+        return `${Math.floor(x / this.cellSize)},${Math.floor(y / this.cellSize)}`;
+    }
+
+    clear() { this.grid.clear(); }
+
+    updateObject(obj) {
+        this.removeObject(obj);
+        const bbox = getBBox(obj);
+        if (!bbox) return;
+
+        const startX = Math.floor(bbox.x / this.cellSize);
+        const endX = Math.floor((bbox.x + bbox.w) / this.cellSize);
+        const startY = Math.floor(bbox.y / this.cellSize);
+        const endY = Math.floor((bbox.y + bbox.h) / this.cellSize);
+
+        for (let x = startX; x <= endX; x++) {
+            for (let y = startY; y <= endY; y++) {
+                const key = `${x},${y}`;
+                if (!this.grid.has(key)) this.grid.set(key, new Set());
+                this.grid.get(key).add(obj.id);
+            }
+        }
+    }
+
+    removeObject(obj) {
+        const bbox = getBBox(obj);
+        if (!bbox) return;
+        const startX = Math.floor(bbox.x / this.cellSize);
+        const endX = Math.floor((bbox.x + bbox.w) / this.cellSize);
+        const startY = Math.floor(bbox.y / this.cellSize);
+        const endY = Math.floor((bbox.y + bbox.h) / this.cellSize);
+
+        for (let x = startX; x <= endX; x++) {
+            for (let y = startY; y <= endY; y++) {
+                const key = `${x},${y}`;
+                if (this.grid.has(key)) this.grid.get(key).delete(obj.id);
+            }
+        }
+    }
+
+    query(x, y, width = 0, height = 0) {
+        const startX = Math.floor(x / this.cellSize);
+        const endX = Math.floor((x + width) / this.cellSize);
+        const startY = Math.floor(y / this.cellSize);
+        const endY = Math.floor((y + height) / this.cellSize);
+        const found = new Set();
+
+        for (let ix = startX; ix <= endX; ix++) {
+            for (let iy = startY; iy <= endY; iy++) {
+                const key = `${ix},${iy}`;
+                if (this.grid.has(key)) {
+                    this.grid.get(key).forEach(id => found.add(id));
+                }
+            }
+        }
+        return Array.from(found);
+    }
+}
+
+const spatialIndex = new SpatialGrid(); // <--- ЦЕЙ РЯДОК ОБОВ'ЯЗКОВИЙ!
 // ============================================
 // ІНІЦІАЛІЗАЦІЯ
 // ============================================
@@ -638,6 +704,7 @@ function applyOperation(operation) {
             if (!objects[objId]) {
                 objects[objId] = operation.data;
                 objectsArray.push(operation.data);
+                spatialIndex.updateObject(operation.data);
             }
             break;
         case 'update':
@@ -664,18 +731,22 @@ function applyOperation(operation) {
                     const idx = objectsArray.findIndex(o => o.id === objId);
                     if (idx !== -1) {
                         objectsArray[idx] = objects[objId];
+                        spatialIndex.updateObject(objects[objId]);
+
                     }
                 }
             }
             break;
         case 'delete':
             if (objects[objId]) {
+                spatialIndex.removeObject(objects[objId]);
                 delete objects[objId];
                 objectsArray = objectsArray.filter(o => o.id !== objId);
                 selectedObjects = selectedObjects.filter(o => o.id !== objId);
             }
             break;
         case 'clear':
+            spatialIndex.clear();
             objects = {};
             objectsArray = [];
             selectedObjects = [];
@@ -2405,12 +2476,11 @@ function startTextDrag(obj, e, wrapper) {
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
     
-    const clickedObj = [...objectsArray].reverse().find(obj => {
-        if (obj.type === 'text') {
-            return hitTest(obj, coords.x, coords.y, 2);
-        }
-        return false;
-    });
+    const potentialIds = spatialIndex.query(coords.x, coords.y);
+const clickedObj = potentialIds
+    .map(id => objects[id])
+    .filter(obj => obj && obj.type === 'text' && hitTest(obj, coords.x, coords.y, 2))
+    .sort((a, b) => objectsArray.indexOf(b) - objectsArray.indexOf(a))[0];
 
     if (clickedObj) {
         e.preventDefault();
@@ -2421,19 +2491,21 @@ canvas.addEventListener('dblclick', (e) => {
 });
 
 canvas.addEventListener('mousedown', (e) => {
+    // Пропускаем, если это второй клик (он обрабатывается в dblclick)
     if (e.detail === 2) {
         return;
     }
     
     const coords = getCoords(e);
     
+    // --- ЛОГИКА ПРИ АКТИВНОМ РЕДАКТОРЕ ТЕКСТА ---
     if (textEditor && editingObject) {
-        const clickedText = [...objectsArray].reverse().find(obj => {
-            if (obj.type === 'text' && obj !== editingObject) {
-                return hitTest(obj, coords.x, coords.y, 2);
-            }
-            return false;
-        });
+        // Используем индекс для быстрого поиска другого текстового объекта под курсором
+        const potentialIds = spatialIndex.query(coords.x, coords.y);
+        const clickedText = potentialIds
+            .map(id => objects[id])
+            .filter(obj => obj && obj.type === 'text' && obj !== editingObject && hitTest(obj, coords.x, coords.y, 2))
+            .sort((a, b) => objectsArray.indexOf(b) - objectsArray.indexOf(a))[0]; // Берем самый верхний
         
         if (clickedText) {
             saveHistory();
@@ -2459,6 +2531,7 @@ canvas.addEventListener('mousedown', (e) => {
         }
     }
     
+    // Если кликнули мимо редактора, закрываем его
     if (textEditor) { 
         stopTextEdit(); 
         selectedObjects = [];
@@ -2466,20 +2539,22 @@ canvas.addEventListener('mousedown', (e) => {
         return; 
     }
     
+    // --- ЛОГИКА ВЫБОРА ИНСТРУМЕНТА ---
     if (currentTool === 'shape' && selectedShapeType) {
         startDrawing(coords);
         return;
     }
 
     if (currentTool !== 'select' && currentTool !== 'hand') {
-        if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
-        else if (currentTool === 'text') {
-            const existingText = [...objectsArray].reverse().find(obj => {
-                if (obj.type === 'text') {
-                    return hitTest(obj, coords.x, coords.y, 2);
-                }
-                return false;
-            });
+        if (currentTool === 'eraser') {
+            eraseAt(coords.x, coords.y);
+        } else if (currentTool === 'text') {
+            // Быстрый поиск существующего текста через индекс
+            const potentialIds = spatialIndex.query(coords.x, coords.y);
+            const existingText = potentialIds
+                .map(id => objects[id])
+                .filter(obj => obj && obj.type === 'text' && hitTest(obj, coords.x, coords.y, 2))
+                .sort((a, b) => objectsArray.indexOf(b) - objectsArray.indexOf(a))[0];
             
             if (existingText) {
                 startTextEdit(existingText);
@@ -2487,25 +2562,32 @@ canvas.addEventListener('mousedown', (e) => {
                 return;
             }
             createNewText(coords);
-        }
-        else if (currentTool === 'grid') {
+        } else if (currentTool === 'grid') {
             startDrawing(coords);
             return;
+        } else {
+            startDrawing(coords);
         }
-        else startDrawing(coords);
         return;
     }
     
+    // --- ИНСТРУМЕНТ "ВЫБОР" (SELECT) ---
     if (currentTool === 'select') {
         let clickedObj = null;
         let clickedHandle = null;
         
+        // 1. Проверяем, не попали ли мы в ручку изменения размера (Handle)
         if (selectedObjects.length > 0) {
             clickedHandle = hitHandle(coords.x, coords.y);
         }
         
         if (!clickedHandle) {
-            clickedObj = [...objectsArray].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
+            // 2. Ищем объект через пространственный индекс
+            const potentialIds = spatialIndex.query(coords.x, coords.y);
+            clickedObj = potentialIds
+                .map(id => objects[id])
+                .filter(obj => obj && hitTest(obj, coords.x, coords.y, 2))
+                .sort((a, b) => objectsArray.indexOf(b) - objectsArray.indexOf(a))[0]; // Самый верхний
         }
         
         if (clickedHandle) {
@@ -2515,6 +2597,7 @@ canvas.addEventListener('mousedown', (e) => {
         }
         
         if (clickedObj) {
+            // Логика добавления в выделение (Shift для мультивыбора)
             if (!selectedObjects.includes(clickedObj)) {
                 if (!shiftKey) selectedObjects = [];
                 selectedObjects.push(clickedObj);
@@ -2536,13 +2619,16 @@ canvas.addEventListener('mousedown', (e) => {
             
             requestDraw();
         } else {
+            // Клик в пустое место -> начинаем выделение рамкой
             selectedObjects = [];
             isSelectingArea = true;
             selectionStart = { x: coords.x, y: coords.y };
             selectionEnd = { x: coords.x, y: coords.y };
             requestDraw();
         }
-    } else if (currentTool === 'hand') {
+    } 
+    // --- ИНСТРУМЕНТ "РУКА" (HAND) ---
+    else if (currentTool === 'hand') {
         isDragging = true;
         dragStartX = coords.rawX;
         dragStartY = coords.rawY;
@@ -2658,11 +2744,13 @@ canvas.addEventListener('mouseup', () => {
         const minY = Math.min(selectionStart.y, selectionEnd.y);
         const maxY = Math.max(selectionStart.y, selectionEnd.y);
         
-        const newSelection = objectsArray.filter(obj => {
-            const bbox = getBBox(obj);
-            if (!bbox) return false;
-            return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
-        });
+        const potentialIds = spatialIndex.query(minX, minY, maxX - minX, maxY - minY);
+const newSelection = potentialIds
+    .map(id => objects[id])
+    .filter(obj => {
+        const bbox = getBBox(obj);
+        return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
+    });
         
         if (newSelection.length > 0) {
             if (!shiftKey) selectedObjects = [];
@@ -2768,8 +2856,11 @@ function eraseAt(mx, my) {
     let changed = false;
     const toDelete = [];
     
-    for (let i = objectsArray.length - 1; i >= 0; i--) {
-        const obj = objectsArray[i];
+    // Быстро находим объекты в зоне действия ластика
+    const potentialIds = spatialIndex.query(mx - eraserRadius, my - eraserRadius, eraserRadius * 2, eraserRadius * 2);
+    const toCheck = potentialIds.map(id => objects[id]).filter(Boolean);
+
+    for (let obj of toCheck) {
         let shouldRemove = false;
         
         if (obj.type === 'pen') {
@@ -2782,32 +2873,31 @@ function eraseAt(mx, my) {
             }
         } else if (obj.type === 'line' || obj.type === 'arrow') {
             if (distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < eraserRadius) shouldRemove = true;
-        } else if (obj.type === 'rect' || obj.type === 'shape') {
+        } else {
+            // Для всех остальных (rect, shape, text, image, grid) используем BBox
             const bbox = getBBox(obj);
-            if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
-                shouldRemove = true;
-            }
-        } else if (obj.type === 'text' || obj.type === 'image' || obj.type === 'grid') {
-            const bbox = getBBox(obj);
-            if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
+            if (bbox && mx >= bbox.x - eraserRadius && mx <= bbox.x + bbox.w + eraserRadius && 
+                my >= bbox.y - eraserRadius && my <= bbox.y + bbox.h + eraserRadius) {
                 shouldRemove = true;
             }
         }
         
         if (shouldRemove) {
             toDelete.push(obj.id);
-            delete objects[obj.id];
-            objectsArray.splice(i, 1);
-            selectedObjects = selectedObjects.filter(o => o.id !== obj.id);
-            changed = true;
         }
     }
     
-    if (changed) { 
+    if (toDelete.length > 0) { 
         saveHistory();
-        // Відправляємо операції видалення
         toDelete.forEach(id => {
-            sendOperation('delete', { id });
+            const obj = objects[id];
+            if (obj) {
+                spatialIndex.removeObject(obj);
+                delete objects[id];
+                objectsArray = objectsArray.filter(o => o.id !== id);
+                selectedObjects = selectedObjects.filter(o => o.id !== id);
+                sendOperation('delete', { id });
+            }
         });
         requestDraw(); 
     }
@@ -3148,13 +3238,16 @@ socket.on('connect_error', () => {
 
 // Повна синхронізація при підключенні
 // Повна синхронізація при підключенні
+// Повна синхронізація при підключенні
 socket.on('full-sync', (data) => {
     console.log('[CLIENT] Отримано повну синхронізацію:', data.objects?.length, 'об\'єктів');
     
+    // 1. Очищаємо текущее состояние
     objects = {};
     objectsArray = [];
     selectedObjects = [];
     
+    // 2. Заполняем объекты из данных сервера
     if (data.objects && Array.isArray(data.objects)) {
         data.objects.forEach(obj => {
             if (obj && obj.id) {
@@ -3164,20 +3257,32 @@ socket.on('full-sync', (data) => {
         });
     }
     
+    // === НОВОЕ: Заполняем пространственный индекс для всех полученных объектов ===
+    spatialIndex.clear(); // Очищаем старый индекс
+    objectsArray.forEach(obj => {
+        spatialIndex.updateObject(obj);
+    });
+    // ============================================================================
+    
     syncState.lastKnownOperationId = data.lastOperationId || 0;
     
-    // Ініціалізуємо історію
-    historyStack = [{ objects: JSON.parse(JSON.stringify(objectsArray)), view: { scale, offsetX, offsetY } }];
+    // 3. Инициализируем историю (состояние на момент загрузки)
+    historyStack = [{ 
+        objects: JSON.parse(JSON.stringify(objectsArray)), 
+        view: { scale, offsetX, offsetY } 
+    }];
     historyIndex = 0;
     
-    // Завантажуємо зображення в кеш
+    // 4. Обработка загрузки изображений
     let imagesLoaded = 0;
     const totalImages = objectsArray.filter(o => o.type === 'image').length;
     
     if (totalImages === 0) {
+        // Если картинок нет, сразу ставим статус "Подключено"
         updateConnectionStatus('connected', 'Підключено');
         requestDraw();
     } else {
+        // Если есть, ждем загрузки всех src, чтобы избежать "прыжков" при отрисовке
         updateConnectionStatus('syncing', `Завантаження зображень...`);
         objectsArray.forEach(obj => {
             if (obj.type === 'image') {
