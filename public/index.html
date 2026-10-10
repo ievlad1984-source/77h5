@@ -108,6 +108,17 @@
             transform: scale(1.1);
             border-color: #007bff;
         }
+        .color-picker-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 0; 
+            height: 0; 
+            border-style: solid;
+            border-width: 0 0 10px 10px;
+            border-color: transparent transparent rgba(0,0,0,0.3) transparent;
+        }
 
         .tool-icon {
             width: 20px;
@@ -128,43 +139,6 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
             z-index: 1000; 
             border: 1px solid #ddd;
-        }
-        
-        #status-display {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(255,255,255,0.9);
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            z-index: 1000;
-            border: 1px solid #ddd;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        #status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #4CAF50;
-        }
-        
-        #status-dot.disconnected {
-            background: #f44336;
-        }
-        
-        #status-dot.syncing {
-            background: #ff9800;
-            animation: pulse 1s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
         }
 
         .text-edit-wrapper {
@@ -329,6 +303,10 @@
         
         .cursor-default { cursor: default !important; }
         .cursor-move { cursor: move !important; }
+        .cursor-nwse { cursor: nwse-resize !important; }
+        .cursor-nesw { cursor: nesw-resize !important; }
+        .cursor-ns { cursor: ns-resize !important; }
+        .cursor-ew { cursor: ew-resize !important; }
         .cursor-crosshair { cursor: crosshair !important; }
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
@@ -476,6 +454,15 @@
                 <line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-dasharray="4,4" stroke-linecap="round" />
             </svg>
         </div>
+        <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
+            <div class="compass-icon-bg">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="5" r="3" fill="white" stroke="white" stroke-width="1"/>
+                    <path d="M12 8 L8 20 M12 8 L16 20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 5 L12 8" stroke="white" stroke-width="2"/>
+                </svg>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -506,21 +493,9 @@
 </div>
 
 <div id="zoom-display">100%</div>
-<div id="status-display">
-    <div id="status-dot"></div>
-    <span id="status-text">Підключено</span>
-</div>
 <canvas id="board"></canvas>
 
 <script>
-// ============================================
-// УТИЛІТИ
-// ============================================
-
-function generateId() {
-    return 'obj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
-}
-
 // ============================================
 // ІНІЦІАЛІЗАЦІЯ
 // ============================================
@@ -530,29 +505,15 @@ try {
     socket = io({ query: { boardId } });
 } catch (e) {
     console.warn("Socket.io not loaded or connection failed. Running in local mode.");
-    socket = { 
-        emit: () => {}, 
-        on: () => {},
-        connected: false
-    };
+    socket = { emit: () => {}, on: () => {} };
 }
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
-// Стан синхронізації
-let syncState = {
-    connected: false,
-    lastKnownOperationId: 0,
-    pendingOperations: [],
-    isSyncing: false
-};
-
 // Змінні стану
 let scale = 1.0, offsetX = 0, offsetY = 0;
-let objects = {}; // Змінено на Map для швидкого доступу
-let objectsArray = []; // Для зворотньої сумісності
-let currentTool = 'select';
+let objects = [], currentTool = 'select';
 let selectedObjects = []; 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
 let isDrawing = false, currentPath = null;
@@ -582,99 +543,6 @@ let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
 
 // ============================================
-// ОНОВЛЕННЯ СТАТУСУ ПІДКЛЮЧЕННЯ
-// ============================================
-
-function updateConnectionStatus(status, text) {
-    const dot = document.getElementById('status-dot');
-    const statusText = document.getElementById('status-text');
-    
-    dot.className = '';
-    if (status === 'connected') {
-        dot.style.background = '#4CAF50';
-        syncState.connected = true;
-    } else if (status === 'disconnected') {
-        dot.classList.add('disconnected');
-        syncState.connected = false;
-    } else if (status === 'syncing') {
-        dot.classList.add('syncing');
-    }
-    
-    if (text) statusText.textContent = text;
-}
-
-// ============================================
-// ФУНКЦІЇ СИНХРОНІЗАЦІЇ
-// ============================================
-
-function sendOperation(type, data) {
-    if (!syncState.connected) return;
-    
-    // Локальне застосування
-    applyOperation({ type, data, id: Date.now(), timestamp: Date.now() });
-    
-    // Відправка на сервер
-    switch (type) {
-        case 'add':
-            socket.emit('object:add', data);
-            break;
-        case 'update':
-            socket.emit('object:update', data);
-            break;
-        case 'delete':
-            socket.emit('object:delete', data.id);
-            break;
-    }
-}
-
-function applyOperation(operation) {
-    switch (operation.type) {
-        case 'add':
-            if (!objects[operation.data.id]) {
-                objects[operation.data.id] = operation.data;
-                objectsArray.push(operation.data);
-            }
-            break;
-        case 'update':
-            if (objects[operation.data.id]) {
-                objects[operation.data.id] = {
-                    ...objects[operation.data.id],
-                    ...operation.data
-                };
-                // Оновлюємо в масиві
-                const idx = objectsArray.findIndex(o => o.id === operation.data.id);
-                if (idx !== -1) {
-                    objectsArray[idx] = objects[operation.data.id];
-                }
-            }
-            break;
-        case 'delete':
-            if (objects[operation.data.id]) {
-                delete objects[operation.data.id];
-                objectsArray = objectsArray.filter(o => o.id !== operation.data.id);
-                selectedObjects = selectedObjects.filter(o => o.id !== operation.data.id);
-            }
-            break;
-        case 'clear':
-            objects = {};
-            objectsArray = [];
-            selectedObjects = [];
-            break;
-    }
-    
-    requestDraw();
-}
-
-function applyBatchOperations(operations) {
-    operations.forEach(op => {
-        applyOperation(op);
-        if (op.id > syncState.lastKnownOperationId) {
-            syncState.lastKnownOperationId = op.id;
-        }
-    });
-}
-
-// ============================================
 // ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
 // ============================================
 
@@ -694,7 +562,7 @@ function saveHistory() {
         historyStack = historyStack.slice(0, historyIndex + 1);
     }
     const state = {
-        objects: JSON.parse(JSON.stringify(objectsArray)),
+        objects: JSON.parse(JSON.stringify(objects)),
         view: { scale, offsetX, offsetY }
     };
     historyStack.push(state);
@@ -710,46 +578,7 @@ function undo() {
     isUndoing = true;
     historyIndex--;
     const state = historyStack[historyIndex];
-    
-    // Відправляємо повну синхронізацію
-    if (syncState.connected) {
-        // Для undo надсилаємо операції видалення для всіх об'єктів, 
-        // а потім додаємо їх з історії
-        const batchOps = [];
-        Object.keys(objects).forEach(id => {
-            batchOps.push({ type: 'delete', data: { id } });
-        });
-        
-        if (batchOps.length > 0) {
-            socket.emit('batch-operation', { operations: batchOps });
-        }
-        
-        // Додаємо об'єкти з історії
-        state.objects.forEach(obj => {
-            const newObj = { ...obj, id: obj.id || generateId() };
-            objects[obj.id] = newObj;
-            objectsArray.push(newObj);
-            socket.emit('object:add', newObj);
-        });
-        
-        objects = {};
-        objectsArray = [];
-        state.objects.forEach(obj => {
-            const id = obj.id || generateId();
-            obj.id = id;
-            objects[id] = obj;
-            objectsArray.push(obj);
-        });
-    } else {
-        objects = {};
-        objectsArray = [];
-        state.objects.forEach(obj => {
-            const id = obj.id || generateId();
-            obj.id = id;
-            objects[id] = obj;
-            objectsArray.push(obj);
-        });
-    }
+    objects = JSON.parse(JSON.stringify(state.objects));
     
     if (state.view) {
         scale = state.view.scale;
@@ -760,6 +589,7 @@ function undo() {
 
     selectedObjects = [];
     if (textEditor) stopTextEdit(true);
+    if (socket && socket.connected) socket.emit('update-all', objects);
     requestDraw();
     isUndoing = false;
 }
@@ -779,7 +609,7 @@ window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         if (!textEditor) {
             e.preventDefault();
-            selectedObjects = [...objectsArray];
+            selectedObjects = [...objects];
             requestDraw();
             return;
         }
@@ -795,15 +625,9 @@ window.addEventListener('keydown', (e) => {
         if (selectedObjects.length > 0 && !textEditor) {
             e.preventDefault();
             saveHistory();
-            
-            // Відправляємо операції видалення
-            selectedObjects.forEach(obj => {
-                delete objects[obj.id];
-                sendOperation('delete', { id: obj.id });
-            });
-            
-            objectsArray = objectsArray.filter(o => !selectedObjects.some(s => s.id === o.id));
+            objects = objects.filter(o => !selectedObjects.includes(o));
             selectedObjects = [];
+            if (socket && socket.connected) socket.emit('update-all', objects);
             requestDraw();
             return;
         }
@@ -1297,8 +1121,7 @@ function draw() {
     
     drawGrid();
     
-    // Малюємо всі об'єкти з objectsArray
-    objectsArray.forEach(obj => drawObject(obj));
+    objects.forEach(obj => drawObject(obj));
     
     if (isDrawing && currentPath) drawObject(currentPath, true);
     
@@ -1816,18 +1639,23 @@ function insertFraction(editorDiv, numeratorContent) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
-    const hasNumeratorContent = numSpan.textContent && 
-                                 numSpan.textContent.trim() !== '' && 
-                                 numSpan.textContent !== '\u200B';
-
+    // ВИПРАВЛЕНА ЛОГІКА КУРСОРА:
+    // Якщо чисельник не пустий (було перенесено контент) → курсор у знаменник
+    // Якщо чисельник пустий (порожній дріб) → курсор у чисельник
     const newRange = document.createRange();
-    if (hasNumeratorContent) {
+    const numeratorHasContent = numeratorContent && 
+        (typeof numeratorContent === 'string' ? numeratorContent.trim().length > 0 : numeratorContent.childNodes.length > 0);
+    
+    if (numeratorHasContent) {
+        // Курсор у знаменник
         newRange.selectNodeContents(denSpan);
-        newRange.collapse(true);
+        newRange.collapse(false);
     } else {
+        // Курсор у чисельник
         newRange.selectNodeContents(numSpan);
         newRange.collapse(false);
     }
+    
     sel.removeAllRanges();
     sel.addRange(newRange);
     
@@ -1841,7 +1669,7 @@ function insertFraction(editorDiv, numeratorContent) {
 }
 
 // ============================================
-// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА
+// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА (ВИПРАВЛЕНА ВЕРСІЯ)
 // ============================================
 
 function collectNumeratorContent(range, editorDiv) {
@@ -1849,10 +1677,13 @@ function collectNumeratorContent(range, editorDiv) {
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
     
+    // Знаки-розділювачі: пробіл та арифметичні оператори
     const separatorChars = /[+\-*/:><=\s]/;
     
     let hasContent = false;
     
+    // 1. Спочатку перевіряємо сусідні елементи (степені/індекси)
+    // Це важливо для випадків коли курсор одразу після степеня
     let nodeBeforeCursor = null;
     
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -1865,21 +1696,26 @@ function collectNumeratorContent(range, editorDiv) {
         }
     }
 
+    // Пропускаємо порожні текстові вузли
     while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
         nodeBeforeCursor = nodeBeforeCursor.previousSibling;
     }
 
+    // Якщо знайдено степінь або індекс
     if (nodeBeforeCursor && nodeBeforeCursor.classList && 
         (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
         
+        // Шукаємо базовий текст перед степенем
         let baseNode = nodeBeforeCursor.previousSibling;
         while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
             baseNode = baseNode.previousSibling;
         }
 
+        // Додаємо базовий текст (якщо є)
         if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
             const baseText = baseNode.textContent.trim();
             if (baseText.length > 0) {
+                // Перевіряємо чи є розділювач в базовому тексті
                 let lastSepIndex = -1;
                 for (let i = baseText.length - 1; i >= 0; i--) {
                     if (separatorChars.test(baseText[i])) {
@@ -1889,29 +1725,36 @@ function collectNumeratorContent(range, editorDiv) {
                 }
                 
                 if (lastSepIndex === -1) {
+                    // Немає розділювача - беремо весь текст
                     const textNode = document.createTextNode(baseText);
                     fragment.insertBefore(textNode, fragment.firstChild);
                     hasContent = true;
+                    // Видаляємо текст з оригінального вузла
                     baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
                 } else {
+                    // Є розділювач - беремо тільки частину після нього
                     const numeratorText = baseText.substring(lastSepIndex + 1);
                     if (numeratorText.trim().length > 0) {
                         const textNode = document.createTextNode(numeratorText);
                         fragment.insertBefore(textNode, fragment.firstChild);
                         hasContent = true;
+                        // Видаляємо тільки частину для чисельника
                         baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
                     }
                 }
             }
         }
         
+        // Додаємо степінь/індекс
         fragment.appendChild(nodeBeforeCursor);
         hasContent = true;
     }
     
+    // 2. Обробка текстового вмісту перед курсором (якщо не було степеня)
     if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
         
+        // Знаходимо останній розділювач
         let lastSepIndex = -1;
         for (let i = textBefore.length - 1; i >= 0; i--) {
             if (separatorChars.test(textBefore[i])) {
@@ -1925,12 +1768,14 @@ function collectNumeratorContent(range, editorDiv) {
             startOffset = lastSepIndex + 1;
         }
 
+        // Збираємо текст після останнього розділювача
         if (currentOffset > startOffset) {
             const numeratorText = textBefore.substring(startOffset);
             if (numeratorText.trim().length > 0) {
                 const textNode = document.createTextNode(numeratorText);
                 fragment.appendChild(textNode);
                 hasContent = true;
+                // Оновлюємо оригінальний вузол
                 currentNode.textContent = textBefore.substring(0, startOffset) + 
                                          currentNode.textContent.substring(currentOffset);
                 range.setStart(currentNode, startOffset);
@@ -2035,6 +1880,7 @@ function startTextEdit(obj) {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
 
+        // Створення дробу клавішею /
         if (e.key === '/') {
             e.preventDefault();
             const numeratorContent = collectNumeratorContent(range, editorDiv);
@@ -2043,6 +1889,7 @@ function startTextEdit(obj) {
             return;
         }
 
+        // Створення степеня/індексу
         if (e.key === '^' || e.key === '_') {
             e.preventDefault();
             const type = e.key === '^' ? 'sup' : 'sub';
@@ -2051,39 +1898,38 @@ function startTextEdit(obj) {
             return;
         }
         
+        // Навігація правою стрілкою
         if (e.key === 'ArrowRight') {
             let parent = node.parentElement;
-            
-            if (parent && parent.classList.contains('math-den')) {
-                e.preventDefault();
-                const frac = parent.parentElement;
-                const nextSibling = frac.nextSibling;
-                if (nextSibling) {
-                    const newRange = document.createRange();
-                    if (nextSibling.nodeType === Node.TEXT_NODE) {
-                        newRange.setStart(nextSibling, 0);
-                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                        newRange.selectNodeContents(nextSibling);
-                        newRange.collapse(true);
-                    }
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                } else {
-                    const textNode = document.createTextNode('\u200B');
-                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                    const newRange = document.createRange();
-                    newRange.setStart(textNode, 0);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
-                return;
-            }
-            
             let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
                           (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
             
             if (isAtEnd && parent) {
-                if (parent.classList.contains('math-num')) {
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const nextSibling = frac.nextSibling;
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('');
+                        frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                } 
+                else if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const denSpan = parent.parentElement.querySelector('.math-den');
                     if (denSpan) {
@@ -2109,7 +1955,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('\u200B');
+                        const textNode = document.createTextNode('');
                         parent.parentNode.insertBefore(textNode, parent.nextSibling);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
@@ -2121,6 +1967,7 @@ function startTextEdit(obj) {
             }
         }
         
+        // Навігація лівою стрілкою
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
             let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
@@ -2154,7 +2001,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('\u200B');
+                        const textNode = document.createTextNode('');
                         frac.parentNode.insertBefore(textNode, frac);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
@@ -2177,7 +2024,7 @@ function startTextEdit(obj) {
                         sel.removeAllRanges();
                         sel.addRange(newRange);
                     } else {
-                        const textNode = document.createTextNode('\u200B');
+                        const textNode = document.createTextNode('');
                         parent.parentNode.insertBefore(textNode, parent);
                         const newRange = document.createRange();
                         newRange.setStart(textNode, 0);
@@ -2205,9 +2052,7 @@ function startTextEdit(obj) {
         updateSize();
         if (editingObject) {
             editingObject.text = editorDiv.innerText;
-            editingObject.lastModified = Date.now();
-            // Інкрементальне оновлення
-            sendOperation('update', editingObject);
+            if (socket && socket.connected) socket.emit('update-all', objects);
         }
     });
     
@@ -2255,18 +2100,8 @@ function stopTextEdit(cancel = false) {
         }
         
         editingObject.text = editorDiv.innerText;
-        editingObject.lastModified = Date.now();
         
-        // Оновлюємо об'єкт в локальному сховищі
-        if (objects[editingObject.id]) {
-            objects[editingObject.id] = editingObject;
-            const idx = objectsArray.findIndex(o => o.id === editingObject.id);
-            if (idx !== -1) {
-                objectsArray[idx] = editingObject;
-            }
-        }
-        
-        sendOperation('update', editingObject);
+        if (socket && socket.connected) socket.emit('update-all', objects);
     }
     if (textEditor.parentNode) {
         document.body.removeChild(textEditor);
@@ -2306,7 +2141,6 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
         }
         
         obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
-        obj.lastModified = Date.now();
         
         editorDiv.style.fontSize = (obj.size * scale) + 'px';
         updateSize();
@@ -2318,7 +2152,7 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        sendOperation('update', obj);
+        if (socket && socket.connected) socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2341,7 +2175,6 @@ function startTextDrag(obj, e, wrapper) {
         const c = getCoords(e);
         obj.x = c.x - dragStartX;
         obj.y = c.y - dragStartY;
-        obj.lastModified = Date.now();
         const bbox = getBBox(obj);
         wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
         wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
@@ -2354,7 +2187,7 @@ function startTextDrag(obj, e, wrapper) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        sendOperation('update', obj);
+        if (socket && socket.connected) socket.emit('update-all', objects);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2367,7 +2200,7 @@ function startTextDrag(obj, e, wrapper) {
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
     
-    const clickedObj = [...objectsArray].reverse().find(obj => {
+    const clickedObj = [...objects].reverse().find(obj => {
         if (obj.type === 'text') {
             return hitTest(obj, coords.x, coords.y, 2);
         }
@@ -2390,7 +2223,7 @@ canvas.addEventListener('mousedown', (e) => {
     const coords = getCoords(e);
     
     if (textEditor && editingObject) {
-        const clickedText = [...objectsArray].reverse().find(obj => {
+        const clickedText = [...objects].reverse().find(obj => {
             if (obj.type === 'text' && obj !== editingObject) {
                 return hitTest(obj, coords.x, coords.y, 2);
             }
@@ -2408,7 +2241,6 @@ canvas.addEventListener('mousedown', (e) => {
                 delete editingObject.segments;
             }
             editingObject.text = editorDiv.innerText;
-            editingObject.lastModified = Date.now();
             
             if (textEditor.parentNode) {
                 document.body.removeChild(textEditor);
@@ -2436,7 +2268,7 @@ canvas.addEventListener('mousedown', (e) => {
     if (currentTool !== 'select' && currentTool !== 'hand') {
         if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
         else if (currentTool === 'text') {
-            const existingText = [...objectsArray].reverse().find(obj => {
+            const existingText = [...objects].reverse().find(obj => {
                 if (obj.type === 'text') {
                     return hitTest(obj, coords.x, coords.y, 2);
                 }
@@ -2467,7 +2299,7 @@ canvas.addEventListener('mousedown', (e) => {
         }
         
         if (!clickedHandle) {
-            clickedObj = [...objectsArray].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
+            clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
         }
         
         if (clickedHandle) {
@@ -2620,7 +2452,7 @@ canvas.addEventListener('mouseup', () => {
         const minY = Math.min(selectionStart.y, selectionEnd.y);
         const maxY = Math.max(selectionStart.y, selectionEnd.y);
         
-        const newSelection = objectsArray.filter(obj => {
+        const newSelection = objects.filter(obj => {
             const bbox = getBBox(obj);
             if (!bbox) return false;
             return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
@@ -2639,35 +2471,27 @@ canvas.addEventListener('mouseup', () => {
     if (isDrawing && currentPath) {
         if (currentPath.type === 'pen' && currentPath.points.length > 1) {
             saveHistory();
-            currentPath.id = generateId();
-            objects[currentPath.id] = currentPath;
-            objectsArray.push(currentPath);
-            sendOperation('add', currentPath);
+            objects.push(currentPath);
+            if (socket && socket.connected) socket.emit('new-object', currentPath);
         } else if (currentPath.type === 'shape') {
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
                 currentPath.type = 'shape';
                 currentPath.shapeType = selectedShapeType;
-                currentPath.id = generateId();
-                objects[currentPath.id] = currentPath;
-                objectsArray.push(currentPath);
-                sendOperation('add', currentPath);
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
         } else if (currentPath.type === 'rect') {
             if (Math.abs(currentPath.w) > 2 && Math.abs(currentPath.h) > 2) {
                 saveHistory();
-                currentPath.id = generateId();
-                objects[currentPath.id] = currentPath;
-                objectsArray.push(currentPath);
-                sendOperation('add', currentPath);
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
         } else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
             if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
                 saveHistory();
-                currentPath.id = generateId();
-                objects[currentPath.id] = currentPath;
-                objectsArray.push(currentPath);
-                sendOperation('add', currentPath);
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
         } else if (currentPath.type === 'grid') {
             if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
@@ -2676,10 +2500,8 @@ canvas.addEventListener('mouseup', () => {
                 currentPath.gridSpacing = 40;
                 currentPath.axisColor = '#000000';
                 currentPath.gridColor = '#cccccc';
-                currentPath.id = generateId();
-                objects[currentPath.id] = currentPath;
-                objectsArray.push(currentPath);
-                sendOperation('add', currentPath);
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
             }
         }
         isDrawing = false;
@@ -2690,13 +2512,9 @@ canvas.addEventListener('mouseup', () => {
     if (isDragging || isResizing || isRotating) {
         if (isRotating || isResizing || (isDragging && selectedObjects.length > 0)) {
             saveHistory();
-            // Відправляємо оновлення для всіх переміщених об'єктів
-            selectedObjects.forEach(obj => {
-                obj.lastModified = Date.now();
-                sendOperation('update', obj);
-            });
         }
         isDragging = false; isResizing = false; isRotating = false;
+        if (socket && socket.connected) socket.emit('update-all', objects);
     }
 });
 
@@ -2707,10 +2525,9 @@ canvas.addEventListener('mouseup', () => {
 function eraseAt(mx, my) {
     const eraserRadius = 30 / scale;
     let changed = false;
-    const toDelete = [];
     
-    for (let i = objectsArray.length - 1; i >= 0; i--) {
-        const obj = objectsArray[i];
+    for (let i = objects.length - 1; i >= 0; i--) {
+        const obj = objects[i];
         let shouldRemove = false;
         
         if (obj.type === 'pen') {
@@ -2736,20 +2553,14 @@ function eraseAt(mx, my) {
         }
         
         if (shouldRemove) {
-            toDelete.push(obj.id);
-            delete objects[obj.id];
-            objectsArray.splice(i, 1);
-            selectedObjects = selectedObjects.filter(o => o.id !== obj.id);
+            saveHistory();
+            objects.splice(i, 1);
+            selectedObjects = selectedObjects.filter(o => o !== obj);
             changed = true;
         }
     }
-    
     if (changed) { 
-        saveHistory();
-        // Відправляємо операції видалення
-        toDelete.forEach(id => {
-            sendOperation('delete', { id });
-        });
+        if (socket && socket.connected) socket.emit('update-all', objects); 
         requestDraw(); 
     }
 }
@@ -2827,7 +2638,6 @@ function startResizeGroup(handle, e) {
             
             selectedObjects.forEach(obj => {
                 obj.rotation = (startResizeState.originalRotation + deltaAngle) % 360;
-                obj.lastModified = Date.now();
             });
         } else {
             const oldBBox = startResizeState.groupBBox;
@@ -2882,8 +2692,6 @@ function startResizeGroup(handle, e) {
                         o.size = Math.max(8, state.obj.size * avgScale);
                     }
                 }
-                
-                o.lastModified = Date.now();
             });
         }
         requestDraw();
@@ -2894,11 +2702,8 @@ function startResizeGroup(handle, e) {
         isRotating = false;
         document.removeEventListener('mousemove', onMove); 
         document.removeEventListener('mouseup', onUp); 
-        saveHistory();
-        // Оновлюємо всі об'єкти
-        selectedObjects.forEach(obj => {
-            sendOperation('update', obj);
-        });
+        saveHistory(); 
+        if (socket && socket.connected) socket.emit('update-all', objects); 
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2911,23 +2716,16 @@ function startRotate(e) {}
 // ============================================
 
 function createNewText(coords) {
-    const id = generateId();
     const obj = {
-        type: 'text', 
-        id: id,
-        x: coords.x, 
-        y: coords.y, 
+        type: 'text', x: coords.x, y: coords.y, 
         text: '', 
         color: currentPenColor,
-        size: 20, 
-        isBold: document.getElementById('boldText').checked,
+        size: 20, isBold: document.getElementById('boldText').checked,
         rotation: 0
     };
     saveHistory();
-    objects[id] = obj;
-    objectsArray.push(obj);
-    selectedObjects = [obj];
-    sendOperation('add', obj);
+    objects.push(obj); selectedObjects = [obj];
+    if (socket && socket.connected) socket.emit('new-object', obj);
     requestDraw();
     startTextEdit(obj);
 }
@@ -2961,17 +2759,9 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = (
 document.getElementById('clearBtn').onclick = () => { 
     if(confirm("Очистити дошку?")) {
         saveHistory();
-        
-        // Відправляємо операцію очищення
-        if (syncState.connected) {
-            socket.emit('delete-board');
-        }
-        
-        objects = {};
-        objectsArray = [];
-        selectedObjects = [];
-        
+        objects = []; selectedObjects = [];
         if (textEditor) stopTextEdit();
+        if (socket && socket.connected) socket.emit('delete-board');
         requestDraw();
     }
 };
@@ -3042,10 +2832,8 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
-                    const id = generateId();
                     const obj = { 
                         type: 'image', 
-                        id: id,
                         src: event.target.result, 
                         x: centerX - img.width/4, 
                         y: centerY - img.height/4, 
@@ -3054,10 +2842,9 @@ window.addEventListener('paste', (e) => {
                         rotation: 0 
                     };
                     saveHistory();
-                    objects[id] = obj;
-                    objectsArray.push(obj);
+                    objects.push(obj); 
                     selectedObjects = [obj];
-                    sendOperation('add', obj);
+                    if (socket && socket.connected) socket.emit('new-object', obj); 
                     requestDraw();
                 };
             };
@@ -3067,133 +2854,57 @@ window.addEventListener('paste', (e) => {
 });
 
 // ============================================
-// SOCKET.IO ПОДІЇ - ВИПРАВЛЕНА СИНХРОНІЗАЦІЯ
+// SOCKET.IO ПОДІЇ
 // ============================================
 
-socket.on('connect', () => {
-    updateConnectionStatus('syncing', 'Синхронізація...');
-    syncState.connected = true;
-});
-
-socket.on('disconnect', () => {
-    updateConnectionStatus('disconnected', 'Відключено');
-    syncState.connected = false;
-});
-
-socket.on('connect_error', () => {
-    updateConnectionStatus('disconnected', 'Немає зв\'язку');
-    syncState.connected = false;
-});
-
-// Повна синхронізація при підключенні
-socket.on('full-sync', (data) => {
-    console.log('[CLIENT] Отримано повну синхронізацію:', data.objects?.length, 'об\'єктів');
-    
-    objects = {};
-    objectsArray = [];
-    selectedObjects = [];
-    
-    if (data.objects && Array.isArray(data.objects)) {
-        data.objects.forEach(obj => {
-            if (obj && obj.id) {
-                objects[obj.id] = obj;
-                objectsArray.push(obj);
-            }
-        });
-    }
-    
-    syncState.lastKnownOperationId = data.lastOperationId || 0;
-    
-    // Ініціалізуємо історію
-    historyStack = [{ objects: JSON.parse(JSON.stringify(objectsArray)), view: { scale, offsetX, offsetY } }];
+socket.on('init-history', (h) => { 
+    objects = h;
+    historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
     historyIndex = 0;
-    
-    // Завантажуємо зображення
     let imagesLoaded = 0;
-    const totalImages = objectsArray.filter(o => o.type === 'image').length;
+    const totalImages = objects.filter(o => o.type === 'image').length;
     
     if (totalImages === 0) {
-        updateConnectionStatus('connected', 'Підключено');
         requestDraw();
     } else {
-        updateConnectionStatus('syncing', `Завантаження зображень...`);
-        objectsArray.forEach(obj => {
+        objects.forEach(obj => {
             if (obj.type === 'image') {
                 obj._img = new Image();
                 obj._img.src = obj.src;
                 obj._img.onload = () => {
                     imagesLoaded++;
-                    if (imagesLoaded >= totalImages) {
-                        updateConnectionStatus('connected', 'Підключено');
-                        requestDraw();
-                    }
+                    if (imagesLoaded >= totalImages) requestDraw();
                 };
                 obj._img.onerror = () => {
                     imagesLoaded++;
-                    if (imagesLoaded >= totalImages) {
-                        updateConnectionStatus('connected', 'Підключено');
-                        requestDraw();
-                    }
+                    if (imagesLoaded >= totalImages) requestDraw();
                 };
             }
         });
     }
 });
 
-// Обробка інкрементальних операцій
-socket.on('operation', (op) => {
-    console.log('[CLIENT] Отримано операцію:', op.type, op.objectId);
-    
-    // Оновлюємо lastKnownOperationId
-    if (op.id > syncState.lastKnownOperationId) {
-        syncState.lastKnownOperationId = op.id;
-    }
-    
-    // Застосовуємо операцію
-    applyOperation(op);
+socket.on('new-object', (o) => { 
+    objects.push(o); 
+    saveHistory();
+    requestDraw(); 
 });
 
-socket.on('operations-batch', (data) => {
-    console.log('[CLIENT] Отримано пакет операцій:', data.operations?.length);
-    
-    if (data.operations && Array.isArray(data.operations)) {
-        data.operations.forEach(op => {
-            if (op.id > syncState.lastKnownOperationId) {
-                syncState.lastKnownOperationId = op.id;
-            }
-            applyOperation(op);
-        });
+socket.on('update-all', (newObjects) => { 
+    objects = newObjects; 
+    if (!isUndoing) {
+        saveHistory();
     }
-    
-    if (data.currentOperationId > syncState.lastKnownOperationId) {
-        syncState.lastKnownOperationId = data.currentOperationId;
-    }
+    requestDraw(); 
 });
 
-socket.on('batch-operation', (data) => {
-    console.log('[CLIENT] Отримано batch операцію:', data.operations?.length);
-    
-    if (data.operations && Array.isArray(data.operations)) {
-        applyBatchOperations(data.operations);
-    }
-});
-
-socket.on('board-cleared', () => {
-    console.log('[CLIENT] Дошку очищено');
-    objects = {};
-    objectsArray = [];
-    selectedObjects = [];
+socket.on('board-deleted', () => { 
+    objects = []; 
+    selectedObjects = []; 
     historyStack = [];
     historyIndex = -1;
-    requestDraw();
+    requestDraw(); 
 });
-
-// Періодична синхронізація для отримання пропущених операцій
-setInterval(() => {
-    if (syncState.connected) {
-        socket.emit('sync', { lastKnownOperationId: syncState.lastKnownOperationId });
-    }
-}, 5000);
 
 </script>
 </body>
