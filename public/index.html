@@ -1,167 +1,3 @@
-Вот исправленный и оптимизированный код. Я провел три проверки логики синхронизации, обработки ввода текста и рисования точек.
-
-### Основные исправления:
-1.  **Сервер (`server.js`)**: Изменил рассылку событий движения (`update-all`). Теперь сервер отправляет подтверждение **всем** участникам комнаты (включая того, кто двигал объект). Это решает проблему исчезновения содержимого при работе двух пользователей.
-2.  **Клиент (`index.html`)**:
-    *   **Текст**: Добавлена "живая" синхронизация текста. Теперь при вводе текст обновляется у других пользователей с небольшой задержкой (debounce), чтобы не перегружать сеть, но эффект был мгновенным.
-    *   **Точка**: Исправлена логика карандаша. Теперь, если вы просто кликнули мышкой (не водя ей), на доске появится точка.
-    *   **Синхронизация**: Улучшена обработка входящих пакетов `update-all`, чтобы локальные изменения не конфликтовали с серверными.
-
----
-
-### 1. Файл `server.js` (Серверная часть)
-*Сохраните этот код в файл `server.js`.*
-
-```javascript
-const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http, { 
-    cors: { 
-        origin: "*", 
-        methods: ["GET", "POST"]
-    },
-    maxHttpBufferSize: 1e8, 
-    pingTimeout: 60000,
-    pingInterval: 25000
-});
-const path = require('path');
-
-const PORT = process.env.PORT || 3000;
-const boardsData = {}; 
-const boardTimers = {}; 
-
-function log(message) {
-    const timestamp = new Date().toLocaleTimeString('uk-UA');
-    console.log(`[${timestamp}] ${message}`);
-}
-
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/:boardId', (req, res) => {
-    const boardId = req.params.boardId;
-    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
-        log(`[SECURITY] Спроба доступу до недопустимого ID: ${boardId}`);
-        return res.status(400).send('Invalid board ID');
-    }
-    if (boardId.includes('.')) {
-        log(`[SECURITY] Спроба доступу до файлу через URL: ${boardId}`);
-        return res.status(404).send('Not found');
-    }
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-io.on('connection', (socket) => {
-    const boardId = socket.handshake.query.boardId || 'main';
-    
-    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
-        log(`[SECURITY] Недопустимий boardId від сокету: ${boardId}`);
-        socket.disconnect(true);
-        return;
-    }
-    
-    socket.join(boardId);
-    
-    if (!boardsData[boardId]) {
-        boardsData[boardId] = [];
-        log(`[SERVER] Створено нову дошку: ${boardId}`);
-    }
-    
-    if (boardTimers[boardId]) {
-        clearTimeout(boardTimers[boardId]);
-        delete boardTimers[boardId];
-    }
-
-    log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
-    log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
-
-    // Відправляємо поточний стан новому користувачу
-    socket.emit('init-history', boardsData[boardId]);
-
-    // Новий об'єкт (малюнок, фігура)
-    socket.on('new-object', (obj) => {
-        if (!obj || typeof obj !== 'object') return;
-        
-        boardsData[boardId].push(obj);
-        
-        // Розсилаємо ВСІМ в кімнаті (включно з відправником для гарантії синхронізації)
-        io.in(boardId).emit('new-object', obj);
-        log(`[SERVER] Новий об'єкт в ${boardId}. Всього об'єктів: ${boardsData[boardId].length}`);
-    });
-
-    // Оновлення стану (рух, зміна тексту)
-    socket.on('update-all', (data) => {
-        if (!Array.isArray(data)) return;
-        
-        boardsData[boardId] = data;
-        
-        // ВИПРАВЛЕННЯ: Розсилаємо ВСІМ (io.in), а не тільки іншим (socket.to).
-        // Це критично, щоб користувач, який рухає об'єкт, отримав підтвердження від сервера
-        // і його локальний стан синхронізувався з іншими.
-        io.in(boardId).emit('update-all', data);
-        log(`[SERVER] Оновлено стан дошки ${boardId}. Об'єктів: ${data.length}`);
-    });
-
-    socket.on('undo', () => {
-        if (boardsData[boardId]?.length > 0) {
-            boardsData[boardId].pop();
-            io.in(boardId).emit('init-history', boardsData[boardId]);
-            log(`[SERVER] Undo в кімнаті ${boardId}`);
-        }
-    });
-
-    socket.on('delete-board', () => {
-        boardsData[boardId] = [];
-        io.in(boardId).emit('board-deleted');
-        log(`[SERVER] Дошку ${boardId} очищено`);
-    });
-    
-    socket.on('disconnect', () => {
-        log(`[SERVER] Користувач ${socket.id} відключився від кімнати: ${boardId}`);
-        
-        const room = io.sockets.adapter.rooms.get(boardId);
-        const roomSize = room?.size || 0;
-        log(`[SERVER] В кімнаті ${boardId} залишилось ${roomSize} користувачів`);
-        
-        if (roomSize === 0) {
-            log(`[SERVER] Кімната ${boardId} пуста. Заплановано видалення через 5 хв`);
-            boardTimers[boardId] = setTimeout(() => {
-                const currentRoom = io.sockets.adapter.rooms.get(boardId);
-                if (!currentRoom || currentRoom.size === 0) {
-                    delete boardsData[boardId];
-                    delete boardTimers[boardId];
-                    log(`[SERVER] Дошку ${boardId} видалено з пам'яті`);
-                }
-            }, 5 * 60 * 1000);
-        }
-    });
-    
-    socket.on('error', (error) => {
-        log(`[ERROR] Помилка сокету ${socket.id}: ${error.message}`);
-    });
-});
-
-http.listen(PORT, () => {
-    log('========================================');
-    log(`СЕРВЕР ЗАПУЩЕНО: http://localhost:${PORT}`);
-    log(`Для створення нової кімнати додайте /назва в кінець URL`);
-    log(`Наприклад: http://localhost:${PORT}/room123`);
-    log('========================================');
-});
-```
-
----
-
-### 2. Файл `public/index.html` (Клієнтська частина)
-*Створіть папку `public` і збережіть цей код як `index.html`.*
-
-```html
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -272,17 +108,6 @@ http.listen(PORT, () => {
             transform: scale(1.1);
             border-color: #007bff;
         }
-        .color-picker-btn::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 0; 
-            height: 0; 
-            border-style: solid;
-            border-width: 0 0 10px 10px;
-            border-color: transparent transparent rgba(0,0,0,0.3) transparent;
-        }
 
         .tool-icon {
             width: 20px;
@@ -303,6 +128,43 @@ http.listen(PORT, () => {
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
             z-index: 1000; 
             border: 1px solid #ddd;
+        }
+        
+        #status-display {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        #status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+        }
+        
+        #status-dot.disconnected {
+            background: #f44336;
+        }
+        
+        #status-dot.syncing {
+            background: #ff9800;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         .text-edit-wrapper {
@@ -390,146 +252,6 @@ http.listen(PORT, () => {
             min-width: 10px;
         }
 
-        .math-sqrt {
-            display: inline-flex;
-            align-items: stretch;
-            vertical-align: middle;
-            margin: 0 4px;
-            border: 1px dashed #4CAF50;
-            background: rgba(76, 175, 80, 0.1);
-            border-radius: 3px;
-            padding: 2px 4px;
-        }
-        .math-sqrt .sqrt-symbol {
-            font-size: 1.4em;
-            line-height: 1;
-            align-self: center;
-            color: #4CAF50;
-        }
-        .math-sqrt .sqrt-content {
-            border-top: 2px solid currentColor;
-            padding: 2px 6px;
-            min-width: 10px;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .math-sum {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 6px;
-            border: 1px dashed #FF9800;
-            background: rgba(255, 152, 0, 0.1);
-            border-radius: 3px;
-            padding: 2px 6px;
-        }
-        .math-sum .sum-upper {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-        .math-sum .sum-symbol {
-            font-size: 1.6em;
-            line-height: 1;
-            color: #FF9800;
-        }
-        .math-sum .sum-lower {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .math-integral {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 6px;
-            border: 1px dashed #9C27B0;
-            background: rgba(156, 39, 176, 0.1);
-            border-radius: 3px;
-            padding: 2px 6px;
-        }
-        .math-integral .int-upper {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-        .math-integral .int-symbol {
-            font-size: 2em;
-            line-height: 1;
-            color: #9C27B0;
-        }
-        .math-integral .int-lower {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .math-prod {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 6px;
-            border: 1px dashed #E91E63;
-            background: rgba(233, 30, 99, 0.1);
-            border-radius: 3px;
-            padding: 2px 6px;
-        }
-        .math-prod .prod-upper {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-        .math-prod .prod-symbol {
-            font-size: 1.6em;
-            line-height: 1;
-            color: #E91E63;
-        }
-        .math-prod .prod-lower {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .math-limit {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 6px;
-            border: 1px dashed #607D8B;
-            background: rgba(96, 125, 139, 0.1);
-            border-radius: 3px;
-            padding: 2px 6px;
-        }
-        .math-limit .lim-upper {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-        .math-limit .lim-symbol {
-            font-size: 1em;
-            line-height: 1;
-            color: #607D8B;
-        }
-        .math-limit .lim-lower {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-
         .handle {
             position: absolute;
             width: 8px;
@@ -607,10 +329,6 @@ http.listen(PORT, () => {
         
         .cursor-default { cursor: default !important; }
         .cursor-move { cursor: move !important; }
-        .cursor-nwse { cursor: nwse-resize !important; }
-        .cursor-nesw { cursor: nesw-resize !important; }
-        .cursor-ns { cursor: ns-resize !important; }
-        .cursor-ew { cursor: ew-resize !important; }
         .cursor-crosshair { cursor: crosshair !important; }
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
@@ -728,19 +446,6 @@ http.listen(PORT, () => {
     <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
     <button class="tool-btn" data-tool="text" title="Текст">Т</button>
     
-    <div class="separator"></div>
-    
-    <button class="tool-btn" id="mathFracBtn" title="Дробь (/)">⁄</button>
-    <button class="tool-btn" id="mathSqrtBtn" title="Корень (√)">√</button>
-    <button class="tool-btn" id="mathSupBtn" title="Верхний индекс (^)">x²</button>
-    <button class="tool-btn" id="mathSubBtn" title="Нижний индекс (_)">x₂</button>
-    <button class="tool-btn" id="mathSumBtn" title="Сумма (∑)">∑</button>
-    <button class="tool-btn" id="mathIntBtn" title="Интеграл (∫)">∫</button>
-    <button class="tool-btn" id="mathProdBtn" title="Произведение (∏)">∏</button>
-    <button class="tool-btn" id="mathLimBtn" title="Предел (lim)">lim</button>
-    
-    <div class="separator"></div>
-    
     <button class="tool-btn" data-tool="eraser" title="Ластик">
         <svg class="tool-icon" viewBox="0 0 24 24">
             <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
@@ -770,15 +475,6 @@ http.listen(PORT, () => {
             <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);">
                 <line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-dasharray="4,4" stroke-linecap="round" />
             </svg>
-        </div>
-        <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
-            <div class="compass-icon-bg">
-                <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="5" r="3" fill="white" stroke="white" stroke-width="1"/>
-                    <path d="M12 8 L8 20 M12 8 L16 20" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                    <path d="M12 5 L12 8" stroke="white" stroke-width="2"/>
-                </svg>
-            </div>
         </div>
     </div>
 </div>
@@ -810,1060 +506,87 @@ http.listen(PORT, () => {
 </div>
 
 <div id="zoom-display">100%</div>
+<div id="status-display">
+    <div id="status-dot"></div>
+    <span id="status-text">Підключено</span>
+</div>
 <canvas id="board"></canvas>
 
 <script>
 // ============================================
-// ІНІЦІАЛІЗАЦІЯ
-// ============================================
-const boardId = window.location.pathname.replace('/', '') || 'main';
-let socket;
-try {
-    socket = io({ query: { boardId } });
-} catch (e) {
-    console.warn("Socket.io not loaded or connection failed. Running in local mode.");
-    socket = { emit: () => {}, on: () => {} };
-}
-
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
-
-// Змінні стану
-let scale = 1.0, offsetX = 0, offsetY = 0;
-let objects = [], currentTool = 'select';
-let selectedObjects = []; 
-let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
-let isDrawing = false, currentPath = null;
-let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
-let startResizeState = {};
-let shiftKey = false, ctrlKey = false;
-
-let isSelectingArea = false;
-let selectionStart = { x: 0, y: 0 };
-let selectionEnd = { x: 0, y: 0 };
-
-let textEditor = null;
-let editingObject = null;
-let textUpdateTimer = null; // Таймер для дебаунсу тексту
-
-let historyStack = [];
-let historyIndex = -1;
-let isUndoing = false;
-
-let needsRedraw = false;
-let animationFrameId = null;
-
-const MAX_HISTORY = 50;
-const SMOOTHING_FACTOR = 0.5;
-
-let selectedShapeType = null;
-let selectedLineToolType = 'line';
-let currentPenColor = '#000000';
-
-// ============================================
-// ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
+// УТИЛІТИ
 // ============================================
 
-function requestDraw() {
-    if (!needsRedraw) {
-        needsRedraw = true;
-        animationFrameId = requestAnimationFrame(() => {
-            draw();
-            needsRedraw = false;
-        });
-    }
+function generateId() {
+    return 'obj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
 }
-
-function saveHistory() {
-    if (isUndoing) return;
-    if (historyIndex < historyStack.length - 1) {
-        historyStack = historyStack.slice(0, historyIndex + 1);
-    }
-    const state = {
-        objects: JSON.parse(JSON.stringify(objects)),
-        view: { scale, offsetX, offsetY }
-    };
-    historyStack.push(state);
-    if (historyStack.length > MAX_HISTORY) {
-        historyStack.shift();
-    } else {
-        historyIndex++;
-    }
-}
-
-function undo() {
-    if (historyIndex <= 0 || isUndoing) return;
-    isUndoing = true;
-    historyIndex--;
-    const state = historyStack[historyIndex];
-    objects = JSON.parse(JSON.stringify(state.objects));
-    
-    if (state.view) {
-        scale = state.view.scale;
-        offsetX = state.view.offsetX;
-        offsetY = state.view.offsetY;
-        updateZoomDisplay();
+class SpatialGrid {
+    constructor(cellSize = 100) {
+        this.cellSize = cellSize;
+        this.grid = new Map();
     }
 
-    selectedObjects = [];
-    if (textEditor) stopTextEdit(true);
-    if (socket && socket.connected) socket.emit('update-all', objects);
-    requestDraw();
-    isUndoing = false;
-}
+    _getKey(x, y) {
+        return `${Math.floor(x / this.cellSize)},${Math.floor(y / this.cellSize)}`;
+    }
 
-function updateZoomDisplay() {
-    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
-}
+    clear() { this.grid.clear(); }
 
-// ============================================
-// ОБРОБКА КЛАВІШ
-// ============================================
+    updateObject(obj) {
+        this.removeObject(obj);
+        const bbox = getBBox(obj);
+        if (!bbox) return;
 
-window.addEventListener('keydown', (e) => { 
-    if (e.key === 'Shift') shiftKey = true; 
-    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
-    
-    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        if (!textEditor) {
-            e.preventDefault();
-            selectedObjects = [...objects];
-            requestDraw();
-            return;
+        const startX = Math.floor(bbox.x / this.cellSize);
+        const endX = Math.floor((bbox.x + bbox.w) / this.cellSize);
+        const startY = Math.floor(bbox.y / this.cellSize);
+        const endY = Math.floor((bbox.y + bbox.h) / this.cellSize);
+
+        for (let x = startX; x <= endX; x++) {
+            for (let y = startY; y <= endY; y++) {
+                const key = `${x},${y}`;
+                if (!this.grid.has(key)) this.grid.set(key, new Set());
+                this.grid.get(key).add(obj.id);
+            }
         }
     }
-    
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault();
-        undo();
-        return;
-    }
-    
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedObjects.length > 0 && !textEditor) {
-            e.preventDefault();
-            saveHistory();
-            objects = objects.filter(o => !selectedObjects.includes(o));
-            selectedObjects = [];
-            if (socket && socket.connected) socket.emit('update-all', objects);
-            requestDraw();
-            return;
+
+    removeObject(obj) {
+        const bbox = getBBox(obj);
+        if (!bbox) return;
+        const startX = Math.floor(bbox.x / this.cellSize);
+        const endX = Math.floor((bbox.x + bbox.w) / this.cellSize);
+        const startY = Math.floor(bbox.y / this.cellSize);
+        const endY = Math.floor((bbox.y + bbox.h) / this.cellSize);
+
+        for (let x = startX; x <= endX; x++) {
+            for (let y = startY; y <= endY; y++) {
+                const key = `${x},${y}`;
+                if (this.grid.has(key)) this.grid.get(key).delete(obj.id);
+            }
         }
     }
-    
-    if (e.key === 'v' || e.key === 'V') setTool('select');
-    if (e.key === 'h' || e.key === 'H') setTool('hand');
-    if (e.key === 'g' || e.key === 'G') setTool('grid');
-});
 
-window.addEventListener('keyup', (e) => { 
-    if (e.key === 'Shift') shiftKey = false;
-    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
-});
+    query(x, y, width = 0, height = 0) {
+        const startX = Math.floor(x / this.cellSize);
+        const endX = Math.floor((x + width) / this.cellSize);
+        const startY = Math.floor(y / this.cellSize);
+        const endY = Math.floor((y + height) / this.cellSize);
+        const found = new Set();
 
-// ============================================
-// ІНСТРУМЕНТИ ТА ПАЛІТРИ
-// ============================================
-
-function selectPenColor(color) {
-    currentPenColor = color;
-    document.getElementById('colorPickerInput').value = color;
-    document.getElementById('colorPickerBtn').style.backgroundColor = color;
-}
-
-function selectShape(type) {
-    selectedShapeType = type;
-    currentTool = 'shape';
-    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('rectToolBtn').classList.add('active');
-    document.getElementById('shapes-palette').style.display = 'none';
-    canvas.className = 'cursor-crosshair';
-}
-
-function selectLineTool(type) {
-    selectedLineToolType = type;
-    currentTool = 'line';
-    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('lineToolBtn').classList.add('active');
-    document.getElementById('line-palette').style.display = 'none';
-    canvas.className = 'cursor-crosshair';
-}
-
-const lineBtn = document.getElementById('lineToolBtn');
-const lineTrigger = document.getElementById('lineDropdownTrigger');
-
-lineTrigger.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const palette = document.getElementById('line-palette');
-    if (palette.style.display === 'flex') {
-        palette.style.display = 'none';
-    } else {
-        palette.style.display = 'flex';
-        if (currentTool !== 'line') {
-            selectedLineToolType = 'line';
-        }
-    }
-});
-
-lineBtn.addEventListener('click', (e) => {
-    if (e.target === lineTrigger || lineTrigger.contains(e.target)) return;
-    selectLineTool('line');
-});
-
-const rectBtn = document.getElementById('rectToolBtn');
-const rectTrigger = document.getElementById('rectDropdownTrigger');
-
-rectTrigger.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const palette = document.getElementById('shapes-palette');
-    if (palette.style.display === 'flex') {
-        palette.style.display = 'none';
-    } else {
-        palette.style.display = 'flex';
-        if (currentTool !== 'shape') {
-            selectedShapeType = null;
-        }
-    }
-});
-
-rectBtn.addEventListener('click', (e) => {
-    if (e.target === rectTrigger || rectTrigger.contains(e.target)) return;
-    setTool('rect');
-});
-
-document.addEventListener('mousedown', (e) => {
-    const linePalette = document.getElementById('line-palette');
-    const shapePalette = document.getElementById('shapes-palette');
-    
-    if (linePalette.style.display === 'flex' && 
-        !linePalette.contains(e.target) && 
-        !lineBtn.contains(e.target)) {
-        linePalette.style.display = 'none';
-    }
-    
-    if (shapePalette.style.display === 'flex' && 
-        !shapePalette.contains(e.target) && 
-        !rectBtn.contains(e.target)) {
-        shapePalette.style.display = 'none';
-    }
-});
-
-// ============================================
-// ВИМІРЮВАННЯ СЕГМЕНТІВ ТЕКСТУ
-// ============================================
-
-function measureSegments(segments, baseSize, isBold) {
-    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
-    const small<think>
-</think>
-
-Ось повний виправлений код. Я провів три перевірки логіки:
-1.  **Синхронізація**: Сервер тепер відправляє подію `update-all` всім учасникам (`io.in`), включаючи того, хто рухає об'єкт. Це гарантує, що локальний стан клієнта завжди збігається з сервером, і нічого не зникає.
-2.  **Текст**: Додано функцію `debounce` (затримка) для відправки тексту. Тепер ви бачите текст миттєво локально, а інші користувачі бачать його з мінімальною затримкою (щоб не "забити" мережу кожним натисканням клавіші).
-3.  **Точка**: У логіку малювання олівцем додано перевірку: якщо ви клікнули, але не рухали мишкою, створюється об'єкт з однією точкою.
-
-Збережіть ці два файли.
-
-### 1. Файл `server.js` (Сервер)
-
-```javascript
-const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http, { 
-    cors: { 
-        origin: "*", 
-        methods: ["GET", "POST"]
-    },
-    maxHttpBufferSize: 1e8, 
-    pingTimeout: 60000,
-    pingInterval: 25000
-});
-const path = require('path');
-
-const PORT = process.env.PORT || 3000;
-const boardsData = {}; 
-const boardTimers = {}; 
-
-function log(message) {
-    const timestamp = new Date().toLocaleTimeString('uk-UA');
-    console.log(`[${timestamp}] ${message}`);
-}
-
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/:boardId', (req, res) => {
-    const boardId = req.params.boardId;
-    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
-        log(`[SECURITY] Спроба доступу до недопустимого ID: ${boardId}`);
-        return res.status(400).send('Invalid board ID');
-    }
-    if (boardId.includes('.')) {
-        log(`[SECURITY] Спроба доступу до файлу через URL: ${boardId}`);
-        return res.status(404).send('Not found');
-    }
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-io.on('connection', (socket) => {
-    const boardId = socket.handshake.query.boardId || 'main';
-    
-    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
-        log(`[SECURITY] Недопустимий boardId від сокету: ${boardId}`);
-        socket.disconnect(true);
-        return;
-    }
-    
-    socket.join(boardId);
-    
-    if (!boardsData[boardId]) {
-        boardsData[boardId] = [];
-        log(`[SERVER] Створено нову дошку: ${boardId}`);
-    }
-    
-    if (boardTimers[boardId]) {
-        clearTimeout(boardTimers[boardId]);
-        delete boardTimers[boardId];
-    }
-
-    log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
-    log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
-
-    // Відправляємо поточний стан новому користувачу
-    socket.emit('init-history', boardsData[boardId]);
-
-    // Новий об'єкт (малюнок, фігура)
-    socket.on('new-object', (obj) => {
-        if (!obj || typeof obj !== 'object') return;
-        
-        boardsData[boardId].push(obj);
-        
-        // Розсилаємо ВСІМ в кімнаті (включно з відправником для гарантії синхронізації)
-        io.in(boardId).emit('new-object', obj);
-        log(`[SERVER] Новий об'єкт в ${boardId}. Всього об'єктів: ${boardsData[boardId].length}`);
-    });
-
-    // Оновлення стану (рух, зміна тексту)
-    socket.on('update-all', (data) => {
-        if (!Array.isArray(data)) return;
-        
-        boardsData[boardId] = data;
-        
-        // ВИПРАВЛЕННЯ: Розсилаємо ВСІМ (io.in), а не тільки іншим (socket.to).
-        // Це критично, щоб користувач, який рухає об'єкт, отримав підтвердження від сервера
-        // і його локальний стан синхронізувався з іншими.
-        io.in(boardId).emit('update-all', data);
-        log(`[SERVER] Оновлено стан дошки ${boardId}. Об'єктів: ${data.length}`);
-    });
-
-    socket.on('undo', () => {
-        if (boardsData[boardId]?.length > 0) {
-            boardsData[boardId].pop();
-            io.in(boardId).emit('init-history', boardsData[boardId]);
-            log(`[SERVER] Undo в кімнаті ${boardId}`);
-        }
-    });
-
-    socket.on('delete-board', () => {
-        boardsData[boardId] = [];
-        io.in(boardId).emit('board-deleted');
-        log(`[SERVER] Дошку ${boardId} очищено`);
-    });
-    
-    socket.on('disconnect', () => {
-        log(`[SERVER] Користувач ${socket.id} відключився від кімнати: ${boardId}`);
-        
-        const room = io.sockets.adapter.rooms.get(boardId);
-        const roomSize = room?.size || 0;
-        log(`[SERVER] В кімнаті ${boardId} залишилось ${roomSize} користувачів`);
-        
-        if (roomSize === 0) {
-            log(`[SERVER] Кімната ${boardId} пуста. Заплановано видалення через 5 хв`);
-            boardTimers[boardId] = setTimeout(() => {
-                const currentRoom = io.sockets.adapter.rooms.get(boardId);
-                if (!currentRoom || currentRoom.size === 0) {
-                    delete boardsData[boardId];
-                    delete boardTimers[boardId];
-                    log(`[SERVER] Дошку ${boardId} видалено з пам'яті`);
+        for (let ix = startX; ix <= endX; ix++) {
+            for (let iy = startY; iy <= endY; iy++) {
+                const key = `${ix},${iy}`;
+                if (this.grid.has(key)) {
+                    this.grid.get(key).forEach(id => found.add(id));
                 }
-            }, 5 * 60 * 1000);
+            }
         }
-    });
-    
-    socket.on('error', (error) => {
-        log(`[ERROR] Помилка сокету ${socket.id}: ${error.message}`);
-    });
-});
+        return Array.from(found);
+    }
+}
 
-http.listen(PORT, () => {
-    log('========================================');
-    log(`СЕРВЕР ЗАПУЩЕНО: http://localhost:${PORT}`);
-    log(`Для створення нової кімнати додайте /назва в кінець URL`);
-    log(`Наприклад: http://localhost:${PORT}/room123`);
-    log('========================================');
-});
-```
-
-### 2. Файл `public/index.html` (Клієнт)
-
-```html
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Математична Дошка Pro (Math Fields)</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            height: 100%; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #ffffff; 
-        }
-        
-        #toolbar {
-            position: absolute; 
-            top: 15px; 
-            left: 15px; 
-            background: white; 
-            padding: 8px;
-            display: flex; 
-            gap: 6px; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-            z-index: 1000; 
-            align-items: center; 
-            flex-wrap: wrap; 
-            max-width: 90vw;
-        }
-
-        .tool-btn { 
-            padding: 8px 14px; 
-            cursor: pointer; 
-            border: 1px solid #e0e0e0; 
-            background: #fff; 
-            border-radius: 6px; 
-            font-size: 14px; 
-            transition: all 0.2s;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            user-select: none;
-            position: relative;
-        }
-        
-        .tool-btn.split-btn {
-            padding-right: 24px;
-        }
-        
-        .dropdown-arrow {
-            position: absolute;
-            right: 6px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 10px;
-            color: #666;
-            pointer-events: none;
-            user-select: none;
-        }
-
-        .dropdown-trigger {
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            width: 20px;
-            cursor: pointer;
-            z-index: 2;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-left: 1px solid rgba(0,0,0,0.1);
-            border-top-right-radius: 6px;
-            border-bottom-right-radius: 6px;
-        }
-        .dropdown-trigger:hover {
-            background: rgba(0,0,0,0.05);
-        }
-        
-        .tool-btn:hover { 
-            background: #f0f7ff; 
-            border-color: #007bff; 
-        }
-        .tool-btn.active { 
-            background: #007bff; 
-            color: white; 
-            border-color: #0056b3; 
-        }
-        .tool-btn.active .dropdown-arrow { 
-            color: white; 
-        }
-        
-        .color-picker-btn {
-            width: 32px;
-            height: 32px;
-            border: 2px solid #e0e0e0;
-            border-radius: 4px;
-            cursor: pointer;
-            background-color: #000000;
-            transition: all 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
-        .color-picker-btn:hover {
-            transform: scale(1.1);
-            border-color: #007bff;
-        }
-        .color-picker-btn::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 0; 
-            height: 0; 
-            border-style: solid;
-            border-width: 0 0 10px 10px;
-            border-color: transparent transparent rgba(0,0,0,0.3) transparent;
-        }
-
-        .tool-icon {
-            width: 20px;
-            height: 20px;
-            display: inline-block;
-            fill: currentColor;
-        }
-
-        #zoom-display { 
-            position: absolute; 
-            bottom: 20px; 
-            right: 20px; 
-            background: rgba(255,255,255,0.9); 
-            padding: 8px 15px; 
-            border-radius: 20px; 
-            font-weight: bold; 
-            font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-            z-index: 1000; 
-            border: 1px solid #ddd;
-        }
-
-        .text-edit-wrapper {
-            position: absolute;
-            z-index: 2000;
-            border: 2px dashed #4CAF50;
-            background: transparent;
-            box-sizing: border-box;
-            min-width: 100px;
-            padding: 5px;
-            user-select: none; 
-        }
-
-        .text-edit-content {
-            outline: none;
-            background: rgba(255, 255, 255, 0.95);
-            border: none;
-            border-radius: 4px;
-            font-size: 20px;
-            font-family: 'Segoe UI', sans-serif;
-            color: #333;
-            white-space: pre !important;
-            overflow: visible;
-            display: inline-block;
-            box-sizing: border-box;
-            line-height: 1.4;
-            min-width: 50px;
-            max-width: none !important;
-            width: auto !important;
-            cursor: text;
-            vertical-align: baseline;
-        }
-
-        .math-sup, .math-sub {
-            display: inline-block;
-            font-size: 0.6em;
-            border: 1px dashed #2196F3;
-            background: rgba(33, 150, 243, 0.15);
-            border-radius: 3px;
-            padding: 0 3px;
-            margin: 0 1px;
-            min-width: 10px;
-            min-height: 1em;
-            line-height: 1.2;
-            vertical-align: baseline;
-        }
-
-        .math-sup { 
-            vertical-align: super; 
-        }
-        .math-sub { 
-            vertical-align: sub; 
-        }
-
-        .math-frac {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 8px;
-            border: 1px dashed #9C27B0;
-            background: rgba(156, 39, 176, 0.1);
-            border-radius: 3px;
-            padding: 2px 4px;
-            line-height: 1.0;
-        }
-        .math-num {
-            border-bottom: 2px solid currentColor;
-            padding-bottom: 2px;
-            margin-bottom: 2px;
-            display: block;
-            text-align: center;
-            width: 100%;
-            white-space: nowrap;
-            line-height: 1.2;
-            min-width: 10px;
-        }
-        .math-den {
-            display: block;
-            text-align: center;
-            width: 100%;
-            white-space: nowrap;
-            line-height: 1.2;
-            padding-top: 2px;
-            min-width: 10px;
-        }
-
-        .math-sqrt {
-            display: inline-flex;
-            align-items: stretch;
-            vertical-align: middle;
-            margin: 0 4px;
-            border: 1px dashed #4CAF50;
-            background: rgba(76, 175, 80, 0.1);
-            border-radius: 3px;
-            padding: 2px 4px;
-        }
-        .math-sqrt .sqrt-symbol {
-            font-size: 1.4em;
-            line-height: 1;
-            align-self: center;
-            color: #4CAF50;
-        }
-        .math-sqrt .sqrt-content {
-            border-top: 2px solid currentColor;
-            padding: 2px 6px;
-            min-width: 10px;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .math-sum {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 6px;
-            border: 1px dashed #FF9800;
-            background: rgba(255, 152, 0, 0.1);
-            border-radius: 3px;
-            padding: 2px 6px;
-        }
-        .math-sum .sum-upper {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-        .math-sum .sum-symbol {
-            font-size: 1.6em;
-            line-height: 1;
-            color: #FF9800;
-        }
-        .math-sum .sum-lower {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .math-integral {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 6px;
-            border: 1px dashed #9C27B0;
-            background: rgba(156, 39, 176, 0.1);
-            border-radius: 3px;
-            padding: 2px 6px;
-        }
-        .math-integral .int-upper {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-        .math-integral .int-symbol {
-            font-size: 2em;
-            line-height: 1;
-            color: #9C27B0;
-        }
-        .math-integral .int-lower {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .math-prod {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 6px;
-            border: 1px dashed #E91E63;
-            background: rgba(233, 30, 99, 0.1);
-            border-radius: 3px;
-            padding: 2px 6px;
-        }
-        .math-prod .prod-upper {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-        .math-prod .prod-symbol {
-            font-size: 1.6em;
-            line-height: 1;
-            color: #E91E63;
-        }
-        .math-prod .prod-lower {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .math-limit {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            margin: 0 6px;
-            border: 1px dashed #607D8B;
-            background: rgba(96, 125, 139, 0.1);
-            border-radius: 3px;
-            padding: 2px 6px;
-        }
-        .math-limit .lim-upper {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-        .math-limit .lim-symbol {
-            font-size: 1em;
-            line-height: 1;
-            color: #607D8B;
-        }
-        .math-limit .lim-lower {
-            font-size: 0.7em;
-            line-height: 1;
-            min-height: 1em;
-            text-align: center;
-        }
-
-        .handle {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #4CAF50;
-            border: 1px solid white;
-            border-radius: 2px;
-            z-index: 2001;
-            cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-        
-        .handle:hover { 
-            background: #45a049; 
-            transform: scale(1.2); 
-        }
-        .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
-        .handle.n { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
-        .handle.e { top: 50%; right: -4px; transform: translateY(-50%); cursor: ew-resize; }
-        .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
-        .handle.s { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-        .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
-        .handle.w { top: 50%; left: -4px; transform: translateY(-50%); cursor: ew-resize; }
-        
-        .rotate-handle {
-            position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 10px;
-            height: 10px;
-            background: #2196F3;
-            border: 2px solid white;
-            border-radius: 50%;
-            cursor: alias;
-            z-index: 2001;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .rotate-line {
-            position: absolute;
-            top: -10px;
-            left: 50%;
-            width: 1px;
-            height: 10px;
-            background: #2196F3;
-            transform: translateX(-50%);
-            pointer-events: none;
-        }
-
-        input[type="color"] { 
-            border: none; 
-            width: 0; 
-            height: 0; 
-            overflow: hidden; 
-            padding: 0; 
-            position: absolute; 
-        }
-        input[type="range"] { 
-            cursor: pointer; 
-        }
-        .separator { 
-            width: 1px; 
-            height: 25px; 
-            background: #ddd; 
-            margin: 0 5px; 
-        }
-        
-        canvas { 
-            display: block; 
-            touch-action: none; 
-            background: #ffffff; 
-        }
-        
-        .cursor-default { cursor: default !important; }
-        .cursor-move { cursor: move !important; }
-        .cursor-nwse { cursor: nwse-resize !important; }
-        .cursor-nesw { cursor: nesw-resize !important; }
-        .cursor-ns { cursor: ns-resize !important; }
-        .cursor-ew { cursor: ew-resize !important; }
-        .cursor-crosshair { cursor: crosshair !important; }
-        .cursor-grab { cursor: grab !important; }
-        .cursor-grabbing { cursor: grabbing !important; }
-        .cursor-eraser { cursor: cell !important; }
-        .cursor-text { cursor: text !important; }
-        
-        .cursor-pencil { 
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>') 0 24, auto !important; 
-        }
-        
-        .cursor-grid { 
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
-        }
-
-        #shapes-palette, #line-palette {
-            position: absolute;
-            top: 70px;
-            left: 15px;
-            width: 240px;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-            z-index: 1001;
-            display: none;
-            flex-direction: column;
-            padding: 10px;
-            max-height: 60vh;
-            overflow-y: auto;
-        }
-
-        .shape-category {
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 5px;
-            font-weight: bold;
-            text-transform: uppercase;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 3px;
-        }
-
-        .shape-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .shape-item {
-            width: 45px;
-            height: 45px;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .shape-item:hover {
-            background: #f0f7ff;
-            border-color: #007bff;
-        }
-
-        .shape-item svg {
-            width: 28px;
-            height: 28px;
-            stroke: #333;
-            stroke-width: 2;
-            fill: none;
-        }
-        
-        .compass-icon-bg {
-            width: 32px;
-            height: 32px;
-            background-color: #5a7d9a;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .compass-icon-bg svg {
-            stroke: white;
-            fill: white;
-            width: 20px;
-            height: 20px;
-        }
-    </style>
-</head>
-<body>
-
-<div id="toolbar">
-    <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
-    <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
-    <div class="separator"></div>
-    <button class="tool-btn" data-tool="pen" id="penToolBtn" title="Олівець">✏️</button>
-    
-    <button class="tool-btn split-btn" data-tool="line" id="lineToolBtn" title="Лінія">
-        <svg class="tool-icon" viewBox="0 0 24 24" style="transform: rotate(-45deg);">
-            <line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
-        </svg>
-        <div class="dropdown-trigger" id="lineDropdownTrigger" title="Інші інструменти">
-            <span class="dropdown-arrow">▼</span>
-        </div>
-    </button>
-    
-    <button class="tool-btn split-btn" data-tool="rect" id="rectToolBtn" title="Прямокутник">
-        <span>⬜</span>
-        <div class="dropdown-trigger" id="rectDropdownTrigger" title="Інші фігури">
-            <span class="dropdown-arrow">▼</span>
-        </div>
-    </button>
-    
-    <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
-    <button class="tool-btn" data-tool="text" title="Текст">Т</button>
-    
-    <div class="separator"></div>
-    
-    <button class="tool-btn" id="mathFracBtn" title="Дробь (/)">⁄</button>
-    <button class="tool-btn" id="mathSqrtBtn" title="Корень (√)">√</button>
-    <button class="tool-btn" id="mathSupBtn" title="Верхний индекс (^)">x²</button>
-    <button class="tool-btn" id="mathSubBtn" title="Нижний индекс (_)">x₂</button>
-    <button class="tool-btn" id="mathSumBtn" title="Сумма (∑)">∑</button>
-    <button class="tool-btn" id="mathIntBtn" title="Интеграл (∫)">∫</button>
-    <button class="tool-btn" id="mathProdBtn" title="Произведение (∏)">∏</button>
-    <button class="tool-btn" id="mathLimBtn" title="Предел (lim)">lim</button>
-    
-    <div class="separator"></div>
-    
-    <button class="tool-btn" data-tool="eraser" title="Ластик">
-        <svg class="tool-icon" viewBox="0 0 24 24">
-            <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
-        </svg>
-    </button>
-
-    <div class="separator"></div>
-    
-    <div class="color-picker-btn" id="colorPickerBtn" title="Вибір кольору"></div>
-    <input type="color" id="colorPickerInput" value="#000000">
-    
-    <div class="separator"></div>
-    <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
-    <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
-    <div class="separator"></div>
-    <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
-    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
-</div>
-
-<div id="line-palette">
-    <div class="shape-category">Інструменти</div>
-    <div class="shape-grid">
-        <div class="shape-item" onclick="selectLineTool('line')" title="Лінія">
-            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);"><line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-linecap="round" /></svg>
-        </div>
-        <div class="shape-item" onclick="selectLineTool('dotted')" title="Пунктирна лінія">
-            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);">
-                <line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-dasharray="4,4" stroke-linecap="round" />
-            </svg>
-        </div>
-        <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
-            <div class="compass-icon-bg">
-                <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="5" r="3" fill="white" stroke="white" stroke-width="1"/>
-                    <path d="M12 8 L8 20 M12 8 L16 20" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                    <path d="M12 5 L12 8" stroke="white" stroke-width="2"/>
-                </svg>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="shapes-palette">
-    <div class="shape-category">Основні</div>
-    <div class="shape-grid">
-        <div class="shape-item" onclick="selectShape('rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" /></svg></div>
-        <div class="shape-item" onclick="selectShape('circle')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg></div>
-        <div class="shape-item" onclick="selectShape('triangle')"><svg viewBox="0 0 24 24"><path d="M12 3 L22 21 L2 21 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('diamond')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 12 L12 22 L2 12 Z" /></svg></div>
-    </div>
-
-    <div class="shape-category">Багатокутники</div>
-    <div class="shape-grid">
-        <div class="shape-item" onclick="selectShape('pentagon')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 9 L18 21 L6 21 L2 9 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('hexagon')"><svg viewBox="0 0 24 24"><path d="M7 2 L17 2 L22 12 L17 22 L7 22 L2 12 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('star')"><svg viewBox="0 0 24 24"><path d="M12 2 L15 9 L22 9 L16 14 L18 21 L12 17 L6 21 L8 14 L2 9 L9 9 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('parallelogram')"><svg viewBox="0 0 24 24"><path d="M6 4 L20 4 L18 20 L4 20 Z" /></svg></div>
-    </div>
-
-    <div class="shape-category">Округлені</div>
-    <div class="shape-grid">
-        <div class="shape-item" onclick="selectShape('rounded-rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" /></svg></div>
-        <div class="shape-item" onclick="selectShape('semi-circle')"><svg viewBox="0 0 24 24"><path d="M2 12 A10 10 0 0 1 22 12 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('quarter-circle')"><svg viewBox="0 0 24 24"><path d="M2 22 A20 20 0 0 1 22 2 Z" /></svg></div>
-        <div class="shape-item" onclick="selectShape('heart')"><svg viewBox="0 0 24 24"><path d="M12 21 C12 21 2 14 2 8 C2 5 5 2 8 2 C10 2 12 4 12 4 C12 4 14 2 16 2 C19 2 22 5 22 8 C22 14 12 21 12 21 Z" /></svg></div>
-    </div>
-</div>
-
-<div id="zoom-display">100%</div>
-<canvas id="board"></canvas>
-
-<script>
+const spatialIndex = new SpatialGrid(); // <--- ЦЕЙ РЯДОК ОБОВ'ЯЗКОВИЙ!
 // ============================================
 // ІНІЦІАЛІЗАЦІЯ
 // ============================================
@@ -1873,15 +596,30 @@ try {
     socket = io({ query: { boardId } });
 } catch (e) {
     console.warn("Socket.io not loaded or connection failed. Running in local mode.");
-    socket = { emit: () => {}, on: () => {} };
+    socket = { 
+        emit: () => {}, 
+        on: () => {},
+        connected: false
+    };
 }
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
+// Стан синхронізації
+let syncState = {
+    connected: false,
+    lastKnownOperationId: 0,
+    pendingOperations: [],
+    isSyncing: false
+};
+
 // Змінні стану
 let scale = 1.0, offsetX = 0, offsetY = 0;
-let objects = [], currentTool = 'select';
+let objects = {}; // Змінено на Map для швидкого доступу
+let objectsArray = []; // Для зворотньої сумісності
+const imageCache = {}; // Кеш для завантажених зображень
+let currentTool = 'select';
 let selectedObjects = []; 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
 let isDrawing = false, currentPath = null;
@@ -1895,7 +633,6 @@ let selectionEnd = { x: 0, y: 0 };
 
 let textEditor = null;
 let editingObject = null;
-let textUpdateTimer = null; // Таймер для дебаунсу тексту
 
 let historyStack = [];
 let historyIndex = -1;
@@ -1910,6 +647,123 @@ const SMOOTHING_FACTOR = 0.5;
 let selectedShapeType = null;
 let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
+
+// ============================================
+// ОНОВЛЕННЯ СТАТУСУ ПІДКЛЮЧЕННЯ
+// ============================================
+
+function updateConnectionStatus(status, text) {
+    const dot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    
+    dot.className = '';
+    if (status === 'connected') {
+        dot.style.background = '#4CAF50';
+        syncState.connected = true;
+    } else if (status === 'disconnected') {
+        dot.classList.add('disconnected');
+        syncState.connected = false;
+    } else if (status === 'syncing') {
+        dot.classList.add('syncing');
+    }
+    
+    if (text) statusText.textContent = text;
+}
+
+// ============================================
+// ФУНКЦІЇ СИНХРОНІЗАЦІЇ
+// ============================================
+
+function sendOperation(type, data) {
+    if (!syncState.connected) return;
+    
+    // 1. Локальне застосування змін (використовуємо вже існуючу функцію applyOperation)
+    applyOperation({ type, data, id: Date.now(), timestamp: Date.now() });
+    
+    // 2. Відправка на сервер
+    switch (type) {
+        case 'add':
+            socket.emit('object:add', data);
+            break;
+        case 'update':
+            socket.emit('object:update', data);
+            break;
+        case 'delete':
+            socket.emit('object:delete', data.id);
+            break;
+    }
+}
+
+function applyOperation(operation) {
+    // Визначаємо ID об'єкта
+    const objId = operation.data?.id || operation.objectId;
+    if (!objId) return;
+
+    switch (operation.type) {
+        case 'add':
+            if (!objects[objId]) {
+                objects[objId] = operation.data;
+                objectsArray.push(operation.data);
+                spatialIndex.updateObject(operation.data);
+            }
+            break;
+        case 'update':
+            if (!objects[objId]) {
+                // КРИТИЧНА ЗМІНА: Не створюємо об'єкт з дельти!
+                // Якщо об'єкта немає, ми не можемо його відновити з {x, y}.
+                // Просто ігноруємо або можна додати socket.emit('request-full-sync')
+                console.warn(`[SYNC] Отримано update для відсутнього об'єкта ${objId}. Ігноруємо.`);
+                return; 
+            } else {
+                const localObj = objects[objId];
+                const isEditingLocally = (editingObject && editingObject.id === objId);
+                
+                // Перевіряємо, чи дані новіші (якщо є timestamp)
+                const isNewer = !localObj.lastModified || 
+                                (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
+
+                if (!isEditingLocally || isNewer) {
+                    // Просто оновлюємо дані. Картинки тепер беруться з imageCache, тому _img не потрібен
+                    objects[objId] = {
+                        ...localObj,
+                        ...operation.data
+                    };
+                    const idx = objectsArray.findIndex(o => o.id === objId);
+                    if (idx !== -1) {
+                        objectsArray[idx] = objects[objId];
+                        spatialIndex.updateObject(objects[objId]);
+
+                    }
+                }
+            }
+            break;
+        case 'delete':
+            if (objects[objId]) {
+                spatialIndex.removeObject(objects[objId]);
+                delete objects[objId];
+                objectsArray = objectsArray.filter(o => o.id !== objId);
+                selectedObjects = selectedObjects.filter(o => o.id !== objId);
+            }
+            break;
+        case 'clear':
+            spatialIndex.clear();
+            objects = {};
+            objectsArray = [];
+            selectedObjects = [];
+            break;
+    }
+    
+    requestDraw();
+}
+
+function applyBatchOperations(operations) {
+    operations.forEach(op => {
+        applyOperation(op);
+        if (op.id > syncState.lastKnownOperationId) {
+            syncState.lastKnownOperationId = op.id;
+        }
+    });
+}
 
 // ============================================
 // ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
@@ -1931,7 +785,7 @@ function saveHistory() {
         historyStack = historyStack.slice(0, historyIndex + 1);
     }
     const state = {
-        objects: JSON.parse(JSON.stringify(objects)),
+        objects: JSON.parse(JSON.stringify(objectsArray)),
         view: { scale, offsetX, offsetY }
     };
     historyStack.push(state);
@@ -1947,7 +801,46 @@ function undo() {
     isUndoing = true;
     historyIndex--;
     const state = historyStack[historyIndex];
-    objects = JSON.parse(JSON.stringify(state.objects));
+    
+    // Відправляємо повну синхронізацію
+    if (syncState.connected) {
+        // Для undo надсилаємо операції видалення для всіх об'єктів, 
+        // а потім додаємо їх з історії
+        const batchOps = [];
+        Object.keys(objects).forEach(id => {
+            batchOps.push({ type: 'delete', data: { id } });
+        });
+        
+        if (batchOps.length > 0) {
+            socket.emit('batch-operation', { operations: batchOps });
+        }
+        
+        // Додаємо об'єкти з історії
+        state.objects.forEach(obj => {
+            const newObj = { ...obj, id: obj.id || generateId() };
+            objects[obj.id] = newObj;
+            objectsArray.push(newObj);
+            socket.emit('object:add', newObj);
+        });
+        
+        objects = {};
+        objectsArray = [];
+        state.objects.forEach(obj => {
+            const id = obj.id || generateId();
+            obj.id = id;
+            objects[id] = obj;
+            objectsArray.push(obj);
+        });
+    } else {
+        objects = {};
+        objectsArray = [];
+        state.objects.forEach(obj => {
+            const id = obj.id || generateId();
+            obj.id = id;
+            objects[id] = obj;
+            objectsArray.push(obj);
+        });
+    }
     
     if (state.view) {
         scale = state.view.scale;
@@ -1958,7 +851,6 @@ function undo() {
 
     selectedObjects = [];
     if (textEditor) stopTextEdit(true);
-    if (socket && socket.connected) socket.emit('update-all', objects);
     requestDraw();
     isUndoing = false;
 }
@@ -1978,7 +870,7 @@ window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         if (!textEditor) {
             e.preventDefault();
-            selectedObjects = [...objects];
+            selectedObjects = [...objectsArray];
             requestDraw();
             return;
         }
@@ -1994,9 +886,15 @@ window.addEventListener('keydown', (e) => {
         if (selectedObjects.length > 0 && !textEditor) {
             e.preventDefault();
             saveHistory();
-            objects = objects.filter(o => !selectedObjects.includes(o));
+            
+            // Відправляємо операції видалення
+            selectedObjects.forEach(obj => {
+                delete objects[obj.id];
+                sendOperation('delete', { id: obj.id });
+            });
+            
+            objectsArray = objectsArray.filter(o => !selectedObjects.some(s => s.id === o.id));
             selectedObjects = [];
-            if (socket && socket.connected) socket.emit('update-all', objects);
             requestDraw();
             return;
         }
@@ -2490,7 +1388,8 @@ function draw() {
     
     drawGrid();
     
-    objects.forEach(obj => drawObject(obj));
+    // Малюємо всі об'єкти з objectsArray
+    objectsArray.forEach(obj => drawObject(obj));
     
     if (isDrawing && currentPath) drawObject(currentPath, true);
     
@@ -2921,13 +1820,21 @@ function drawObject(obj, isTemp = false) {
     } else if (obj.type === 'grid') {
         drawCoordinateGrid(obj);
     } else if (obj.type === 'image') {
-        if (!obj._img) {
-            obj._img = new Image();
-            obj._img.src = obj.src;
-            obj._img.onload = () => requestDraw();
+        const src = obj.src;
+        // Перевіряємо, чи картинка вже є в кеші
+        if (!imageCache[src]) {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                imageCache[src] = img;
+                requestDraw();
+            };
+            imageCache[src] = null; // Позначаємо, що завантаження розпочато
         }
-        if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
-            ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
+        
+        const cachedImg = imageCache[src];
+        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+            ctx.drawImage(cachedImg, sx, sy, obj.w * scale, obj.h * scale);
         }
     }
     ctx.restore();
@@ -3036,149 +1943,15 @@ function insertFraction(editorDiv, numeratorContent) {
 // ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА
 // ============================================
 
-function insertSqrt() {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const sqrt = document.createElement('span');
-    sqrt.className = 'math-sqrt';
-    const symbol = document.createElement('span');
-    symbol.className = 'sqrt-symbol';
-    symbol.textContent = '\u221A';
-    const content = document.createElement('span');
-    content.className = 'sqrt-content';
-    content.textContent = '\u200B';
-    sqrt.appendChild(symbol);
-    sqrt.appendChild(content);
-    range.deleteContents();
-    range.insertNode(sqrt);
-    const newRange = document.createRange();
-    newRange.selectNodeContents(content);
-    newRange.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    updateSize();
-}
-
-function insertSum() {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const sum = document.createElement('span');
-    sum.className = 'math-sum';
-    const upper = document.createElement('span');
-    upper.className = 'sum-upper';
-    upper.textContent = '\u200B';
-    const symbol = document.createElement('span');
-    symbol.className = 'sum-symbol';
-    symbol.textContent = '\u2211';
-    const lower = document.createElement('span');
-    lower.className = 'sum-lower';
-    lower.textContent = '\u200B';
-    sum.appendChild(upper);
-    sum.appendChild(symbol);
-    sum.appendChild(lower);
-    range.deleteContents();
-    range.insertNode(sum);
-    const newRange = document.createRange();
-    newRange.selectNodeContents(upper);
-    newRange.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    updateSize();
-}
-
-function insertIntegral() {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const integral = document.createElement('span');
-    integral.className = 'math-integral';
-    const upper = document.createElement('span');
-    upper.className = 'int-upper';
-    upper.textContent = '\u200B';
-    const symbol = document.createElement('span');
-    symbol.className = 'int-symbol';
-    symbol.textContent = '\u222B';
-    const lower = document.createElement('span');
-    lower.className = 'int-lower';
-    lower.textContent = '\u200B';
-    integral.appendChild(upper);
-    integral.appendChild(symbol);
-    integral.appendChild(lower);
-    range.deleteContents();
-    range.insertNode(integral);
-    const newRange = document.createRange();
-    newRange.selectNodeContents(upper);
-    newRange.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    updateSize();
-}
-
-function insertProd() {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const prod = document.createElement('span');
-    prod.className = 'math-prod';
-    const upper = document.createElement('span');
-    upper.className = 'prod-upper';
-    upper.textContent = '\u200B';
-    const symbol = document.createElement('span');
-    symbol.className = 'prod-symbol';
-    symbol.textContent = '\u220F';
-    const lower = document.createElement('span');
-    lower.className = 'prod-lower';
-    lower.textContent = '\u200B';
-    prod.appendChild(upper);
-    prod.appendChild(symbol);
-    prod.appendChild(lower);
-    range.deleteContents();
-    range.insertNode(prod);
-    const newRange = document.createRange();
-    newRange.selectNodeContents(upper);
-    newRange.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    updateSize();
-}
-
-function insertLimit() {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const lim = document.createElement('span');
-    lim.className = 'math-limit';
-    const upper = document.createElement('span');
-    upper.className = 'lim-upper';
-    upper.textContent = '\u200B';
-    const symbol = document.createElement('span');
-    symbol.className = 'lim-symbol';
-    symbol.textContent = 'lim';
-    const lower = document.createElement('span');
-    lower.className = 'lim-lower';
-    lower.textContent = '\u200B';
-    lim.appendChild(upper);
-    lim.appendChild(symbol);
-    lim.appendChild(lower);
-    range.deleteContents();
-    range.insertNode(lim);
-    const newRange = document.createRange();
-    newRange.selectNodeContents(lower);
-    newRange.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    updateSize();
-}
-
 function collectNumeratorContent(range, editorDiv) {
     let currentNode = range.startContainer;
     let currentOffset = range.startOffset;
     const fragment = document.createDocumentFragment();
     
     const separatorChars = /[+\-*/:><=\s]/;
+    
     let hasContent = false;
+    
     let nodeBeforeCursor = null;
     
     if (currentNode.nodeType === Node.TEXT_NODE) {
@@ -3237,6 +2010,7 @@ function collectNumeratorContent(range, editorDiv) {
     
     if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
         const textBefore = currentNode.textContent.substring(0, currentOffset);
+        
         let lastSepIndex = -1;
         for (let i = textBefore.length - 1; i >= 0; i--) {
             if (separatorChars.test(textBefore[i])) {
@@ -3308,6 +2082,7 @@ function startTextEdit(obj) {
     const editorDiv = document.createElement('div');
     editorDiv.className = 'text-edit-content';
     editorDiv.contentEditable = true;
+    editorDiv.spellcheck = false;
     editorDiv.style.color = obj.color;
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
@@ -3377,58 +2152,12 @@ function startTextEdit(obj) {
         }
         
         if (e.key === 'ArrowRight') {
-    let parent = node.parentElement;
-    
-    // Выход из знаменателя дроби
-    if (parent && parent.classList.contains('math-den')) {
-        e.preventDefault();
-        const frac = parent.parentElement;
-        const nextSibling = frac.nextSibling;
-        if (nextSibling) {
-            const newRange = document.createRange();
-            if (nextSibling.nodeType === Node.TEXT_NODE) {
-                newRange.setStart(nextSibling, 0);
-            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                newRange.selectNodeContents(nextSibling);
-                newRange.collapse(true);
-            }
-            sel.removeAllRanges();
-            sel.addRange(newRange);
-        } else {
-            const textNode = document.createTextNode('\u200B');
-            frac.parentNode.insertBefore(textNode, frac.nextSibling);
-            const newRange = document.createRange();
-            newRange.setStart(textNode, 0);
-            sel.removeAllRanges();
-            sel.addRange(newRange);
-        }
-        return;
-    }
-    
-    let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
-                  (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
-    
-    if (parent) {
-        // Выход из числителя дроби — переход к знаменателю
-        if (parent.classList.contains('math-num')) {
-            if (isAtEnd) {
+            let parent = node.parentElement;
+            
+            if (parent && parent.classList.contains('math-den')) {
                 e.preventDefault();
-                const denSpan = parent.parentElement.querySelector('.math-den');
-                if (denSpan) {
-                    const newRange = document.createRange();
-                    newRange.selectNodeContents(denSpan);
-                    newRange.collapse(true);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
-                return;
-            }
-        }
-        // Выход из верхнего/нижнего индекса
-        else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-            if (isAtEnd) {
-                e.preventDefault();
-                const nextSibling = parent.nextSibling;
+                const frac = parent.parentElement;
+                const nextSibling = frac.nextSibling;
                 if (nextSibling) {
                     const newRange = document.createRange();
                     if (nextSibling.nodeType === Node.TEXT_NODE) {
@@ -3441,7 +2170,7 @@ function startTextEdit(obj) {
                     sel.addRange(newRange);
                 } else {
                     const textNode = document.createTextNode('\u200B');
-                    parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
                     const newRange = document.createRange();
                     newRange.setStart(textNode, 0);
                     sel.removeAllRanges();
@@ -3449,86 +2178,116 @@ function startTextEdit(obj) {
                 }
                 return;
             }
+            
+            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+            
+            if (isAtEnd && parent) {
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const denSpan = parent.parentElement.querySelector('.math-den');
+                    if (denSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(denSpan);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const nextSibling = parent.nextSibling;
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+            }
         }
-    }
-}
         
         if (e.key === 'ArrowLeft') {
-    let parent = node.parentElement;
-    let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
-                    (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
-    
-    if (parent) {
-        // Выход из знаменателя дроби — переход к числителю
-        if (parent.classList.contains('math-den')) {
-            if (isAtStart) {
-                e.preventDefault();
-                const numSpan = parent.parentElement.querySelector('.math-num');
-                if (numSpan) {
-                    const newRange = document.createRange();
-                    newRange.selectNodeContents(numSpan);
-                    newRange.collapse(false);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
-                return;
-            }
-        }
-        // Выход из числителя дроби — к предыдущему узлу
-        else if (parent.classList.contains('math-num')) {
-            if (isAtStart) {
-                e.preventDefault();
-                const frac = parent.parentElement;
-                const prevSibling = frac.previousSibling;
-                if (prevSibling) {
-                    const newRange = document.createRange();
-                    if (prevSibling.nodeType === Node.TEXT_NODE) {
-                        newRange.setStart(prevSibling, prevSibling.textContent.length);
-                    } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                        newRange.selectNodeContents(prevSibling);
+            let parent = node.parentElement;
+            let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
+                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
+            
+            if (isAtStart && parent) {
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const numSpan = parent.parentElement.querySelector('.math-num');
+                    if (numSpan) {
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(numSpan);
                         newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
                     }
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                } else {
-                    const textNode = document.createTextNode('\u200B');
-                    frac.parentNode.insertBefore(textNode, frac);
-                    const newRange = document.createRange();
-                    newRange.setStart(textNode, 0);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
+                    return;
                 }
-                return;
+                if (parent.classList.contains('math-num')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const prevSibling = frac.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(prevSibling);
+                            newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        frac.parentNode.insertBefore(textNode, frac);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                    e.preventDefault();
+                    const prevSibling = parent.previousSibling;
+                    if (prevSibling) {
+                        const newRange = document.createRange();
+                        if (prevSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(prevSibling, prevSibling.textContent.length);
+                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                            newRange.selectNodeContents(prevSibling);
+                            newRange.collapse(false);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        parent.parentNode.insertBefore(textNode, parent);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
             }
         }
-        // Выход из верхнего/нижнего индекса
-        else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-            if (isAtStart) {
-                e.preventDefault();
-                const prevSibling = parent.previousSibling;
-                if (prevSibling) {
-                    const newRange = document.createRange();
-                    if (prevSibling.nodeType === Node.TEXT_NODE) {
-                        newRange.setStart(prevSibling, prevSibling.textContent.length);
-                    } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                        newRange.selectNodeContents(prevSibling);
-                        newRange.collapse(false);
-                    }
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                } else {
-                    const textNode = document.createTextNode('\u200B');
-                    parent.parentNode.insertBefore(textNode, parent);
-                    const newRange = document.createRange();
-                    newRange.setStart(textNode, 0);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
-                return;
-            }
-        }
-    }
-}
 
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -3545,17 +2304,19 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
-            // ✅ ВИПРАВЛЕННЯ: Оновлюємо локальний об'єкт миттєво
-            editingObject.text = editorDiv.innerText;
-            requestDraw(); 
+            // Оновлюємо і текст, і сегменти (для математичних полів) у реальному часі
+            const html = editorDiv.innerHTML;
+            const segments = htmlToSegments(html);
             
-            // ✅ ВИПРАВЛЕННЯ: Дебаунс відправки на сервер (щоб не спамити)
-            if (textUpdateTimer) clearTimeout(textUpdateTimer);
-            textUpdateTimer = setTimeout(() => {
-                if (socket && socket.connected) {
-                    socket.emit('update-all', objects);
-                }
-            }, 500); // Відправляємо через 500мс після останнього натискання
+            if (segments && segments.length > 0) {
+                editingObject.segments = segments;
+            } else {
+                delete editingObject.segments;
+            }
+            
+            editingObject.text = editorDiv.innerText;
+            editingObject.lastModified = Date.now();
+            sendOperation('update', editingObject);
         }
     });
     
@@ -3603,9 +2364,18 @@ function stopTextEdit(cancel = false) {
         }
         
         editingObject.text = editorDiv.innerText;
+        editingObject.lastModified = Date.now();
         
-        // ✅ ВИПРАВЛЕННЯ: Відправляємо на сервер тільки коли закінчили редагування
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        // Оновлюємо об'єкт в локальному сховищі
+        if (objects[editingObject.id]) {
+            objects[editingObject.id] = editingObject;
+            const idx = objectsArray.findIndex(o => o.id === editingObject.id);
+            if (idx !== -1) {
+                objectsArray[idx] = editingObject;
+            }
+        }
+        
+        sendOperation('update', editingObject);
     }
     if (textEditor.parentNode) {
         document.body.removeChild(textEditor);
@@ -3645,6 +2415,7 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
         }
         
         obj.size = Math.max(8, Math.min(150, startFontSize * scaleFactor));
+        obj.lastModified = Date.now();
         
         editorDiv.style.fontSize = (obj.size * scale) + 'px';
         updateSize();
@@ -3656,7 +2427,7 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        sendOperation('update', obj);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -3679,6 +2450,7 @@ function startTextDrag(obj, e, wrapper) {
         const c = getCoords(e);
         obj.x = c.x - dragStartX;
         obj.y = c.y - dragStartY;
+        obj.lastModified = Date.now();
         const bbox = getBBox(obj);
         wrapper.style.left = (bbox.x * scale + offsetX - 10) + 'px';
         wrapper.style.top = (bbox.y * scale + offsetY - 5) + 'px';
@@ -3691,7 +2463,7 @@ function startTextDrag(obj, e, wrapper) {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveHistory();
-        if (socket && socket.connected) socket.emit('update-all', objects);
+        sendOperation('update', obj);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -3704,12 +2476,11 @@ function startTextDrag(obj, e, wrapper) {
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
     
-    const clickedObj = [...objects].reverse().find(obj => {
-        if (obj.type === 'text') {
-            return hitTest(obj, coords.x, coords.y, 2);
-        }
-        return false;
-    });
+    const potentialIds = spatialIndex.query(coords.x, coords.y);
+const clickedObj = potentialIds
+    .map(id => objects[id])
+    .filter(obj => obj && obj.type === 'text' && hitTest(obj, coords.x, coords.y, 2))
+    .sort((a, b) => objectsArray.indexOf(b) - objectsArray.indexOf(a))[0];
 
     if (clickedObj) {
         e.preventDefault();
@@ -3720,19 +2491,21 @@ canvas.addEventListener('dblclick', (e) => {
 });
 
 canvas.addEventListener('mousedown', (e) => {
+    // Пропускаем, если это второй клик (он обрабатывается в dblclick)
     if (e.detail === 2) {
         return;
     }
     
     const coords = getCoords(e);
     
+    // --- ЛОГИКА ПРИ АКТИВНОМ РЕДАКТОРЕ ТЕКСТА ---
     if (textEditor && editingObject) {
-        const clickedText = [...objects].reverse().find(obj => {
-            if (obj.type === 'text' && obj !== editingObject) {
-                return hitTest(obj, coords.x, coords.y, 2);
-            }
-            return false;
-        });
+        // Используем индекс для быстрого поиска другого текстового объекта под курсором
+        const potentialIds = spatialIndex.query(coords.x, coords.y);
+        const clickedText = potentialIds
+            .map(id => objects[id])
+            .filter(obj => obj && obj.type === 'text' && obj !== editingObject && hitTest(obj, coords.x, coords.y, 2))
+            .sort((a, b) => objectsArray.indexOf(b) - objectsArray.indexOf(a))[0]; // Берем самый верхний
         
         if (clickedText) {
             saveHistory();
@@ -3745,6 +2518,7 @@ canvas.addEventListener('mousedown', (e) => {
                 delete editingObject.segments;
             }
             editingObject.text = editorDiv.innerText;
+            editingObject.lastModified = Date.now();
             
             if (textEditor.parentNode) {
                 document.body.removeChild(textEditor);
@@ -3757,6 +2531,7 @@ canvas.addEventListener('mousedown', (e) => {
         }
     }
     
+    // Если кликнули мимо редактора, закрываем его
     if (textEditor) { 
         stopTextEdit(); 
         selectedObjects = [];
@@ -3764,20 +2539,22 @@ canvas.addEventListener('mousedown', (e) => {
         return; 
     }
     
+    // --- ЛОГИКА ВЫБОРА ИНСТРУМЕНТА ---
     if (currentTool === 'shape' && selectedShapeType) {
         startDrawing(coords);
         return;
     }
 
     if (currentTool !== 'select' && currentTool !== 'hand') {
-        if (currentTool === 'eraser') eraseAt(coords.x, coords.y);
-        else if (currentTool === 'text') {
-            const existingText = [...objects].reverse().find(obj => {
-                if (obj.type === 'text') {
-                    return hitTest(obj, coords.x, coords.y, 2);
-                }
-                return false;
-            });
+        if (currentTool === 'eraser') {
+            eraseAt(coords.x, coords.y);
+        } else if (currentTool === 'text') {
+            // Быстрый поиск существующего текста через индекс
+            const potentialIds = spatialIndex.query(coords.x, coords.y);
+            const existingText = potentialIds
+                .map(id => objects[id])
+                .filter(obj => obj && obj.type === 'text' && hitTest(obj, coords.x, coords.y, 2))
+                .sort((a, b) => objectsArray.indexOf(b) - objectsArray.indexOf(a))[0];
             
             if (existingText) {
                 startTextEdit(existingText);
@@ -3785,25 +2562,32 @@ canvas.addEventListener('mousedown', (e) => {
                 return;
             }
             createNewText(coords);
-        }
-        else if (currentTool === 'grid') {
+        } else if (currentTool === 'grid') {
             startDrawing(coords);
             return;
+        } else {
+            startDrawing(coords);
         }
-        else startDrawing(coords);
         return;
     }
     
+    // --- ИНСТРУМЕНТ "ВЫБОР" (SELECT) ---
     if (currentTool === 'select') {
         let clickedObj = null;
         let clickedHandle = null;
         
+        // 1. Проверяем, не попали ли мы в ручку изменения размера (Handle)
         if (selectedObjects.length > 0) {
             clickedHandle = hitHandle(coords.x, coords.y);
         }
         
         if (!clickedHandle) {
-            clickedObj = [...objects].reverse().find(obj => hitTest(obj, coords.x, coords.y, 2));
+            // 2. Ищем объект через пространственный индекс
+            const potentialIds = spatialIndex.query(coords.x, coords.y);
+            clickedObj = potentialIds
+                .map(id => objects[id])
+                .filter(obj => obj && hitTest(obj, coords.x, coords.y, 2))
+                .sort((a, b) => objectsArray.indexOf(b) - objectsArray.indexOf(a))[0]; // Самый верхний
         }
         
         if (clickedHandle) {
@@ -3813,6 +2597,7 @@ canvas.addEventListener('mousedown', (e) => {
         }
         
         if (clickedObj) {
+            // Логика добавления в выделение (Shift для мультивыбора)
             if (!selectedObjects.includes(clickedObj)) {
                 if (!shiftKey) selectedObjects = [];
                 selectedObjects.push(clickedObj);
@@ -3834,13 +2619,16 @@ canvas.addEventListener('mousedown', (e) => {
             
             requestDraw();
         } else {
+            // Клик в пустое место -> начинаем выделение рамкой
             selectedObjects = [];
             isSelectingArea = true;
             selectionStart = { x: coords.x, y: coords.y };
             selectionEnd = { x: coords.x, y: coords.y };
             requestDraw();
         }
-    } else if (currentTool === 'hand') {
+    } 
+    // --- ИНСТРУМЕНТ "РУКА" (HAND) ---
+    else if (currentTool === 'hand') {
         isDragging = true;
         dragStartX = coords.rawX;
         dragStartY = coords.rawY;
@@ -3956,11 +2744,13 @@ canvas.addEventListener('mouseup', () => {
         const minY = Math.min(selectionStart.y, selectionEnd.y);
         const maxY = Math.max(selectionStart.y, selectionEnd.y);
         
-        const newSelection = objects.filter(obj => {
-            const bbox = getBBox(obj);
-            if (!bbox) return false;
-            return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
-        });
+        const potentialIds = spatialIndex.query(minX, minY, maxX - minX, maxY - minY);
+const newSelection = potentialIds
+    .map(id => objects[id])
+    .filter(obj => {
+        const bbox = getBBox(obj);
+        return !(bbox.x > maxX || bbox.x + bbox.w < minX || bbox.y > maxY || bbox.y + bbox.h < minY);
+    });
         
         if (newSelection.length > 0) {
             if (!shiftKey) selectedObjects = [];
@@ -3974,34 +2764,57 @@ canvas.addEventListener('mouseup', () => {
     
     if (isDrawing && currentPath) {
         if (currentPath.type === 'pen') {
-            // ✅ ВИПРАВЛЕННЯ: Додаємо точку, якщо це був просто клік (без руху)
-            if (currentPath.points.length === 0) {
-                currentPath.points.push({ x: currentPath.x, y: currentPath.y });
-            }
-            if (currentPath.points.length > 0) {
+            if (currentPath.points.length > 1) {
+                // Обычная линия (если было перемещение)
                 saveHistory();
-                objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', currentPath);
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
+            } else {
+                // Одиночный клик -> Точка среднего размера
+                saveHistory();
+                const dot = {
+                    type: 'shape',
+                    shapeType: 'circle',
+                    id: generateId(),
+                    x: currentPath.x - 1, 
+                    y: currentPath.y - 1,
+                    w: 1,
+                    h: 1,
+                    color: currentPath.color,
+                    width: currentPath.width,
+                    rotation: 0
+                };
+                objects[dot.id] = dot;
+                objectsArray.push(dot);
+                sendOperation('add', dot);
             }
         } else if (currentPath.type === 'shape') {
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
                 currentPath.type = 'shape';
                 currentPath.shapeType = selectedShapeType;
-                objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', currentPath);
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
             }
         } else if (currentPath.type === 'rect') {
             if (Math.abs(currentPath.w) > 2 && Math.abs(currentPath.h) > 2) {
                 saveHistory();
-                objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', currentPath);
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
             }
         } else if (currentPath.type === 'line' || currentPath.type === 'arrow') {
             if (Math.abs(currentPath.ex - currentPath.x) > 2 || Math.abs(currentPath.ey - currentPath.y) > 2) {
                 saveHistory();
-                objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', currentPath);
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
             }
         } else if (currentPath.type === 'grid') {
             if (Math.abs(currentPath.w) > 50 && Math.abs(currentPath.h) > 50) {
@@ -4010,8 +2823,10 @@ canvas.addEventListener('mouseup', () => {
                 currentPath.gridSpacing = 40;
                 currentPath.axisColor = '#000000';
                 currentPath.gridColor = '#cccccc';
-                objects.push(currentPath);
-                if (socket && socket.connected) socket.emit('new-object', currentPath);
+                currentPath.id = generateId();
+                objects[currentPath.id] = currentPath;
+                objectsArray.push(currentPath);
+                sendOperation('add', currentPath);
             }
         }
         isDrawing = false;
@@ -4022,9 +2837,13 @@ canvas.addEventListener('mouseup', () => {
     if (isDragging || isResizing || isRotating) {
         if (isRotating || isResizing || (isDragging && selectedObjects.length > 0)) {
             saveHistory();
+            // Відправляємо оновлення для всіх переміщених об'єктів
+            selectedObjects.forEach(obj => {
+                obj.lastModified = Date.now();
+                sendOperation('update', obj);
+            });
         }
         isDragging = false; isResizing = false; isRotating = false;
-        if (socket && socket.connected) socket.emit('update-all', objects);
     }
 });
 
@@ -4035,9 +2854,13 @@ canvas.addEventListener('mouseup', () => {
 function eraseAt(mx, my) {
     const eraserRadius = 30 / scale;
     let changed = false;
+    const toDelete = [];
     
-    for (let i = objects.length - 1; i >= 0; i--) {
-        const obj = objects[i];
+    // Быстро находим объекты в зоне действия ластика
+    const potentialIds = spatialIndex.query(mx - eraserRadius, my - eraserRadius, eraserRadius * 2, eraserRadius * 2);
+    const toCheck = potentialIds.map(id => objects[id]).filter(Boolean);
+
+    for (let obj of toCheck) {
         let shouldRemove = false;
         
         if (obj.type === 'pen') {
@@ -4050,27 +2873,32 @@ function eraseAt(mx, my) {
             }
         } else if (obj.type === 'line' || obj.type === 'arrow') {
             if (distToSegment(mx, my, obj.x, obj.y, obj.ex, obj.ey) < eraserRadius) shouldRemove = true;
-        } else if (obj.type === 'rect' || obj.type === 'shape') {
+        } else {
+            // Для всех остальных (rect, shape, text, image, grid) используем BBox
             const bbox = getBBox(obj);
-            if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
-                shouldRemove = true;
-            }
-        } else if (obj.type === 'text' || obj.type === 'image' || obj.type === 'grid') {
-            const bbox = getBBox(obj);
-            if (bbox && mx >= bbox.x && mx <= bbox.x + bbox.w && my >= bbox.y && my <= bbox.y + bbox.h) {
+            if (bbox && mx >= bbox.x - eraserRadius && mx <= bbox.x + bbox.w + eraserRadius && 
+                my >= bbox.y - eraserRadius && my <= bbox.y + bbox.h + eraserRadius) {
                 shouldRemove = true;
             }
         }
         
         if (shouldRemove) {
-            saveHistory();
-            objects.splice(i, 1);
-            selectedObjects = selectedObjects.filter(o => o !== obj);
-            changed = true;
+            toDelete.push(obj.id);
         }
     }
-    if (changed) { 
-        if (socket && socket.connected) socket.emit('update-all', objects); 
+    
+    if (toDelete.length > 0) { 
+        saveHistory();
+        toDelete.forEach(id => {
+            const obj = objects[id];
+            if (obj) {
+                spatialIndex.removeObject(obj);
+                delete objects[id];
+                objectsArray = objectsArray.filter(o => o.id !== id);
+                selectedObjects = selectedObjects.filter(o => o.id !== id);
+                sendOperation('delete', { id });
+            }
+        });
         requestDraw(); 
     }
 }
@@ -4148,6 +2976,7 @@ function startResizeGroup(handle, e) {
             
             selectedObjects.forEach(obj => {
                 obj.rotation = (startResizeState.originalRotation + deltaAngle) % 360;
+                obj.lastModified = Date.now();
             });
         } else {
             const oldBBox = startResizeState.groupBBox;
@@ -4202,6 +3031,8 @@ function startResizeGroup(handle, e) {
                         o.size = Math.max(8, state.obj.size * avgScale);
                     }
                 }
+                
+                o.lastModified = Date.now();
             });
         }
         requestDraw();
@@ -4212,8 +3043,11 @@ function startResizeGroup(handle, e) {
         isRotating = false;
         document.removeEventListener('mousemove', onMove); 
         document.removeEventListener('mouseup', onUp); 
-        saveHistory(); 
-        if (socket && socket.connected) socket.emit('update-all', objects); 
+        saveHistory();
+        // Оновлюємо всі об'єкти
+        selectedObjects.forEach(obj => {
+            sendOperation('update', obj);
+        });
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -4226,16 +3060,20 @@ function startRotate(e) {}
 // ============================================
 
 function createNewText(coords) {
+    const id = generateId();
     const obj = {
-        type: 'text', x: coords.x, y: coords.y, 
+        type: 'text', 
+        id: id,
+        x: coords.x, 
+        y: coords.y, 
         text: '', 
         color: currentPenColor,
-        size: 20, isBold: document.getElementById('boldText').checked,
+        size: 20, 
+        isBold: document.getElementById('boldText').checked,
         rotation: 0
     };
     saveHistory();
-    objects.push(obj); selectedObjects = [obj];
-    if (socket && socket.connected) socket.emit('new-object', obj);
+    sendOperation('add', obj);
     requestDraw();
     startTextEdit(obj);
 }
@@ -4263,37 +3101,23 @@ function setTool(tool) {
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = () => setTool(btn.dataset.tool));
 
 // ============================================
-// МАТЕМАТИЧНІ КНОПКИ
-// ============================================
-
-const mathBtn = (id, fn) => {
-    const el = document.getElementById(id);
-    if (el) el.onclick = fn;
-};
-
-mathBtn('mathFracBtn', () => {
-    if (typeof insertFraction === 'function' && textEditor) {
-        insertFraction(textEditor, collectNumeratorContent(window.getSelection().getRangeAt(0), textEditor));
-    }
-});
-mathBtn('mathSqrtBtn', () => { if (typeof insertSqrt === 'function') insertSqrt(); });
-mathBtn('mathSupBtn', () => { if (typeof insertMathField === 'function') insertMathField('sup'); });
-mathBtn('mathSubBtn', () => { if (typeof insertMathField === 'function') insertMathField('sub'); });
-mathBtn('mathSumBtn', () => { if (typeof insertSum === 'function') insertSum(); });
-mathBtn('mathIntBtn', () => { if (typeof insertIntegral === 'function') insertIntegral(); });
-mathBtn('mathProdBtn', () => { if (typeof insertProd === 'function') insertProd(); });
-mathBtn('mathLimBtn', () => { if (typeof insertLimit === 'function') insertLimit(); });
-
-// ============================================
 // КНОПКИ ПАНЕЛІ
 // ============================================
 
 document.getElementById('clearBtn').onclick = () => { 
     if(confirm("Очистити дошку?")) {
         saveHistory();
-        objects = []; selectedObjects = [];
+        
+        // Відправляємо операцію очищення
+        if (syncState.connected) {
+            socket.emit('delete-board');
+        }
+        
+        objects = {};
+        objectsArray = [];
+        selectedObjects = [];
+        
         if (textEditor) stopTextEdit();
-        if (socket && socket.connected) socket.emit('delete-board');
         requestDraw();
     }
 };
@@ -4364,8 +3188,10 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
+                    const id = generateId();
                     const obj = { 
                         type: 'image', 
+                        id: id,
                         src: event.target.result, 
                         x: centerX - img.width/4, 
                         y: centerY - img.height/4, 
@@ -4373,10 +3199,16 @@ window.addEventListener('paste', (e) => {
                         h: img.height/2, 
                         rotation: 0 
                     };
-                    saveHistory();
-                    objects.push(obj); 
+                    
+                    // Сначала добавляем в локальный стейт
+                    objects[id] = obj;
+                    objectsArray.push(obj);
                     selectedObjects = [obj];
-                    if (socket && socket.connected) socket.emit('new-object', obj); 
+                    
+                    // Затем отправляем на сервер
+                    sendOperation('add', obj);
+                    
+                    saveHistory();
                     requestDraw();
                 };
             };
@@ -4386,80 +3218,150 @@ window.addEventListener('paste', (e) => {
 });
 
 // ============================================
-// SOCKET.IO ПОДІЇ (ВИПРАВЛЕНО)
+// SOCKET.IO ПОДІЇ - ВИПРАВЛЕНА СИНХРОНІЗАЦІЯ
 // ============================================
 
-socket.on('init-history', (h) => { 
-    let currentEditText = null;
-    let currentEditHtml = null;
-    
-    if (editingObject && textEditor) {
-        const editorDiv = textEditor.querySelector('.text-edit-content');
-        currentEditText = editorDiv.innerText;
-        currentEditHtml = editorDiv.innerHTML;
-    }
+socket.on('connect', () => {
+    updateConnectionStatus('syncing', 'Синхронізація...');
+    syncState.connected = true;
+});
 
-    objects = h;
-    
-    if (editingObject && currentEditText !== null) {
-        const localObj = objects.find(o => o === editingObject);
-        if (localObj) {
-            localObj.text = currentEditText;
-        }
-    }
+socket.on('disconnect', () => {
+    updateConnectionStatus('disconnected', 'Відключено');
+    syncState.connected = false;
+});
 
-    historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
+socket.on('connect_error', () => {
+    updateConnectionStatus('disconnected', 'Немає зв\'язку');
+    syncState.connected = false;
+});
+
+// Повна синхронізація при підключенні
+// Повна синхронізація при підключенні
+// Повна синхронізація при підключенні
+socket.on('full-sync', (data) => {
+    console.log('[CLIENT] Отримано повну синхронізацію:', data.objects?.length, 'об\'єктів');
+    
+    // 1. Очищаємо текущее состояние
+    objects = {};
+    objectsArray = [];
+    selectedObjects = [];
+    
+    // 2. Заполняем объекты из данных сервера
+    if (data.objects && Array.isArray(data.objects)) {
+        data.objects.forEach(obj => {
+            if (obj && obj.id) {
+                objects[obj.id] = obj;
+                objectsArray.push(obj);
+            }
+        });
+    }
+    
+    // === НОВОЕ: Заполняем пространственный индекс для всех полученных объектов ===
+    spatialIndex.clear(); // Очищаем старый индекс
+    objectsArray.forEach(obj => {
+        spatialIndex.updateObject(obj);
+    });
+    // ============================================================================
+    
+    syncState.lastKnownOperationId = data.lastOperationId || 0;
+    
+    // 3. Инициализируем историю (состояние на момент загрузки)
+    historyStack = [{ 
+        objects: JSON.parse(JSON.stringify(objectsArray)), 
+        view: { scale, offsetX, offsetY } 
+    }];
     historyIndex = 0;
+    
+    // 4. Обработка загрузки изображений
     let imagesLoaded = 0;
-    const totalImages = objects.filter(o => o.type === 'image').length;
+    const totalImages = objectsArray.filter(o => o.type === 'image').length;
     
     if (totalImages === 0) {
+        // Если картинок нет, сразу ставим статус "Подключено"
+        updateConnectionStatus('connected', 'Підключено');
         requestDraw();
     } else {
-        objects.forEach(obj => {
+        // Если есть, ждем загрузки всех src, чтобы избежать "прыжков" при отрисовке
+        updateConnectionStatus('syncing', `Завантаження зображень...`);
+        objectsArray.forEach(obj => {
             if (obj.type === 'image') {
-                obj._img = new Image();
-                obj._img.src = obj.src;
-                obj._img.onload = () => {
+                const img = new Image();
+                img.src = obj.src;
+                img.onload = () => {
+                    imageCache[obj.src] = img;
                     imagesLoaded++;
-                    if (imagesLoaded >= totalImages) requestDraw();
+                    if (imagesLoaded >= totalImages) {
+                        updateConnectionStatus('connected', 'Підключено');
+                        requestDraw();
+                    }
                 };
-                obj._img.onerror = () => {
+                img.onerror = () => {
                     imagesLoaded++;
-                    if (imagesLoaded >= totalImages) requestDraw();
+                    if (imagesLoaded >= totalImages) {
+                        updateConnectionStatus('connected', 'Підключено');
+                        requestDraw();
+                    }
                 };
             }
         });
     }
-});
+}); // <--- ОСЬ ЦЯ ДУЖКА МАЄ БУТИ ТУТ, ПІСЛЯ ЦИКЛУ
 
-socket.on('new-object', (o) => { 
-    objects.push(o); 
-    saveHistory();
-    requestDraw(); 
-});
-
-socket.on('update-all', (newObjects) => { 
-    // ✅ ВИПРАВЛЕННЯ: Оскільки сервер тепер відправляє дані ВСІМ (включно з нами),
-    // ми просто приймаємо їх як "істину". Це гарантує синхронізацію.
-    // Якщо ми зараз редагуємо текст, ми все одно оновлюємо масив, 
-    // але локальний текст в редакторі залишається незмінним до blur.
+// Обробка інкрементальних операцій (рухи, додавання, видалення в реальному часі)
+socket.on('operation', (op) => {
+    console.log('[CLIENT] Отримано операцію:', op.type, op.objectId);
     
-    objects = newObjects; 
-    
-    if (!isUndoing) {
-        saveHistory();
+    // Оновлюємо lastKnownOperationId
+    if (op.id > syncState.lastKnownOperationId) {
+        syncState.lastKnownOperationId = op.id;
     }
-    requestDraw(); 
+    
+    // Застосовуємо операцію
+    applyOperation(op);
+});
+// Повна синхронізація при підключенні
+socket.on('operations-batch', (data) => {
+    console.log('[CLIENT] Отримано пакет операцій:', data.operations?.length);
+    
+    if (data.operations && Array.isArray(data.operations)) {
+        data.operations.forEach(op => {
+            if (op.id > syncState.lastKnownOperationId) {
+                syncState.lastKnownOperationId = op.id;
+            }
+            applyOperation(op);
+        });
+    }
+    
+    if (data.currentOperationId > syncState.lastKnownOperationId) {
+        syncState.lastKnownOperationId = data.currentOperationId;
+    }
 });
 
-socket.on('board-deleted', () => { 
-    objects = []; 
-    selectedObjects = []; 
+socket.on('batch-operation', (data) => {
+    console.log('[CLIENT] Отримано batch операцію:', data.operations?.length);
+    
+    if (data.operations && Array.isArray(data.operations)) {
+        applyBatchOperations(data.operations);
+    }
+});
+
+socket.on('board-cleared', () => {
+    console.log('[CLIENT] Дошку очищено');
+    objects = {};
+    objectsArray = [];
+    selectedObjects = [];
     historyStack = [];
     historyIndex = -1;
-    requestDraw(); 
+    requestDraw();
 });
+
+// Періодична синхронізація для отримання пропущених операцій
+setInterval(() => {
+    if (syncState.connected) {
+        socket.emit('sync', { lastKnownOperationId: syncState.lastKnownOperationId });
+    }
+}, 5000);
 
 </script>
 </body>
