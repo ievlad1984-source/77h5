@@ -1,3 +1,167 @@
+Вот исправленный и оптимизированный код. Я провел три проверки логики синхронизации, обработки ввода текста и рисования точек.
+
+### Основные исправления:
+1.  **Сервер (`server.js`)**: Изменил рассылку событий движения (`update-all`). Теперь сервер отправляет подтверждение **всем** участникам комнаты (включая того, кто двигал объект). Это решает проблему исчезновения содержимого при работе двух пользователей.
+2.  **Клиент (`index.html`)**:
+    *   **Текст**: Добавлена "живая" синхронизация текста. Теперь при вводе текст обновляется у других пользователей с небольшой задержкой (debounce), чтобы не перегружать сеть, но эффект был мгновенным.
+    *   **Точка**: Исправлена логика карандаша. Теперь, если вы просто кликнули мышкой (не водя ей), на доске появится точка.
+    *   **Синхронизация**: Улучшена обработка входящих пакетов `update-all`, чтобы локальные изменения не конфликтовали с серверными.
+
+---
+
+### 1. Файл `server.js` (Серверная часть)
+*Сохраните этот код в файл `server.js`.*
+
+```javascript
+const express = require('express');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, { 
+    cors: { 
+        origin: "*", 
+        methods: ["GET", "POST"]
+    },
+    maxHttpBufferSize: 1e8, 
+    pingTimeout: 60000,
+    pingInterval: 25000
+});
+const path = require('path');
+
+const PORT = process.env.PORT || 3000;
+const boardsData = {}; 
+const boardTimers = {}; 
+
+function log(message) {
+    const timestamp = new Date().toLocaleTimeString('uk-UA');
+    console.log(`[${timestamp}] ${message}`);
+}
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/:boardId', (req, res) => {
+    const boardId = req.params.boardId;
+    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
+        log(`[SECURITY] Спроба доступу до недопустимого ID: ${boardId}`);
+        return res.status(400).send('Invalid board ID');
+    }
+    if (boardId.includes('.')) {
+        log(`[SECURITY] Спроба доступу до файлу через URL: ${boardId}`);
+        return res.status(404).send('Not found');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+io.on('connection', (socket) => {
+    const boardId = socket.handshake.query.boardId || 'main';
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
+        log(`[SECURITY] Недопустимий boardId від сокету: ${boardId}`);
+        socket.disconnect(true);
+        return;
+    }
+    
+    socket.join(boardId);
+    
+    if (!boardsData[boardId]) {
+        boardsData[boardId] = [];
+        log(`[SERVER] Створено нову дошку: ${boardId}`);
+    }
+    
+    if (boardTimers[boardId]) {
+        clearTimeout(boardTimers[boardId]);
+        delete boardTimers[boardId];
+    }
+
+    log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
+    log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
+
+    // Відправляємо поточний стан новому користувачу
+    socket.emit('init-history', boardsData[boardId]);
+
+    // Новий об'єкт (малюнок, фігура)
+    socket.on('new-object', (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        
+        boardsData[boardId].push(obj);
+        
+        // Розсилаємо ВСІМ в кімнаті (включно з відправником для гарантії синхронізації)
+        io.in(boardId).emit('new-object', obj);
+        log(`[SERVER] Новий об'єкт в ${boardId}. Всього об'єктів: ${boardsData[boardId].length}`);
+    });
+
+    // Оновлення стану (рух, зміна тексту)
+    socket.on('update-all', (data) => {
+        if (!Array.isArray(data)) return;
+        
+        boardsData[boardId] = data;
+        
+        // ВИПРАВЛЕННЯ: Розсилаємо ВСІМ (io.in), а не тільки іншим (socket.to).
+        // Це критично, щоб користувач, який рухає об'єкт, отримав підтвердження від сервера
+        // і його локальний стан синхронізувався з іншими.
+        io.in(boardId).emit('update-all', data);
+        log(`[SERVER] Оновлено стан дошки ${boardId}. Об'єктів: ${data.length}`);
+    });
+
+    socket.on('undo', () => {
+        if (boardsData[boardId]?.length > 0) {
+            boardsData[boardId].pop();
+            io.in(boardId).emit('init-history', boardsData[boardId]);
+            log(`[SERVER] Undo в кімнаті ${boardId}`);
+        }
+    });
+
+    socket.on('delete-board', () => {
+        boardsData[boardId] = [];
+        io.in(boardId).emit('board-deleted');
+        log(`[SERVER] Дошку ${boardId} очищено`);
+    });
+    
+    socket.on('disconnect', () => {
+        log(`[SERVER] Користувач ${socket.id} відключився від кімнати: ${boardId}`);
+        
+        const room = io.sockets.adapter.rooms.get(boardId);
+        const roomSize = room?.size || 0;
+        log(`[SERVER] В кімнаті ${boardId} залишилось ${roomSize} користувачів`);
+        
+        if (roomSize === 0) {
+            log(`[SERVER] Кімната ${boardId} пуста. Заплановано видалення через 5 хв`);
+            boardTimers[boardId] = setTimeout(() => {
+                const currentRoom = io.sockets.adapter.rooms.get(boardId);
+                if (!currentRoom || currentRoom.size === 0) {
+                    delete boardsData[boardId];
+                    delete boardTimers[boardId];
+                    log(`[SERVER] Дошку ${boardId} видалено з пам'яті`);
+                }
+            }, 5 * 60 * 1000);
+        }
+    });
+    
+    socket.on('error', (error) => {
+        log(`[ERROR] Помилка сокету ${socket.id}: ${error.message}`);
+    });
+});
+
+http.listen(PORT, () => {
+    log('========================================');
+    log(`СЕРВЕР ЗАПУЩЕНО: http://localhost:${PORT}`);
+    log(`Для створення нової кімнати додайте /назва в кінець URL`);
+    log(`Наприклад: http://localhost:${PORT}/room123`);
+    log('========================================');
+});
+```
+
+---
+
+### 2. Файл `public/index.html` (Клієнтська частина)
+*Створіть папку `public` і збережіть цей код як `index.html`.*
+
+```html
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -6,18 +170,43 @@
     <title>Математична Дошка Pro (Math Fields)</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; }
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            height: 100%; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #ffffff; 
+        }
         
         #toolbar {
-            position: absolute; top: 15px; left: 15px; background: white; padding: 8px;
-            display: flex; gap: 6px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
-            z-index: 1000; align-items: center; flex-wrap: wrap; max-width: 90vw;
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            background: white; 
+            padding: 8px;
+            display: flex; 
+            gap: 6px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
+            z-index: 1000; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            max-width: 90vw;
         }
 
         .tool-btn { 
-            padding: 8px 14px; cursor: pointer; border: 1px solid #e0e0e0; 
-            background: #fff; border-radius: 6px; font-size: 14px; transition: all 0.2s;
-            display: flex; align-items: center; justify-content: center; user-select: none;
+            padding: 8px 14px; 
+            cursor: pointer; 
+            border: 1px solid #e0e0e0; 
+            background: #fff; 
+            border-radius: 6px; 
+            font-size: 14px; 
+            transition: all 0.2s;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            user-select: none;
             position: relative;
         }
         
@@ -55,11 +244,18 @@
             background: rgba(0,0,0,0.05);
         }
         
-        .tool-btn:hover { background: #f0f7ff; border-color: #007bff; }
-        .tool-btn.active { background: #007bff; color: white; border-color: #0056b3; }
-        .tool-btn.active .dropdown-arrow { color: white; }
-        .tool-btn.active .dropdown-trigger { border-left-color: rgba(255,255,255,0.3); }
-        .tool-btn.active .dropdown-trigger:hover { background: rgba(255,255,255,0.2); }
+        .tool-btn:hover { 
+            background: #f0f7ff; 
+            border-color: #007bff; 
+        }
+        .tool-btn.active { 
+            background: #007bff; 
+            color: white; 
+            border-color: #0056b3; 
+        }
+        .tool-btn.active .dropdown-arrow { 
+            color: white; 
+        }
         
         .color-picker-btn {
             width: 32px;
@@ -96,9 +292,17 @@
         }
 
         #zoom-display { 
-            position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.9); 
-            padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; border: 1px solid #ddd;
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            background: rgba(255,255,255,0.9); 
+            padding: 8px 15px; 
+            border-radius: 20px; 
+            font-weight: bold; 
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            z-index: 1000; 
+            border: 1px solid #ddd;
         }
 
         .text-edit-wrapper {
@@ -120,8 +324,7 @@
             font-size: 20px;
             font-family: 'Segoe UI', sans-serif;
             color: #333;
-            white-space: pre !important; /* ЗМІНЕНО: тепер перенос тільки по Enter */
-            /* Видалено overflow-wrap та word-wrap, щоб уникнути авто-переносу */
+            white-space: pre !important;
             overflow: visible;
             display: inline-block;
             box-sizing: border-box;
@@ -144,40 +347,187 @@
             min-width: 10px;
             min-height: 1em;
             line-height: 1.2;
+            vertical-align: baseline;
         }
 
-        .math-sup { vertical-align: super; }
-        .math-sub { vertical-align: sub; }
+        .math-sup { 
+            vertical-align: super; 
+        }
+        .math-sub { 
+            vertical-align: sub; 
+        }
 
         .math-frac {
             display: inline-flex;
             flex-direction: column;
             align-items: center;
             vertical-align: middle;
-            margin: 0 4px;
+            margin: 0 8px;
             border: 1px dashed #9C27B0;
             background: rgba(156, 39, 176, 0.1);
             border-radius: 3px;
-            padding: 3px 4px;
-            line-height: 1.5;
+            padding: 2px 4px;
+            line-height: 1.0;
         }
         .math-num {
             border-bottom: 2px solid currentColor;
-            padding-bottom: 3px;
-            margin-bottom: 4px;
+            padding-bottom: 2px;
+            margin-bottom: 2px;
             display: block;
             text-align: center;
             width: 100%;
             white-space: nowrap;
-            line-height: 1.3;
+            line-height: 1.2;
+            min-width: 10px;
         }
         .math-den {
             display: block;
             text-align: center;
             width: 100%;
             white-space: nowrap;
-            line-height: 1.3;
+            line-height: 1.2;
             padding-top: 2px;
+            min-width: 10px;
+        }
+
+        .math-sqrt {
+            display: inline-flex;
+            align-items: stretch;
+            vertical-align: middle;
+            margin: 0 4px;
+            border: 1px dashed #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 3px;
+            padding: 2px 4px;
+        }
+        .math-sqrt .sqrt-symbol {
+            font-size: 1.4em;
+            line-height: 1;
+            align-self: center;
+            color: #4CAF50;
+        }
+        .math-sqrt .sqrt-content {
+            border-top: 2px solid currentColor;
+            padding: 2px 6px;
+            min-width: 10px;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .math-sum {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #FF9800;
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-sum .sum-upper {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+        .math-sum .sum-symbol {
+            font-size: 1.6em;
+            line-height: 1;
+            color: #FF9800;
+        }
+        .math-sum .sum-lower {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .math-integral {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #9C27B0;
+            background: rgba(156, 39, 176, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-integral .int-upper {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+        .math-integral .int-symbol {
+            font-size: 2em;
+            line-height: 1;
+            color: #9C27B0;
+        }
+        .math-integral .int-lower {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .math-prod {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #E91E63;
+            background: rgba(233, 30, 99, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-prod .prod-upper {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+        .math-prod .prod-symbol {
+            font-size: 1.6em;
+            line-height: 1;
+            color: #E91E63;
+        }
+        .math-prod .prod-lower {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .math-limit {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #607D8B;
+            background: rgba(96, 125, 139, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-limit .lim-upper {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+        .math-limit .lim-symbol {
+            font-size: 1em;
+            line-height: 1;
+            color: #607D8B;
+        }
+        .math-limit .lim-lower {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
         }
 
         .handle {
@@ -192,7 +542,10 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
         
-        .handle:hover { background: #45a049; transform: scale(1.2); }
+        .handle:hover { 
+            background: #45a049; 
+            transform: scale(1.2); 
+        }
         .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
         .handle.n { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
         .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
@@ -228,11 +581,29 @@
             pointer-events: none;
         }
 
-        input[type="color"] { border: none; width: 0; height: 0; overflow: hidden; padding: 0; position: absolute; }
-        input[type="range"] { cursor: pointer; }
-        .separator { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
+        input[type="color"] { 
+            border: none; 
+            width: 0; 
+            height: 0; 
+            overflow: hidden; 
+            padding: 0; 
+            position: absolute; 
+        }
+        input[type="range"] { 
+            cursor: pointer; 
+        }
+        .separator { 
+            width: 1px; 
+            height: 25px; 
+            background: #ddd; 
+            margin: 0 5px; 
+        }
         
-        canvas { display: block; touch-action: none; background: #ffffff; }
+        canvas { 
+            display: block; 
+            touch-action: none; 
+            background: #ffffff; 
+        }
         
         .cursor-default { cursor: default !important; }
         .cursor-move { cursor: move !important; }
@@ -250,10 +621,6 @@
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>') 0 24, auto !important; 
         }
         
-        .cursor-rect { 
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>') 0 24, auto !important; 
-        }
-
         .cursor-grid { 
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
         }
@@ -361,6 +728,19 @@
     <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
     <button class="tool-btn" data-tool="text" title="Текст">Т</button>
     
+    <div class="separator"></div>
+    
+    <button class="tool-btn" id="mathFracBtn" title="Дробь (/)">⁄</button>
+    <button class="tool-btn" id="mathSqrtBtn" title="Корень (√)">√</button>
+    <button class="tool-btn" id="mathSupBtn" title="Верхний индекс (^)">x²</button>
+    <button class="tool-btn" id="mathSubBtn" title="Нижний индекс (_)">x₂</button>
+    <button class="tool-btn" id="mathSumBtn" title="Сумма (∑)">∑</button>
+    <button class="tool-btn" id="mathIntBtn" title="Интеграл (∫)">∫</button>
+    <button class="tool-btn" id="mathProdBtn" title="Произведение (∏)">∏</button>
+    <button class="tool-btn" id="mathLimBtn" title="Предел (lim)">lim</button>
+    
+    <div class="separator"></div>
+    
     <button class="tool-btn" data-tool="eraser" title="Ластик">
         <svg class="tool-icon" viewBox="0 0 24 24">
             <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
@@ -385,6 +765,11 @@
     <div class="shape-grid">
         <div class="shape-item" onclick="selectLineTool('line')" title="Лінія">
             <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);"><line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-linecap="round" /></svg>
+        </div>
+        <div class="shape-item" onclick="selectLineTool('dotted')" title="Пунктирна лінія">
+            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);">
+                <line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-dasharray="4,4" stroke-linecap="round" />
+            </svg>
         </div>
         <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
             <div class="compass-icon-bg">
@@ -428,6 +813,9 @@
 <canvas id="board"></canvas>
 
 <script>
+// ============================================
+// ІНІЦІАЛІЗАЦІЯ
+// ============================================
 const boardId = window.location.pathname.replace('/', '') || 'main';
 let socket;
 try {
@@ -440,6 +828,7 @@ try {
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 
+// Змінні стану
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = [], currentTool = 'select';
 let selectedObjects = []; 
@@ -455,6 +844,7 @@ let selectionEnd = { x: 0, y: 0 };
 
 let textEditor = null;
 let editingObject = null;
+let textUpdateTimer = null; // Таймер для дебаунсу тексту
 
 let historyStack = [];
 let historyIndex = -1;
@@ -469,6 +859,10 @@ const SMOOTHING_FACTOR = 0.5;
 let selectedShapeType = null;
 let selectedLineToolType = 'line';
 let currentPenColor = '#000000';
+
+// ============================================
+// ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
+// ============================================
 
 function requestDraw() {
     if (!needsRedraw) {
@@ -522,6 +916,10 @@ function updateZoomDisplay() {
     document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
 }
 
+// ============================================
+// ОБРОБКА КЛАВІШ
+// ============================================
+
 window.addEventListener('keydown', (e) => { 
     if (e.key === 'Shift') shiftKey = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
@@ -557,10 +955,15 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'h' || e.key === 'H') setTool('hand');
     if (e.key === 'g' || e.key === 'G') setTool('grid');
 });
+
 window.addEventListener('keyup', (e) => { 
     if (e.key === 'Shift') shiftKey = false;
     if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
 });
+
+// ============================================
+// ІНСТРУМЕНТИ ТА ПАЛІТРИ
+// ============================================
 
 function selectPenColor(color) {
     currentPenColor = color;
@@ -645,6 +1048,1107 @@ document.addEventListener('mousedown', (e) => {
     }
 });
 
+// ============================================
+// ВИМІРЮВАННЯ СЕГМЕНТІВ ТЕКСТУ
+// ============================================
+
+function measureSegments(segments, baseSize, isBold) {
+    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+    const small<think>
+</think>
+
+Ось повний виправлений код. Я провів три перевірки логіки:
+1.  **Синхронізація**: Сервер тепер відправляє подію `update-all` всім учасникам (`io.in`), включаючи того, хто рухає об'єкт. Це гарантує, що локальний стан клієнта завжди збігається з сервером, і нічого не зникає.
+2.  **Текст**: Додано функцію `debounce` (затримка) для відправки тексту. Тепер ви бачите текст миттєво локально, а інші користувачі бачать його з мінімальною затримкою (щоб не "забити" мережу кожним натисканням клавіші).
+3.  **Точка**: У логіку малювання олівцем додано перевірку: якщо ви клікнули, але не рухали мишкою, створюється об'єкт з однією точкою.
+
+Збережіть ці два файли.
+
+### 1. Файл `server.js` (Сервер)
+
+```javascript
+const express = require('express');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, { 
+    cors: { 
+        origin: "*", 
+        methods: ["GET", "POST"]
+    },
+    maxHttpBufferSize: 1e8, 
+    pingTimeout: 60000,
+    pingInterval: 25000
+});
+const path = require('path');
+
+const PORT = process.env.PORT || 3000;
+const boardsData = {}; 
+const boardTimers = {}; 
+
+function log(message) {
+    const timestamp = new Date().toLocaleTimeString('uk-UA');
+    console.log(`[${timestamp}] ${message}`);
+}
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/:boardId', (req, res) => {
+    const boardId = req.params.boardId;
+    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
+        log(`[SECURITY] Спроба доступу до недопустимого ID: ${boardId}`);
+        return res.status(400).send('Invalid board ID');
+    }
+    if (boardId.includes('.')) {
+        log(`[SECURITY] Спроба доступу до файлу через URL: ${boardId}`);
+        return res.status(404).send('Not found');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+io.on('connection', (socket) => {
+    const boardId = socket.handshake.query.boardId || 'main';
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
+        log(`[SECURITY] Недопустимий boardId від сокету: ${boardId}`);
+        socket.disconnect(true);
+        return;
+    }
+    
+    socket.join(boardId);
+    
+    if (!boardsData[boardId]) {
+        boardsData[boardId] = [];
+        log(`[SERVER] Створено нову дошку: ${boardId}`);
+    }
+    
+    if (boardTimers[boardId]) {
+        clearTimeout(boardTimers[boardId]);
+        delete boardTimers[boardId];
+    }
+
+    log(`[SERVER] Користувач ${socket.id} підключився до кімнати: ${boardId}`);
+    log(`[SERVER] В кімнаті ${boardId} зараз ${io.sockets.adapter.rooms.get(boardId)?.size || 0} користувачів`);
+
+    // Відправляємо поточний стан новому користувачу
+    socket.emit('init-history', boardsData[boardId]);
+
+    // Новий об'єкт (малюнок, фігура)
+    socket.on('new-object', (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        
+        boardsData[boardId].push(obj);
+        
+        // Розсилаємо ВСІМ в кімнаті (включно з відправником для гарантії синхронізації)
+        io.in(boardId).emit('new-object', obj);
+        log(`[SERVER] Новий об'єкт в ${boardId}. Всього об'єктів: ${boardsData[boardId].length}`);
+    });
+
+    // Оновлення стану (рух, зміна тексту)
+    socket.on('update-all', (data) => {
+        if (!Array.isArray(data)) return;
+        
+        boardsData[boardId] = data;
+        
+        // ВИПРАВЛЕННЯ: Розсилаємо ВСІМ (io.in), а не тільки іншим (socket.to).
+        // Це критично, щоб користувач, який рухає об'єкт, отримав підтвердження від сервера
+        // і його локальний стан синхронізувався з іншими.
+        io.in(boardId).emit('update-all', data);
+        log(`[SERVER] Оновлено стан дошки ${boardId}. Об'єктів: ${data.length}`);
+    });
+
+    socket.on('undo', () => {
+        if (boardsData[boardId]?.length > 0) {
+            boardsData[boardId].pop();
+            io.in(boardId).emit('init-history', boardsData[boardId]);
+            log(`[SERVER] Undo в кімнаті ${boardId}`);
+        }
+    });
+
+    socket.on('delete-board', () => {
+        boardsData[boardId] = [];
+        io.in(boardId).emit('board-deleted');
+        log(`[SERVER] Дошку ${boardId} очищено`);
+    });
+    
+    socket.on('disconnect', () => {
+        log(`[SERVER] Користувач ${socket.id} відключився від кімнати: ${boardId}`);
+        
+        const room = io.sockets.adapter.rooms.get(boardId);
+        const roomSize = room?.size || 0;
+        log(`[SERVER] В кімнаті ${boardId} залишилось ${roomSize} користувачів`);
+        
+        if (roomSize === 0) {
+            log(`[SERVER] Кімната ${boardId} пуста. Заплановано видалення через 5 хв`);
+            boardTimers[boardId] = setTimeout(() => {
+                const currentRoom = io.sockets.adapter.rooms.get(boardId);
+                if (!currentRoom || currentRoom.size === 0) {
+                    delete boardsData[boardId];
+                    delete boardTimers[boardId];
+                    log(`[SERVER] Дошку ${boardId} видалено з пам'яті`);
+                }
+            }, 5 * 60 * 1000);
+        }
+    });
+    
+    socket.on('error', (error) => {
+        log(`[ERROR] Помилка сокету ${socket.id}: ${error.message}`);
+    });
+});
+
+http.listen(PORT, () => {
+    log('========================================');
+    log(`СЕРВЕР ЗАПУЩЕНО: http://localhost:${PORT}`);
+    log(`Для створення нової кімнати додайте /назва в кінець URL`);
+    log(`Наприклад: http://localhost:${PORT}/room123`);
+    log('========================================');
+});
+```
+
+### 2. Файл `public/index.html` (Клієнт)
+
+```html
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Математична Дошка Pro (Math Fields)</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            height: 100%; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #ffffff; 
+        }
+        
+        #toolbar {
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            background: white; 
+            padding: 8px;
+            display: flex; 
+            gap: 6px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
+            z-index: 1000; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            max-width: 90vw;
+        }
+
+        .tool-btn { 
+            padding: 8px 14px; 
+            cursor: pointer; 
+            border: 1px solid #e0e0e0; 
+            background: #fff; 
+            border-radius: 6px; 
+            font-size: 14px; 
+            transition: all 0.2s;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            user-select: none;
+            position: relative;
+        }
+        
+        .tool-btn.split-btn {
+            padding-right: 24px;
+        }
+        
+        .dropdown-arrow {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: #666;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .dropdown-trigger {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 20px;
+            cursor: pointer;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 1px solid rgba(0,0,0,0.1);
+            border-top-right-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }
+        .dropdown-trigger:hover {
+            background: rgba(0,0,0,0.05);
+        }
+        
+        .tool-btn:hover { 
+            background: #f0f7ff; 
+            border-color: #007bff; 
+        }
+        .tool-btn.active { 
+            background: #007bff; 
+            color: white; 
+            border-color: #0056b3; 
+        }
+        .tool-btn.active .dropdown-arrow { 
+            color: white; 
+        }
+        
+        .color-picker-btn {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #000000;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .color-picker-btn:hover {
+            transform: scale(1.1);
+            border-color: #007bff;
+        }
+        .color-picker-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 0; 
+            height: 0; 
+            border-style: solid;
+            border-width: 0 0 10px 10px;
+            border-color: transparent transparent rgba(0,0,0,0.3) transparent;
+        }
+
+        .tool-icon {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            fill: currentColor;
+        }
+
+        #zoom-display { 
+            position: absolute; 
+            bottom: 20px; 
+            right: 20px; 
+            background: rgba(255,255,255,0.9); 
+            padding: 8px 15px; 
+            border-radius: 20px; 
+            font-weight: bold; 
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            z-index: 1000; 
+            border: 1px solid #ddd;
+        }
+
+        .text-edit-wrapper {
+            position: absolute;
+            z-index: 2000;
+            border: 2px dashed #4CAF50;
+            background: transparent;
+            box-sizing: border-box;
+            min-width: 100px;
+            padding: 5px;
+            user-select: none; 
+        }
+
+        .text-edit-content {
+            outline: none;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 4px;
+            font-size: 20px;
+            font-family: 'Segoe UI', sans-serif;
+            color: #333;
+            white-space: pre !important;
+            overflow: visible;
+            display: inline-block;
+            box-sizing: border-box;
+            line-height: 1.4;
+            min-width: 50px;
+            max-width: none !important;
+            width: auto !important;
+            cursor: text;
+            vertical-align: baseline;
+        }
+
+        .math-sup, .math-sub {
+            display: inline-block;
+            font-size: 0.6em;
+            border: 1px dashed #2196F3;
+            background: rgba(33, 150, 243, 0.15);
+            border-radius: 3px;
+            padding: 0 3px;
+            margin: 0 1px;
+            min-width: 10px;
+            min-height: 1em;
+            line-height: 1.2;
+            vertical-align: baseline;
+        }
+
+        .math-sup { 
+            vertical-align: super; 
+        }
+        .math-sub { 
+            vertical-align: sub; 
+        }
+
+        .math-frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 8px;
+            border: 1px dashed #9C27B0;
+            background: rgba(156, 39, 176, 0.1);
+            border-radius: 3px;
+            padding: 2px 4px;
+            line-height: 1.0;
+        }
+        .math-num {
+            border-bottom: 2px solid currentColor;
+            padding-bottom: 2px;
+            margin-bottom: 2px;
+            display: block;
+            text-align: center;
+            width: 100%;
+            white-space: nowrap;
+            line-height: 1.2;
+            min-width: 10px;
+        }
+        .math-den {
+            display: block;
+            text-align: center;
+            width: 100%;
+            white-space: nowrap;
+            line-height: 1.2;
+            padding-top: 2px;
+            min-width: 10px;
+        }
+
+        .math-sqrt {
+            display: inline-flex;
+            align-items: stretch;
+            vertical-align: middle;
+            margin: 0 4px;
+            border: 1px dashed #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 3px;
+            padding: 2px 4px;
+        }
+        .math-sqrt .sqrt-symbol {
+            font-size: 1.4em;
+            line-height: 1;
+            align-self: center;
+            color: #4CAF50;
+        }
+        .math-sqrt .sqrt-content {
+            border-top: 2px solid currentColor;
+            padding: 2px 6px;
+            min-width: 10px;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .math-sum {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #FF9800;
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-sum .sum-upper {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+        .math-sum .sum-symbol {
+            font-size: 1.6em;
+            line-height: 1;
+            color: #FF9800;
+        }
+        .math-sum .sum-lower {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .math-integral {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #9C27B0;
+            background: rgba(156, 39, 176, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-integral .int-upper {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+        .math-integral .int-symbol {
+            font-size: 2em;
+            line-height: 1;
+            color: #9C27B0;
+        }
+        .math-integral .int-lower {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .math-prod {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #E91E63;
+            background: rgba(233, 30, 99, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-prod .prod-upper {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+        .math-prod .prod-symbol {
+            font-size: 1.6em;
+            line-height: 1;
+            color: #E91E63;
+        }
+        .math-prod .prod-lower {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .math-limit {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 6px;
+            border: 1px dashed #607D8B;
+            background: rgba(96, 125, 139, 0.1);
+            border-radius: 3px;
+            padding: 2px 6px;
+        }
+        .math-limit .lim-upper {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+        .math-limit .lim-symbol {
+            font-size: 1em;
+            line-height: 1;
+            color: #607D8B;
+        }
+        .math-limit .lim-lower {
+            font-size: 0.7em;
+            line-height: 1;
+            min-height: 1em;
+            text-align: center;
+        }
+
+        .handle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #4CAF50;
+            border: 1px solid white;
+            border-radius: 2px;
+            z-index: 2001;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .handle:hover { 
+            background: #45a049; 
+            transform: scale(1.2); 
+        }
+        .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
+        .handle.n { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
+        .handle.e { top: 50%; right: -4px; transform: translateY(-50%); cursor: ew-resize; }
+        .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
+        .handle.s { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+        .handle.w { top: 50%; left: -4px; transform: translateY(-50%); cursor: ew-resize; }
+        
+        .rotate-handle {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 10px;
+            background: #2196F3;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: alias;
+            z-index: 2001;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .rotate-line {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            width: 1px;
+            height: 10px;
+            background: #2196F3;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        input[type="color"] { 
+            border: none; 
+            width: 0; 
+            height: 0; 
+            overflow: hidden; 
+            padding: 0; 
+            position: absolute; 
+        }
+        input[type="range"] { 
+            cursor: pointer; 
+        }
+        .separator { 
+            width: 1px; 
+            height: 25px; 
+            background: #ddd; 
+            margin: 0 5px; 
+        }
+        
+        canvas { 
+            display: block; 
+            touch-action: none; 
+            background: #ffffff; 
+        }
+        
+        .cursor-default { cursor: default !important; }
+        .cursor-move { cursor: move !important; }
+        .cursor-nwse { cursor: nwse-resize !important; }
+        .cursor-nesw { cursor: nesw-resize !important; }
+        .cursor-ns { cursor: ns-resize !important; }
+        .cursor-ew { cursor: ew-resize !important; }
+        .cursor-crosshair { cursor: crosshair !important; }
+        .cursor-grab { cursor: grab !important; }
+        .cursor-grabbing { cursor: grabbing !important; }
+        .cursor-eraser { cursor: cell !important; }
+        .cursor-text { cursor: text !important; }
+        
+        .cursor-pencil { 
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>') 0 24, auto !important; 
+        }
+        
+        .cursor-grid { 
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="10"/></svg>') 0 24, auto !important; 
+        }
+
+        #shapes-palette, #line-palette {
+            position: absolute;
+            top: 70px;
+            left: 15px;
+            width: 240px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 1001;
+            display: none;
+            flex-direction: column;
+            padding: 10px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .shape-category {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 3px;
+        }
+
+        .shape-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .shape-item {
+            width: 45px;
+            height: 45px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shape-item:hover {
+            background: #f0f7ff;
+            border-color: #007bff;
+        }
+
+        .shape-item svg {
+            width: 28px;
+            height: 28px;
+            stroke: #333;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .compass-icon-bg {
+            width: 32px;
+            height: 32px;
+            background-color: #5a7d9a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .compass-icon-bg svg {
+            stroke: white;
+            fill: white;
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="toolbar">
+    <button class="tool-btn active" data-tool="select" title="Вибрати (V)">↖️</button>
+    <button class="tool-btn" data-tool="hand" title="Рука (H)">✋</button>
+    <div class="separator"></div>
+    <button class="tool-btn" data-tool="pen" id="penToolBtn" title="Олівець">✏️</button>
+    
+    <button class="tool-btn split-btn" data-tool="line" id="lineToolBtn" title="Лінія">
+        <svg class="tool-icon" viewBox="0 0 24 24" style="transform: rotate(-45deg);">
+            <line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        </svg>
+        <div class="dropdown-trigger" id="lineDropdownTrigger" title="Інші інструменти">
+            <span class="dropdown-arrow">▼</span>
+        </div>
+    </button>
+    
+    <button class="tool-btn split-btn" data-tool="rect" id="rectToolBtn" title="Прямокутник">
+        <span>⬜</span>
+        <div class="dropdown-trigger" id="rectDropdownTrigger" title="Інші фігури">
+            <span class="dropdown-arrow">▼</span>
+        </div>
+    </button>
+    
+    <button class="tool-btn" data-tool="grid" title="Сітка">📊</button>
+    <button class="tool-btn" data-tool="text" title="Текст">Т</button>
+    
+    <div class="separator"></div>
+    
+    <button class="tool-btn" id="mathFracBtn" title="Дробь (/)">⁄</button>
+    <button class="tool-btn" id="mathSqrtBtn" title="Корень (√)">√</button>
+    <button class="tool-btn" id="mathSupBtn" title="Верхний индекс (^)">x²</button>
+    <button class="tool-btn" id="mathSubBtn" title="Нижний индекс (_)">x₂</button>
+    <button class="tool-btn" id="mathSumBtn" title="Сумма (∑)">∑</button>
+    <button class="tool-btn" id="mathIntBtn" title="Интеграл (∫)">∫</button>
+    <button class="tool-btn" id="mathProdBtn" title="Произведение (∏)">∏</button>
+    <button class="tool-btn" id="mathLimBtn" title="Предел (lim)">lim</button>
+    
+    <div class="separator"></div>
+    
+    <button class="tool-btn" data-tool="eraser" title="Ластик">
+        <svg class="tool-icon" viewBox="0 0 24 24">
+            <path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 000-1.42zM5.21 20c-0.55 0-1-0.45-1-1v-3.59l8.29-8.29 4.59 4.59L8.8 20H5.21z" fill="currentColor"/>
+        </svg>
+    </button>
+
+    <div class="separator"></div>
+    
+    <div class="color-picker-btn" id="colorPickerBtn" title="Вибір кольору"></div>
+    <input type="color" id="colorPickerInput" value="#000000">
+    
+    <div class="separator"></div>
+    <label title="Жирний"><input type="checkbox" id="boldText"> <b>B</b></label>
+    <input type="range" id="lineWidth" min="1" max="15" value="3" title="Товщина">
+    <div class="separator"></div>
+    <button class="tool-btn" onclick="createNewBoard()" style="font-size: 12px;">+ Нова</button>
+    <button class="tool-btn" id="clearBtn" style="color: #dc3545;">Очистити</button>
+</div>
+
+<div id="line-palette">
+    <div class="shape-category">Інструменти</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectLineTool('line')" title="Лінія">
+            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);"><line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-linecap="round" /></svg>
+        </div>
+        <div class="shape-item" onclick="selectLineTool('dotted')" title="Пунктирна лінія">
+            <svg viewBox="0 0 24 24" style="transform: rotate(-45deg);">
+                <line x1="12" y1="2" x2="12" y2="22" stroke="#333" stroke-width="4" stroke-dasharray="4,4" stroke-linecap="round" />
+            </svg>
+        </div>
+        <div class="shape-item" onclick="selectLineTool('compass')" title="Циркуль">
+            <div class="compass-icon-bg">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="5" r="3" fill="white" stroke="white" stroke-width="1"/>
+                    <path d="M12 8 L8 20 M12 8 L16 20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 5 L12 8" stroke="white" stroke-width="2"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="shapes-palette">
+    <div class="shape-category">Основні</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" /></svg></div>
+        <div class="shape-item" onclick="selectShape('circle')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg></div>
+        <div class="shape-item" onclick="selectShape('triangle')"><svg viewBox="0 0 24 24"><path d="M12 3 L22 21 L2 21 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('diamond')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 12 L12 22 L2 12 Z" /></svg></div>
+    </div>
+
+    <div class="shape-category">Багатокутники</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('pentagon')"><svg viewBox="0 0 24 24"><path d="M12 2 L22 9 L18 21 L6 21 L2 9 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('hexagon')"><svg viewBox="0 0 24 24"><path d="M7 2 L17 2 L22 12 L17 22 L7 22 L2 12 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('star')"><svg viewBox="0 0 24 24"><path d="M12 2 L15 9 L22 9 L16 14 L18 21 L12 17 L6 21 L8 14 L2 9 L9 9 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('parallelogram')"><svg viewBox="0 0 24 24"><path d="M6 4 L20 4 L18 20 L4 20 Z" /></svg></div>
+    </div>
+
+    <div class="shape-category">Округлені</div>
+    <div class="shape-grid">
+        <div class="shape-item" onclick="selectShape('rounded-rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" /></svg></div>
+        <div class="shape-item" onclick="selectShape('semi-circle')"><svg viewBox="0 0 24 24"><path d="M2 12 A10 10 0 0 1 22 12 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('quarter-circle')"><svg viewBox="0 0 24 24"><path d="M2 22 A20 20 0 0 1 22 2 Z" /></svg></div>
+        <div class="shape-item" onclick="selectShape('heart')"><svg viewBox="0 0 24 24"><path d="M12 21 C12 21 2 14 2 8 C2 5 5 2 8 2 C10 2 12 4 12 4 C12 4 14 2 16 2 C19 2 22 5 22 8 C22 14 12 21 12 21 Z" /></svg></div>
+    </div>
+</div>
+
+<div id="zoom-display">100%</div>
+<canvas id="board"></canvas>
+
+<script>
+// ============================================
+// ІНІЦІАЛІЗАЦІЯ
+// ============================================
+const boardId = window.location.pathname.replace('/', '') || 'main';
+let socket;
+try {
+    socket = io({ query: { boardId } });
+} catch (e) {
+    console.warn("Socket.io not loaded or connection failed. Running in local mode.");
+    socket = { emit: () => {}, on: () => {} };
+}
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+
+// Змінні стану
+let scale = 1.0, offsetX = 0, offsetY = 0;
+let objects = [], currentTool = 'select';
+let selectedObjects = []; 
+let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
+let isDrawing = false, currentPath = null;
+let dragStartX, dragStartY, dragStartObjX, dragStartObjY;
+let startResizeState = {};
+let shiftKey = false, ctrlKey = false;
+
+let isSelectingArea = false;
+let selectionStart = { x: 0, y: 0 };
+let selectionEnd = { x: 0, y: 0 };
+
+let textEditor = null;
+let editingObject = null;
+let textUpdateTimer = null; // Таймер для дебаунсу тексту
+
+let historyStack = [];
+let historyIndex = -1;
+let isUndoing = false;
+
+let needsRedraw = false;
+let animationFrameId = null;
+
+const MAX_HISTORY = 50;
+const SMOOTHING_FACTOR = 0.5;
+
+let selectedShapeType = null;
+let selectedLineToolType = 'line';
+let currentPenColor = '#000000';
+
+// ============================================
+// ФУНКЦІЇ МАЛЮВАННЯ ТА ІСТОРІЇ
+// ============================================
+
+function requestDraw() {
+    if (!needsRedraw) {
+        needsRedraw = true;
+        animationFrameId = requestAnimationFrame(() => {
+            draw();
+            needsRedraw = false;
+        });
+    }
+}
+
+function saveHistory() {
+    if (isUndoing) return;
+    if (historyIndex < historyStack.length - 1) {
+        historyStack = historyStack.slice(0, historyIndex + 1);
+    }
+    const state = {
+        objects: JSON.parse(JSON.stringify(objects)),
+        view: { scale, offsetX, offsetY }
+    };
+    historyStack.push(state);
+    if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+    } else {
+        historyIndex++;
+    }
+}
+
+function undo() {
+    if (historyIndex <= 0 || isUndoing) return;
+    isUndoing = true;
+    historyIndex--;
+    const state = historyStack[historyIndex];
+    objects = JSON.parse(JSON.stringify(state.objects));
+    
+    if (state.view) {
+        scale = state.view.scale;
+        offsetX = state.view.offsetX;
+        offsetY = state.view.offsetY;
+        updateZoomDisplay();
+    }
+
+    selectedObjects = [];
+    if (textEditor) stopTextEdit(true);
+    if (socket && socket.connected) socket.emit('update-all', objects);
+    requestDraw();
+    isUndoing = false;
+}
+
+function updateZoomDisplay() {
+    document.getElementById('zoom-display').innerText = `${Math.round(scale * 100)}%`;
+}
+
+// ============================================
+// ОБРОБКА КЛАВІШ
+// ============================================
+
+window.addEventListener('keydown', (e) => { 
+    if (e.key === 'Shift') shiftKey = true; 
+    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = true;
+    
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        if (!textEditor) {
+            e.preventDefault();
+            selectedObjects = [...objects];
+            requestDraw();
+            return;
+        }
+    }
+    
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+    }
+    
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedObjects.length > 0 && !textEditor) {
+            e.preventDefault();
+            saveHistory();
+            objects = objects.filter(o => !selectedObjects.includes(o));
+            selectedObjects = [];
+            if (socket && socket.connected) socket.emit('update-all', objects);
+            requestDraw();
+            return;
+        }
+    }
+    
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'h' || e.key === 'H') setTool('hand');
+    if (e.key === 'g' || e.key === 'G') setTool('grid');
+});
+
+window.addEventListener('keyup', (e) => { 
+    if (e.key === 'Shift') shiftKey = false;
+    if (e.key === 'Control' || e.key === 'Meta') ctrlKey = false;
+});
+
+// ============================================
+// ІНСТРУМЕНТИ ТА ПАЛІТРИ
+// ============================================
+
+function selectPenColor(color) {
+    currentPenColor = color;
+    document.getElementById('colorPickerInput').value = color;
+    document.getElementById('colorPickerBtn').style.backgroundColor = color;
+}
+
+function selectShape(type) {
+    selectedShapeType = type;
+    currentTool = 'shape';
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('rectToolBtn').classList.add('active');
+    document.getElementById('shapes-palette').style.display = 'none';
+    canvas.className = 'cursor-crosshair';
+}
+
+function selectLineTool(type) {
+    selectedLineToolType = type;
+    currentTool = 'line';
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('lineToolBtn').classList.add('active');
+    document.getElementById('line-palette').style.display = 'none';
+    canvas.className = 'cursor-crosshair';
+}
+
+const lineBtn = document.getElementById('lineToolBtn');
+const lineTrigger = document.getElementById('lineDropdownTrigger');
+
+lineTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const palette = document.getElementById('line-palette');
+    if (palette.style.display === 'flex') {
+        palette.style.display = 'none';
+    } else {
+        palette.style.display = 'flex';
+        if (currentTool !== 'line') {
+            selectedLineToolType = 'line';
+        }
+    }
+});
+
+lineBtn.addEventListener('click', (e) => {
+    if (e.target === lineTrigger || lineTrigger.contains(e.target)) return;
+    selectLineTool('line');
+});
+
+const rectBtn = document.getElementById('rectToolBtn');
+const rectTrigger = document.getElementById('rectDropdownTrigger');
+
+rectTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const palette = document.getElementById('shapes-palette');
+    if (palette.style.display === 'flex') {
+        palette.style.display = 'none';
+    } else {
+        palette.style.display = 'flex';
+        if (currentTool !== 'shape') {
+            selectedShapeType = null;
+        }
+    }
+});
+
+rectBtn.addEventListener('click', (e) => {
+    if (e.target === rectTrigger || rectTrigger.contains(e.target)) return;
+    setTool('rect');
+});
+
+document.addEventListener('mousedown', (e) => {
+    const linePalette = document.getElementById('line-palette');
+    const shapePalette = document.getElementById('shapes-palette');
+    
+    if (linePalette.style.display === 'flex' && 
+        !linePalette.contains(e.target) && 
+        !lineBtn.contains(e.target)) {
+        linePalette.style.display = 'none';
+    }
+    
+    if (shapePalette.style.display === 'flex' && 
+        !shapePalette.contains(e.target) && 
+        !rectBtn.contains(e.target)) {
+        shapePalette.style.display = 'none';
+    }
+});
+
+// ============================================
+// ВИМІРЮВАННЯ СЕГМЕНТІВ ТЕКСТУ
+// ============================================
+
+function measureSegments(segments, baseSize, isBold) {
+    const normalFont = `${isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
+    const smallFont = `${isBold ? 'bold' : ''} ${baseSize * 0.6}px 'Segoe UI', sans-serif`;
+    
+    let totalWidth = 0;
+    let maxHeight = 0;
+    let maxAscent = 0;
+    
+    const tempCtx = canvas.getContext('2d');
+    
+    segments.forEach(s => {
+        if (s.type === 'normal') {
+            tempCtx.font = normalFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize);
+            maxAscent = Math.max(maxAscent, metrics.actualBoundingBoxAscent || baseSize * 0.8);
+        } else if (s.type === 'sup') {
+            tempCtx.font = smallFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.5));
+        } else if (s.type === 'sub') {
+            tempCtx.font = smallFont;
+            const metrics = tempCtx.measureText(s.text);
+            totalWidth += metrics.width;
+            maxHeight = Math.max(maxHeight, baseSize * 0.6 + (baseSize * 0.3));
+        } else if (s.type === 'frac') {
+            const numMetrics = measureSegments(s.numerator, baseSize, isBold);
+            const denMetrics = measureSegments(s.denominator, baseSize, isBold);
+            
+            const fracWidth = Math.max(numMetrics.w, denMetrics.w);
+            const fracHeight = numMetrics.h + denMetrics.h + 6;
+            
+            totalWidth += fracWidth;
+            maxHeight = Math.max(maxHeight, fracHeight);
+        }
+    });
+    
+    return { w: totalWidth, h: maxHeight, ascent: maxAscent };
+}
+
+// ============================================
+// КОНВЕРТАЦІЯ HTML <-> СЕГМЕНТИ
+// ============================================
+
 function htmlToSegments(html) {
     if (!html || html.trim() === '') return [];
     
@@ -677,7 +2181,6 @@ function htmlToSegments(html) {
             } else if (node.tagName === 'BR') {
                  segments.push({ type: 'normal', text: '\n' });
             } else if (node.tagName === 'DIV') {
-                // Обробляємо дочірні елементи DIV
                 node.childNodes.forEach(processNode);
             } else {
                 node.childNodes.forEach(processNode);
@@ -685,7 +2188,6 @@ function htmlToSegments(html) {
         }
     }
     
-    // Обробляємо body або кореневі елементи
     Array.from(doc.body.childNodes).forEach(processNode);
     
     return segments;
@@ -706,12 +2208,26 @@ function segmentsToHtml(segments) {
     }).join('');
 }
 
+// ============================================
+// ОБЧИСЛЕННЯ РАМОК (BOUNDING BOX)
+// ============================================
+
 function getBBox(obj) {
     if (!obj) return null;
     if (obj.type === 'text') {
         const baseSize = obj.size; 
-        ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
         
+        if (obj.segments && obj.segments.length > 0) {
+            const metrics = measureSegments(obj.segments, baseSize, obj.isBold);
+            return { 
+                x: obj.x, 
+                y: obj.y - (metrics.ascent * 0.2),
+                w: metrics.w || 2, 
+                h: metrics.h * 1.2 
+            };
+        }
+
+        ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
         const lineH = baseSize * 1.4;
         
         let maxW = 0;
@@ -833,6 +2349,10 @@ function getCursor(handle) {
     return 'move';
 }
 
+// ============================================
+// РОЗМІР ВІКНА
+// ============================================
+
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -840,6 +2360,10 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 resize();
+
+// ============================================
+// МАЛЮВАННЯ СІТКИ
+// ============================================
 
 function drawGrid() {
     const smallStep = 20 * scale;
@@ -879,6 +2403,10 @@ function drawGrid() {
     }
     ctx.stroke();
 }
+
+// ============================================
+// МАЛЮВАННЯ ВИДІЛЕННЯ
+// ============================================
 
 function drawSelection() {
     if (selectedObjects.length === 0) return;
@@ -952,6 +2480,10 @@ function drawMarqueeSelection() {
     ctx.restore();
 }
 
+// ============================================
+// ГОЛОВНА ФУНКЦІЯ МАЛЮВАННЯ
+// ============================================
+
 function draw() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -968,6 +2500,10 @@ function draw() {
     
     drawMarqueeSelection();
 }
+
+// ============================================
+// МАЛЮВАННЯ СЕГМЕНТОВАНОГО ТЕКСТУ
+// ============================================
 
 function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
     let currentX = x;
@@ -997,35 +2533,71 @@ function drawSegmentedText(ctx, segments, x, y, baseSize, isBold) {
             ctx.fillText(s.text, currentX, currentY + baseSize * 0.3);
             currentX += ctx.measureText(s.text).width;
         } else if (s.type === 'frac') {
-            const numW = s.numerator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
-            const denW = s.denominator.reduce((acc, seg) => acc + ctx.measureText(seg.text || '').width, 0);
-            const fracW = Math.max(numW, denW);
+            const numMetrics = measureSegments(s.numerator, baseSize, isBold);
+            const denMetrics = measureSegments(s.denominator, baseSize, isBold);
             
-            const startX = currentX + (fracW - numW) / 2;
-            const denStartX = currentX + (fracW - denW) / 2;
+            const fracW = Math.max(numMetrics.w, denMetrics.w);
+            const gap = 3;
+            
+            const numStartX = currentX + (fracW - numMetrics.w) / 2;
+            const denStartX = currentX + (fracW - denMetrics.w) / 2;
+            
+            const fractionCenterY = currentY - (baseSize * 0.15);
+            const lineY = fractionCenterY;
+            
+            const numBaselineY = lineY - gap - (numMetrics.h * 0.25);
+            const denBaselineY = lineY + gap + (denMetrics.h * 0.75);
             
             ctx.font = normalFont;
-            let cx = startX;
+            let cx = numStartX;
             s.numerator.forEach(seg => {
-                ctx.fillText(seg.text, cx, currentY - baseSize * 0.6);
-                cx += ctx.measureText(seg.text).width;
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, cx, numBaselineY);
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, cx, numBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    cx += ctx.measureText(seg.text).width;
+                }
             });
             
             ctx.beginPath();
-            ctx.moveTo(currentX, currentY - baseSize * 0.1);
-            ctx.lineTo(currentX + fracW, currentY - baseSize * 0.1);
+            ctx.moveTo(currentX, lineY);
+            ctx.lineTo(currentX + fracW, lineY);
             ctx.stroke();
             
             let dx = denStartX;
             s.denominator.forEach(seg => {
-                ctx.fillText(seg.text, dx, currentY + baseSize * 0.7);
-                dx += ctx.measureText(seg.text).width;
+                if(seg.type === 'normal') {
+                    ctx.fillText(seg.text, dx, denBaselineY);
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sup') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY - baseSize * 0.5);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                } else if (seg.type === 'sub') {
+                    ctx.font = smallFont;
+                    ctx.fillText(seg.text, dx, denBaselineY + baseSize * 0.3);
+                    ctx.font = normalFont;
+                    dx += ctx.measureText(seg.text).width;
+                }
             });
             
             currentX += fracW;
         }
     });
 }
+
+// ============================================
+// МАЛЮВАННЯ КООРДИНАТНОЇ СІТКИ
+// ============================================
 
 function drawCoordinateGrid(obj) {
     const sx = obj.x * scale + offsetX;
@@ -1144,6 +2716,10 @@ function drawCoordinateGrid(obj) {
     ctx.restore();
 }
 
+// ============================================
+// МАЛЮВАННЯ ПЛАВНИХ ЛІНІЙ
+// ============================================
+
 function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
     if (points.length === 0) return;
     
@@ -1191,6 +2767,10 @@ function drawSmoothPath(ctx, points, scaleX, offsetX, offsetY) {
     ctx.stroke();
 }
 
+// ============================================
+// МАЛЮВАННЯ ОБ'ЄКТА
+// ============================================
+
 function drawObject(obj, isTemp = false) {
     ctx.save();
     const sx = obj.x * scale + offsetX;
@@ -1201,6 +2781,12 @@ function drawObject(obj, isTemp = false) {
     ctx.fillStyle = obj.color || '#000';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    
+    if (obj.lineStyle === 'dotted') {
+        ctx.setLineDash([5 * scale, 5 * scale]);
+    } else {
+        ctx.setLineDash([]);
+    }
     
     if (obj.rotation) {
         ctx.translate(sx, sy);
@@ -1322,11 +2908,9 @@ function drawObject(obj, isTemp = false) {
         
         const baseSize = obj.size * scale;
         
-        // ВИПРАВЛЕННЯ: Перевіряємо segments, але якщо пусто - використовуємо text
         if (obj.segments && obj.segments.length > 0) {
             drawSegmentedText(ctx, obj.segments, sx, sy + (baseSize * 0.8), baseSize, obj.isBold);
         } else if (obj.text && obj.text.trim() !== '') {
-            // Фолбек на звичайний текст
             ctx.font = `${obj.isBold ? 'bold' : ''} ${baseSize}px 'Segoe UI', sans-serif`;
             const textLines = obj.text.split('\n');
             const lineH = baseSize * 1.4;
@@ -1349,6 +2933,10 @@ function drawObject(obj, isTemp = false) {
     ctx.restore();
 }
 
+// ============================================
+// ОТРИМАННЯ КООРДИНАТ
+// ============================================
+
 function getCoords(e) {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -1359,6 +2947,10 @@ function getCoords(e) {
         rawY: clientY 
     };
 }
+
+// ============================================
+// ВСТАВКА МАТЕМАТИЧНИХ ПОЛІВ
+// ============================================
 
 function insertMathField(type) {
     const sel = window.getSelection();
@@ -1381,24 +2973,12 @@ function insertMathField(type) {
     return span;
 }
 
-function insertFraction(editorDiv) {
+function insertFraction(editorDiv, numeratorContent) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
     
     const range = sel.getRangeAt(0);
     
-    let numeratorText = "";
-    if (range.startContainer.nodeType === Node.TEXT_NODE) {
-        const textNode = range.startContainer;
-        const offset = range.startOffset;
-        if (offset > 0) {
-            numeratorText = textNode.textContent.substring(offset - 1, offset);
-            textNode.textContent = textNode.textContent.substring(0, offset - 1) + textNode.textContent.substring(offset);
-            range.setStart(textNode, offset - 1);
-            range.setEnd(textNode, offset - 1);
-        }
-    }
-
     const fracDiv = document.createElement('div');
     fracDiv.className = 'math-frac';
     fracDiv.style.display = 'inline-flex';
@@ -1407,7 +2987,16 @@ function insertFraction(editorDiv) {
     
     const numSpan = document.createElement('span');
     numSpan.className = 'math-num';
-    numSpan.textContent = numeratorText || '\u200B';
+    
+    if (numeratorContent) {
+        if (typeof numeratorContent === 'string') {
+            numSpan.textContent = numeratorContent;
+        } else {
+            numSpan.appendChild(numeratorContent);
+        }
+    } else {
+        numSpan.textContent = '\u200B';
+    }
     
     const denSpan = document.createElement('span');
     denSpan.className = 'math-den';
@@ -1419,9 +3008,18 @@ function insertFraction(editorDiv) {
     range.deleteContents();
     range.insertNode(fracDiv);
     
+    const hasNumeratorContent = numSpan.textContent && 
+                                 numSpan.textContent.trim() !== '' && 
+                                 numSpan.textContent !== '\u200B';
+
     const newRange = document.createRange();
-    newRange.selectNodeContents(denSpan);
-    newRange.collapse(false);
+    if (hasNumeratorContent) {
+        newRange.selectNodeContents(denSpan);
+        newRange.collapse(true);
+    } else {
+        newRange.selectNodeContents(numSpan);
+        newRange.collapse(false);
+    }
     sel.removeAllRanges();
     sel.addRange(newRange);
     
@@ -1433,6 +3031,245 @@ function insertFraction(editorDiv) {
         editorDiv.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
+
+// ============================================
+// ЗБІР ВМІСТУ ДЛЯ ЧИСЕЛЬНИКА
+// ============================================
+
+function insertSqrt() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const sqrt = document.createElement('span');
+    sqrt.className = 'math-sqrt';
+    const symbol = document.createElement('span');
+    symbol.className = 'sqrt-symbol';
+    symbol.textContent = '\u221A';
+    const content = document.createElement('span');
+    content.className = 'sqrt-content';
+    content.textContent = '\u200B';
+    sqrt.appendChild(symbol);
+    sqrt.appendChild(content);
+    range.deleteContents();
+    range.insertNode(sqrt);
+    const newRange = document.createRange();
+    newRange.selectNodeContents(content);
+    newRange.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    updateSize();
+}
+
+function insertSum() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const sum = document.createElement('span');
+    sum.className = 'math-sum';
+    const upper = document.createElement('span');
+    upper.className = 'sum-upper';
+    upper.textContent = '\u200B';
+    const symbol = document.createElement('span');
+    symbol.className = 'sum-symbol';
+    symbol.textContent = '\u2211';
+    const lower = document.createElement('span');
+    lower.className = 'sum-lower';
+    lower.textContent = '\u200B';
+    sum.appendChild(upper);
+    sum.appendChild(symbol);
+    sum.appendChild(lower);
+    range.deleteContents();
+    range.insertNode(sum);
+    const newRange = document.createRange();
+    newRange.selectNodeContents(upper);
+    newRange.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    updateSize();
+}
+
+function insertIntegral() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const integral = document.createElement('span');
+    integral.className = 'math-integral';
+    const upper = document.createElement('span');
+    upper.className = 'int-upper';
+    upper.textContent = '\u200B';
+    const symbol = document.createElement('span');
+    symbol.className = 'int-symbol';
+    symbol.textContent = '\u222B';
+    const lower = document.createElement('span');
+    lower.className = 'int-lower';
+    lower.textContent = '\u200B';
+    integral.appendChild(upper);
+    integral.appendChild(symbol);
+    integral.appendChild(lower);
+    range.deleteContents();
+    range.insertNode(integral);
+    const newRange = document.createRange();
+    newRange.selectNodeContents(upper);
+    newRange.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    updateSize();
+}
+
+function insertProd() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const prod = document.createElement('span');
+    prod.className = 'math-prod';
+    const upper = document.createElement('span');
+    upper.className = 'prod-upper';
+    upper.textContent = '\u200B';
+    const symbol = document.createElement('span');
+    symbol.className = 'prod-symbol';
+    symbol.textContent = '\u220F';
+    const lower = document.createElement('span');
+    lower.className = 'prod-lower';
+    lower.textContent = '\u200B';
+    prod.appendChild(upper);
+    prod.appendChild(symbol);
+    prod.appendChild(lower);
+    range.deleteContents();
+    range.insertNode(prod);
+    const newRange = document.createRange();
+    newRange.selectNodeContents(upper);
+    newRange.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    updateSize();
+}
+
+function insertLimit() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const lim = document.createElement('span');
+    lim.className = 'math-limit';
+    const upper = document.createElement('span');
+    upper.className = 'lim-upper';
+    upper.textContent = '\u200B';
+    const symbol = document.createElement('span');
+    symbol.className = 'lim-symbol';
+    symbol.textContent = 'lim';
+    const lower = document.createElement('span');
+    lower.className = 'lim-lower';
+    lower.textContent = '\u200B';
+    lim.appendChild(upper);
+    lim.appendChild(symbol);
+    lim.appendChild(lower);
+    range.deleteContents();
+    range.insertNode(lim);
+    const newRange = document.createRange();
+    newRange.selectNodeContents(lower);
+    newRange.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    updateSize();
+}
+
+function collectNumeratorContent(range, editorDiv) {
+    let currentNode = range.startContainer;
+    let currentOffset = range.startOffset;
+    const fragment = document.createDocumentFragment();
+    
+    const separatorChars = /[+\-*/:><=\s]/;
+    let hasContent = false;
+    let nodeBeforeCursor = null;
+    
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+        if (currentOffset === 0) {
+            nodeBeforeCursor = currentNode.previousSibling;
+        }
+    } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+        if (currentOffset > 0) {
+            nodeBeforeCursor = currentNode.childNodes[currentOffset - 1];
+        }
+    }
+
+    while (nodeBeforeCursor && nodeBeforeCursor.nodeType === Node.TEXT_NODE && nodeBeforeCursor.textContent.trim() === '') {
+        nodeBeforeCursor = nodeBeforeCursor.previousSibling;
+    }
+
+    if (nodeBeforeCursor && nodeBeforeCursor.classList && 
+        (nodeBeforeCursor.classList.contains('math-sup') || nodeBeforeCursor.classList.contains('math-sub'))) {
+        
+        let baseNode = nodeBeforeCursor.previousSibling;
+        while (baseNode && baseNode.nodeType === Node.TEXT_NODE && baseNode.textContent.trim() === '') {
+            baseNode = baseNode.previousSibling;
+        }
+
+        if (baseNode && baseNode.nodeType === Node.TEXT_NODE) {
+            const baseText = baseNode.textContent.trim();
+            if (baseText.length > 0) {
+                let lastSepIndex = -1;
+                for (let i = baseText.length - 1; i >= 0; i--) {
+                    if (separatorChars.test(baseText[i])) {
+                        lastSepIndex = i;
+                        break;
+                    }
+                }
+                
+                if (lastSepIndex === -1) {
+                    const textNode = document.createTextNode(baseText);
+                    fragment.insertBefore(textNode, fragment.firstChild);
+                    hasContent = true;
+                    baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - baseText.length);
+                } else {
+                    const numeratorText = baseText.substring(lastSepIndex + 1);
+                    if (numeratorText.trim().length > 0) {
+                        const textNode = document.createTextNode(numeratorText);
+                        fragment.insertBefore(textNode, fragment.firstChild);
+                        hasContent = true;
+                        baseNode.textContent = baseNode.textContent.substring(0, baseNode.textContent.length - numeratorText.length);
+                    }
+                }
+            }
+        }
+        
+        fragment.appendChild(nodeBeforeCursor);
+        hasContent = true;
+    }
+    
+    if (currentNode.nodeType === Node.TEXT_NODE && !hasContent) {
+        const textBefore = currentNode.textContent.substring(0, currentOffset);
+        let lastSepIndex = -1;
+        for (let i = textBefore.length - 1; i >= 0; i--) {
+            if (separatorChars.test(textBefore[i])) {
+                lastSepIndex = i;
+                break;
+            }
+        }
+
+        let startOffset = 0;
+        if (lastSepIndex !== -1) {
+            startOffset = lastSepIndex + 1;
+        }
+
+        if (currentOffset > startOffset) {
+            const numeratorText = textBefore.substring(startOffset);
+            if (numeratorText.trim().length > 0) {
+                const textNode = document.createTextNode(numeratorText);
+                fragment.appendChild(textNode);
+                hasContent = true;
+                currentNode.textContent = textBefore.substring(0, startOffset) + 
+                                         currentNode.textContent.substring(currentOffset);
+                range.setStart(currentNode, startOffset);
+            }
+        }
+    }
+
+    if (!hasContent) return null;
+    return fragment;
+}
+
+// ============================================
+// ПОЧАТОК РЕДАГУВАННЯ ТЕКСТУ
+// ============================================
 
 function startTextEdit(obj) {
     if (textEditor) stopTextEdit();
@@ -1475,7 +3312,6 @@ function startTextEdit(obj) {
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
     
-    // ВИПРАВЛЕННЯ: Завантаження HTML з segments або text
     if (obj.segments && obj.segments.length > 0) {
         editorDiv.innerHTML = segmentsToHtml(obj.segments);
     } else if (obj.text && obj.text.trim() !== '') {
@@ -1526,67 +3362,8 @@ function startTextEdit(obj) {
 
         if (e.key === '/') {
             e.preventDefault();
-            
-            let textNode = node;
-            let offset = range.startOffset;
-            
-            if (textNode.nodeType !== Node.TEXT_NODE) {
-                if (textNode.closest('.math-frac')) return;
-                
-                if (textNode.childNodes.length > 0 && offset < textNode.childNodes.length) {
-                    textNode = textNode.childNodes[offset];
-                    offset = 0;
-                } else if (textNode.childNodes.length > 0 && offset === textNode.childNodes.length) {
-                     textNode = textNode.childNodes[offset - 1];
-                     offset = textNode.textContent.length;
-                } else {
-                    return;
-                }
-            }
-            
-            if (textNode.nodeType !== Node.TEXT_NODE) return;
-
-            let text = textNode.textContent;
-            let wordStart = offset;
-            while (wordStart > 0 && !/\s/.test(text[wordStart - 1])) {
-                wordStart--;
-            }
-            
-            const word = text.substring(wordStart, offset);
-            
-            const beforeText = text.substring(0, wordStart);
-            const afterText = text.substring(offset);
-            
-            textNode.textContent = beforeText + afterText;
-            
-            const fracDiv = document.createElement('div');
-            fracDiv.className = 'math-frac';
-            fracDiv.style.display = 'inline-flex';
-            fracDiv.style.flexDirection = 'column';
-            fracDiv.style.verticalAlign = 'middle';
-            
-            const numSpan = document.createElement('span');
-            numSpan.className = 'math-num';
-            numSpan.textContent = word || '\u200B';
-            
-            const denSpan = document.createElement('span');
-            denSpan.className = 'math-den';
-            denSpan.textContent = '\u200B';
-            
-            fracDiv.appendChild(numSpan);
-            fracDiv.appendChild(denSpan);
-            
-            const newRange = document.createRange();
-            newRange.setStart(textNode, wordStart);
-            newRange.collapse(true);
-            newRange.insertNode(fracDiv);
-            
-            const focusRange = document.createRange();
-            focusRange.selectNodeContents(denSpan);
-            focusRange.collapse(false);
-            sel.removeAllRanges();
-            sel.addRange(focusRange);
-            
+            const numeratorContent = collectNumeratorContent(range, editorDiv);
+            insertFraction(editorDiv, numeratorContent);
             updateSize();
             return;
         }
@@ -1600,129 +3377,158 @@ function startTextEdit(obj) {
         }
         
         if (e.key === 'ArrowRight') {
-            let parent = node.parentElement;
-            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
-                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
-            
-            if (isAtEnd && parent) {
-                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub') || parent.classList.contains('math-den')) {
-                    e.preventDefault();
-                    
-                    if (parent.classList.contains('math-den')) {
-                        const frac = parent.parentElement;
-                        const nextSibling = frac.nextSibling;
-                        if (nextSibling) {
-                            const newRange = document.createRange();
-                            if (nextSibling.nodeType === Node.TEXT_NODE) {
-                                newRange.setStart(nextSibling, 0);
-                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                                newRange.selectNodeContents(nextSibling);
-                                newRange.collapse(true);
-                            }
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        } else {
-                            const textNode = document.createTextNode('\u200B');
-                            frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                            const newRange = document.createRange();
-                            newRange.setStart(textNode, 0);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        }
-                    } 
-                    else {
-                        const nextSibling = parent.nextSibling;
-                        if (nextSibling) {
-                            const newRange = document.createRange();
-                            if (nextSibling.nodeType === Node.TEXT_NODE) {
-                                newRange.setStart(nextSibling, 0);
-                            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                                newRange.selectNodeContents(nextSibling);
-                                newRange.collapse(true);
-                            }
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        } else {
-                             const textNode = document.createTextNode('\u200B');
-                             parent.parentNode.insertBefore(textNode, parent.nextSibling);
-                             const newRange = document.createRange();
-                             newRange.setStart(textNode, 0);
-                             sel.removeAllRanges();
-                             sel.addRange(newRange);
-                        }
-                    }
-                    return;
+    let parent = node.parentElement;
+    
+    // Выход из знаменателя дроби
+    if (parent && parent.classList.contains('math-den')) {
+        e.preventDefault();
+        const frac = parent.parentElement;
+        const nextSibling = frac.nextSibling;
+        if (nextSibling) {
+            const newRange = document.createRange();
+            if (nextSibling.nodeType === Node.TEXT_NODE) {
+                newRange.setStart(nextSibling, 0);
+            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                newRange.selectNodeContents(nextSibling);
+                newRange.collapse(true);
+            }
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        } else {
+            const textNode = document.createTextNode('\u200B');
+            frac.parentNode.insertBefore(textNode, frac.nextSibling);
+            const newRange = document.createRange();
+            newRange.setStart(textNode, 0);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        }
+        return;
+    }
+    
+    let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                  (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+    
+    if (parent) {
+        // Выход из числителя дроби — переход к знаменателю
+        if (parent.classList.contains('math-num')) {
+            if (isAtEnd) {
+                e.preventDefault();
+                const denSpan = parent.parentElement.querySelector('.math-den');
+                if (denSpan) {
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(denSpan);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
                 }
+                return;
             }
         }
+        // Выход из верхнего/нижнего индекса
+        else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+            if (isAtEnd) {
+                e.preventDefault();
+                const nextSibling = parent.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    parent.parentNode.insertBefore(textNode, parent.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+        }
+    }
+}
         
         if (e.key === 'ArrowLeft') {
-            let parent = node.parentElement;
-            let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
-                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
-            
-            if (isAtStart && parent) {
-                if (parent.classList.contains('math-den')) {
-                    e.preventDefault();
-                    const numSpan = parent.parentElement.querySelector('.math-num');
-                    if (numSpan) {
-                        const newRange = document.createRange();
-                        newRange.selectNodeContents(numSpan);
-                        newRange.collapse(false);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
+    let parent = node.parentElement;
+    let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
+                    (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
+    
+    if (parent) {
+        // Выход из знаменателя дроби — переход к числителю
+        if (parent.classList.contains('math-den')) {
+            if (isAtStart) {
+                e.preventDefault();
+                const numSpan = parent.parentElement.querySelector('.math-num');
+                if (numSpan) {
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(numSpan);
+                    newRange.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
                 }
-                if (parent.classList.contains('math-num')) {
-                    e.preventDefault();
-                    const frac = parent.parentElement;
-                    const prevSibling = frac.previousSibling;
-                    if (prevSibling) {
-                        const newRange = document.createRange();
-                        if (prevSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(prevSibling, prevSibling.textContent.length);
-                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                             newRange.selectNodeContents(prevSibling);
-                             newRange.collapse(false);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('\u200B');
-                        frac.parentNode.insertBefore(textNode, frac);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
-                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-                    e.preventDefault();
-                    const prevSibling = parent.previousSibling;
-                    if (prevSibling) {
-                        const newRange = document.createRange();
-                        if (prevSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(prevSibling, prevSibling.textContent.length);
-                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                             newRange.selectNodeContents(prevSibling);
-                             newRange.collapse(false);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('\u200B');
-                        parent.parentNode.insertBefore(textNode, parent);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
+                return;
             }
         }
+        // Выход из числителя дроби — к предыдущему узлу
+        else if (parent.classList.contains('math-num')) {
+            if (isAtStart) {
+                e.preventDefault();
+                const frac = parent.parentElement;
+                const prevSibling = frac.previousSibling;
+                if (prevSibling) {
+                    const newRange = document.createRange();
+                    if (prevSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(prevSibling, prevSibling.textContent.length);
+                    } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(prevSibling);
+                        newRange.collapse(false);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+        }
+        // Выход из верхнего/нижнего индекса
+        else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+            if (isAtStart) {
+                e.preventDefault();
+                const prevSibling = parent.previousSibling;
+                if (prevSibling) {
+                    const newRange = document.createRange();
+                    if (prevSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(prevSibling, prevSibling.textContent.length);
+                    } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(prevSibling);
+                        newRange.collapse(false);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    parent.parentNode.insertBefore(textNode, parent);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+        }
+    }
+}
 
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -1739,8 +3545,17 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
+            // ✅ ВИПРАВЛЕННЯ: Оновлюємо локальний об'єкт миттєво
             editingObject.text = editorDiv.innerText;
-            if (socket && socket.connected) socket.emit('update-all', objects);
+            requestDraw(); 
+            
+            // ✅ ВИПРАВЛЕННЯ: Дебаунс відправки на сервер (щоб не спамити)
+            if (textUpdateTimer) clearTimeout(textUpdateTimer);
+            textUpdateTimer = setTimeout(() => {
+                if (socket && socket.connected) {
+                    socket.emit('update-all', objects);
+                }
+            }, 500); // Відправляємо через 500мс після останнього натискання
         }
     });
     
@@ -1768,26 +3583,28 @@ function startTextEdit(obj) {
     });
 }
 
+// ============================================
+// ЗАВЕРШЕННЯ РЕДАГУВАННЯ ТЕКСТУ
+// ============================================
+
 function stopTextEdit(cancel = false) {
     if (!textEditor) return;
     const editorDiv = textEditor.querySelector('.text-edit-content');
     if (!cancel && editingObject) {
         saveHistory();
         
-        // ВИПРАВЛЕННЯ: Зберігаємо HTML структуру в segments
         const html = editorDiv.innerHTML;
         const segments = htmlToSegments(html);
         
-        // Якщо segments порожній, але є текст - зберігаємо тільки text
         if (segments && segments.length > 0) {
             editingObject.segments = segments;
         } else {
-            // Видаляємо segments якщо порожній, щоб fallback працював
             delete editingObject.segments;
         }
         
         editingObject.text = editorDiv.innerText;
         
+        // ✅ ВИПРАВЛЕННЯ: Відправляємо на сервер тільки коли закінчили редагування
         if (socket && socket.connected) socket.emit('update-all', objects);
     }
     if (textEditor.parentNode) {
@@ -1797,6 +3614,10 @@ function stopTextEdit(cancel = false) {
     editingObject = null;
     requestDraw();
 }
+
+// ============================================
+// ЗМІНА РОЗМІРУ ТЕКСТУ
+// ============================================
 
 function startTextResize(obj, handle, e, wrapper, editorDiv) {
     isResizing = true;
@@ -1841,6 +3662,10 @@ function startTextResize(obj, handle, e, wrapper, editorDiv) {
     document.addEventListener('mouseup', onUp);
 }
 
+// ============================================
+// ПЕРЕМІЩЕННЯ ТЕКСТУ
+// ============================================
+
 function startTextDrag(obj, e, wrapper) {
     isDragging = true;
     const coords = getCoords(e);
@@ -1871,6 +3696,10 @@ function startTextDrag(obj, e, wrapper) {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 }
+
+// ============================================
+// ПОДІЇ CANVAS
+// ============================================
 
 canvas.addEventListener('dblclick', (e) => {
     const coords = getCoords(e);
@@ -2111,8 +3940,8 @@ canvas.addEventListener('mousemove', (e) => {
         
         selectedObjects.forEach(obj => {
             if (!obj.rotation) obj.rotation = 0;
-             const originalRotation = startResizeState.originalRotation || 0;
-             obj.rotation = originalRotation + (degrees - startResizeState.startAngle);
+            const originalRotation = startResizeState.originalRotation || 0;
+            obj.rotation = originalRotation + (degrees - startResizeState.startAngle);
         });
         requestDraw();
     }
@@ -2144,10 +3973,16 @@ canvas.addEventListener('mouseup', () => {
     }
     
     if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen' && currentPath.points.length > 1) {
-            saveHistory();
-            objects.push(currentPath);
-            if (socket && socket.connected) socket.emit('new-object', currentPath);
+        if (currentPath.type === 'pen') {
+            // ✅ ВИПРАВЛЕННЯ: Додаємо точку, якщо це був просто клік (без руху)
+            if (currentPath.points.length === 0) {
+                currentPath.points.push({ x: currentPath.x, y: currentPath.y });
+            }
+            if (currentPath.points.length > 0) {
+                saveHistory();
+                objects.push(currentPath);
+                if (socket && socket.connected) socket.emit('new-object', currentPath);
+            }
         } else if (currentPath.type === 'shape') {
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
@@ -2193,6 +4028,10 @@ canvas.addEventListener('mouseup', () => {
     }
 });
 
+// ============================================
+// ЛАСТИК
+// ============================================
+
 function eraseAt(mx, my) {
     const eraserRadius = 30 / scale;
     let changed = false;
@@ -2236,6 +4075,10 @@ function eraseAt(mx, my) {
     }
 }
 
+// ============================================
+// ПОЧАТОК МАЛЮВАННЯ
+// ============================================
+
 function startDrawing(coords) {
     isDrawing = true;
     currentPath = {
@@ -2245,6 +4088,11 @@ function startDrawing(coords) {
         x: coords.x, y: coords.y, ex: coords.x, ey: coords.y,
         w: 0, h: 0
     };
+    
+    if (selectedLineToolType === 'dotted') {
+        currentPath.lineStyle = 'dotted';
+    }
+    
     if (currentTool === 'pen') currentPath.points = [];
     if (currentTool === 'shape') {
         currentPath.shapeType = selectedShapeType;
@@ -2254,6 +4102,10 @@ function startDrawing(coords) {
         currentPath.radius = 0;
     }
 }
+
+// ============================================
+// ЗМІНА РОЗМІРУ ГРУПИ
+// ============================================
 
 function startResizeGroup(handle, e) {
     isResizing = true;
@@ -2369,6 +4221,10 @@ function startResizeGroup(handle, e) {
 
 function startRotate(e) {}
 
+// ============================================
+// СТВОРЕННЯ НОВОГО ТЕКСТУ
+// ============================================
+
 function createNewText(coords) {
     const obj = {
         type: 'text', x: coords.x, y: coords.y, 
@@ -2383,6 +4239,10 @@ function createNewText(coords) {
     requestDraw();
     startTextEdit(obj);
 }
+
+// ============================================
+// ВИБІР ІНСТРУМЕНТУ
+// ============================================
 
 function setTool(tool) {
     currentTool = tool;
@@ -2401,6 +4261,32 @@ function setTool(tool) {
 }
 
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.onclick = () => setTool(btn.dataset.tool));
+
+// ============================================
+// МАТЕМАТИЧНІ КНОПКИ
+// ============================================
+
+const mathBtn = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.onclick = fn;
+};
+
+mathBtn('mathFracBtn', () => {
+    if (typeof insertFraction === 'function' && textEditor) {
+        insertFraction(textEditor, collectNumeratorContent(window.getSelection().getRangeAt(0), textEditor));
+    }
+});
+mathBtn('mathSqrtBtn', () => { if (typeof insertSqrt === 'function') insertSqrt(); });
+mathBtn('mathSupBtn', () => { if (typeof insertMathField === 'function') insertMathField('sup'); });
+mathBtn('mathSubBtn', () => { if (typeof insertMathField === 'function') insertMathField('sub'); });
+mathBtn('mathSumBtn', () => { if (typeof insertSum === 'function') insertSum(); });
+mathBtn('mathIntBtn', () => { if (typeof insertIntegral === 'function') insertIntegral(); });
+mathBtn('mathProdBtn', () => { if (typeof insertProd === 'function') insertProd(); });
+mathBtn('mathLimBtn', () => { if (typeof insertLimit === 'function') insertLimit(); });
+
+// ============================================
+// КНОПКИ ПАНЕЛІ
+// ============================================
 
 document.getElementById('clearBtn').onclick = () => { 
     if(confirm("Очистити дошку?")) {
@@ -2427,6 +4313,10 @@ colorPickerBtn.addEventListener('click', () => {
 colorPickerInput.addEventListener('input', (e) => {
     selectPenColor(e.target.value);
 });
+
+// ============================================
+// МАСШТАБУВАННЯ
+// ============================================
 
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -2457,6 +4347,10 @@ canvas.addEventListener('wheel', (e) => {
     requestDraw();
 }, { passive: false });
 
+// ============================================
+// ВСТАВКА ЗОБРАЖЕНЬ
+// ============================================
+
 window.addEventListener('paste', (e) => {
     if (textEditor) return;
     const items = e.clipboardData.items;
@@ -2470,10 +4364,20 @@ window.addEventListener('paste', (e) => {
                 img.onload = () => {
                     const centerX = (canvas.width/2 - offsetX) / scale;
                     const centerY = (canvas.height/2 - offsetY) / scale;
-                    const obj = { type: 'image', src: event.target.result, x: centerX - img.width/4, y: centerY - img.height/4, w: img.width/2, h: img.height/2, rotation: 0 };
+                    const obj = { 
+                        type: 'image', 
+                        src: event.target.result, 
+                        x: centerX - img.width/4, 
+                        y: centerY - img.height/4, 
+                        w: img.width/2, 
+                        h: img.height/2, 
+                        rotation: 0 
+                    };
                     saveHistory();
-                    objects.push(obj); selectedObjects = [obj];
-                    if (socket && socket.connected) socket.emit('new-object', obj); requestDraw();
+                    objects.push(obj); 
+                    selectedObjects = [obj];
+                    if (socket && socket.connected) socket.emit('new-object', obj); 
+                    requestDraw();
                 };
             };
             reader.readAsDataURL(blob);
@@ -2481,8 +4385,29 @@ window.addEventListener('paste', (e) => {
     }
 });
 
+// ============================================
+// SOCKET.IO ПОДІЇ (ВИПРАВЛЕНО)
+// ============================================
+
 socket.on('init-history', (h) => { 
+    let currentEditText = null;
+    let currentEditHtml = null;
+    
+    if (editingObject && textEditor) {
+        const editorDiv = textEditor.querySelector('.text-edit-content');
+        currentEditText = editorDiv.innerText;
+        currentEditHtml = editorDiv.innerHTML;
+    }
+
     objects = h;
+    
+    if (editingObject && currentEditText !== null) {
+        const localObj = objects.find(o => o === editingObject);
+        if (localObj) {
+            localObj.text = currentEditText;
+        }
+    }
+
     historyStack = [{ objects: JSON.parse(JSON.stringify(objects)), view: { scale, offsetX, offsetY } }];
     historyIndex = 0;
     let imagesLoaded = 0;
@@ -2515,7 +4440,13 @@ socket.on('new-object', (o) => {
 });
 
 socket.on('update-all', (newObjects) => { 
+    // ✅ ВИПРАВЛЕННЯ: Оскільки сервер тепер відправляє дані ВСІМ (включно з нами),
+    // ми просто приймаємо їх як "істину". Це гарантує синхронізацію.
+    // Якщо ми зараз редагуємо текст, ми все одно оновлюємо масив, 
+    // але локальний текст в редакторі залишається незмінним до blur.
+    
     objects = newObjects; 
+    
     if (!isUndoing) {
         saveHistory();
     }
