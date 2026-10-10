@@ -2935,11 +2935,58 @@ function startTextEdit(obj) {
         }
         
         if (e.key === 'ArrowRight') {
-            let parent = node.parentElement;
-            if (parent && parent.classList.contains('math-den')) {
+    let parent = node.parentElement;
+    
+    // Выход из знаменателя дроби
+    if (parent && parent.classList.contains('math-den')) {
+        e.preventDefault();
+        const frac = parent.parentElement;
+        const nextSibling = frac.nextSibling;
+        if (nextSibling) {
+            const newRange = document.createRange();
+            if (nextSibling.nodeType === Node.TEXT_NODE) {
+                newRange.setStart(nextSibling, 0);
+            } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                newRange.selectNodeContents(nextSibling);
+                newRange.collapse(true);
+            }
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        } else {
+            const textNode = document.createTextNode('\u200B');
+            frac.parentNode.insertBefore(textNode, frac.nextSibling);
+            const newRange = document.createRange();
+            newRange.setStart(textNode, 0);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        }
+        return;
+    }
+    
+    let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                  (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+    
+    if (parent) {
+        // Выход из числителя дроби — переход к знаменателю
+        if (parent.classList.contains('math-num')) {
+            if (isAtEnd) {
                 e.preventDefault();
-                const frac = parent.parentElement;
-                const nextSibling = frac.nextSibling;
+                const denSpan = parent.parentElement.querySelector('.math-den');
+                if (denSpan) {
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(denSpan);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+        }
+        // Выход из верхнего/нижнего индекса
+        else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+            if (isAtEnd) {
+                e.preventDefault();
+                const nextSibling = parent.nextSibling;
                 if (nextSibling) {
                     const newRange = document.createRange();
                     if (nextSibling.nodeType === Node.TEXT_NODE) {
@@ -2952,7 +2999,7 @@ function startTextEdit(obj) {
                     sel.addRange(newRange);
                 } else {
                     const textNode = document.createTextNode('\u200B');
-                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                    parent.parentNode.insertBefore(textNode, parent.nextSibling);
                     const newRange = document.createRange();
                     newRange.setStart(textNode, 0);
                     sel.removeAllRanges();
@@ -2960,116 +3007,86 @@ function startTextEdit(obj) {
                 }
                 return;
             }
-            
-            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
-                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
-            
-            if (isAtEnd && parent) {
-                if (parent.classList.contains('math-num')) {
-                    e.preventDefault();
-                    const denSpan = parent.parentElement.querySelector('.math-den');
-                    if (denSpan) {
-                        const newRange = document.createRange();
-                        newRange.selectNodeContents(denSpan);
-                        newRange.collapse(true);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
-                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-                    e.preventDefault();
-                    const nextSibling = parent.nextSibling;
-                    if (nextSibling) {
-                        const newRange = document.createRange();
-                        if (nextSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(nextSibling, 0);
-                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(nextSibling);
-                            newRange.collapse(true);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('\u200B');
-                        parent.parentNode.insertBefore(textNode, parent.nextSibling);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
-            }
         }
+    }
+}
         
         if (e.key === 'ArrowLeft') {
-            let parent = node.parentElement;
-            let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
-                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
-            
-            if (isAtStart && parent) {
-                if (parent.classList.contains('math-den')) {
-                    e.preventDefault();
-                    const numSpan = parent.parentElement.querySelector('.math-num');
-                    if (numSpan) {
-                        const newRange = document.createRange();
-                        newRange.selectNodeContents(numSpan);
-                        newRange.collapse(false);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
+    let parent = node.parentElement;
+    let isAtStart = (node.nodeType === Node.TEXT_NODE && range.startOffset === 0) || 
+                    (node.nodeType === Node.ELEMENT_NODE && range.startOffset === 0);
+    
+    if (parent) {
+        // Выход из знаменателя дроби — переход к числителю
+        if (parent.classList.contains('math-den')) {
+            if (isAtStart) {
+                e.preventDefault();
+                const numSpan = parent.parentElement.querySelector('.math-num');
+                if (numSpan) {
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(numSpan);
+                    newRange.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
                 }
-                if (parent.classList.contains('math-num')) {
-                    e.preventDefault();
-                    const frac = parent.parentElement;
-                    const prevSibling = frac.previousSibling;
-                    if (prevSibling) {
-                        const newRange = document.createRange();
-                        if (prevSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(prevSibling, prevSibling.textContent.length);
-                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(prevSibling);
-                            newRange.collapse(false);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('\u200B');
-                        frac.parentNode.insertBefore(textNode, frac);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
-                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
-                    e.preventDefault();
-                    const prevSibling = parent.previousSibling;
-                    if (prevSibling) {
-                        const newRange = document.createRange();
-                        if (prevSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(prevSibling, prevSibling.textContent.length);
-                        } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
-                            newRange.selectNodeContents(prevSibling);
-                            newRange.collapse(false);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('\u200B');
-                        parent.parentNode.insertBefore(textNode, parent);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    return;
-                }
+                return;
             }
         }
+        // Выход из числителя дроби — к предыдущему узлу
+        else if (parent.classList.contains('math-num')) {
+            if (isAtStart) {
+                e.preventDefault();
+                const frac = parent.parentElement;
+                const prevSibling = frac.previousSibling;
+                if (prevSibling) {
+                    const newRange = document.createRange();
+                    if (prevSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(prevSibling, prevSibling.textContent.length);
+                    } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(prevSibling);
+                        newRange.collapse(false);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+        }
+        // Выход из верхнего/нижнего индекса
+        else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+            if (isAtStart) {
+                e.preventDefault();
+                const prevSibling = parent.previousSibling;
+                if (prevSibling) {
+                    const newRange = document.createRange();
+                    if (prevSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(prevSibling, prevSibling.textContent.length);
+                    } else if (prevSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(prevSibling);
+                        newRange.collapse(false);
+                    }
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    parent.parentNode.insertBefore(textNode, parent);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+                return;
+            }
+        }
+    }
+}
 
         if (e.key === 'Enter') {
             e.preventDefault();
