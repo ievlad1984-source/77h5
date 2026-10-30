@@ -2079,113 +2079,80 @@ function startTextEdit(obj) {
             updateSize();
             return;
         }
-        
+       
+
 if (e.key === 'ArrowRight') {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
+    // Работаем только с установленным курсором, а не с выделенным текстом
+    if (!range.collapsed) return;
 
-    const range = sel.getRangeAt(0);
-    const node = range.startContainer;
+    // Находим ближайшее математическое поле, даже если внутри есть
+    // дополнительные вложенные HTML-элементы
+    const field = (
+        node.nodeType === Node.ELEMENT_NODE
+            ? node
+            : node.parentElement
+    )?.closest('.math-den, .math-num, .math-sup, .math-sub');
 
-    // Определяем математическое поле, в котором находится курсор
-    const field = node.nodeType === Node.ELEMENT_NODE &&
-                  node.matches('.math-den, .math-num, .math-sup, .math-sub')
-        ? node
-        : node.parentElement?.closest(
-            '.math-den, .math-num, .math-sup, .math-sub'
-        );
+    if (field) {
+        // Проверяем, находится ли курсор в конце ВСЕГО поля
+        const endRange = document.createRange();
+        endRange.selectNodeContents(field);
+        endRange.collapse(false);
 
-    if (!field) return;
+        const isAtEnd =
+            range.compareBoundaryPoints(
+                Range.START_TO_START,
+                endRange
+            ) === 0;
 
-    // Проверяем, находится ли курсор именно в конце поля
-    const endRange = document.createRange();
-    endRange.selectNodeContents(field);
-    endRange.collapse(false);
-
-    const isAtEnd =
-        range.collapsed &&
-        range.compareBoundaryPoints(
-            Range.START_TO_START,
-            endRange
-        ) === 0;
-
-    if (!isAtEnd) return;
-
-    // ВЫХОД ИЗ ЗНАМЕНАТЕЛЯ
-    if (field.classList.contains('math-den')) {
-        e.preventDefault();
-
-        const frac = field.closest('.math-frac');
-        if (!frac) return;
-
-        let nextSibling = frac.nextSibling;
-
-        if (!nextSibling) {
-            nextSibling = document.createTextNode('\u200B');
-            frac.parentNode.insertBefore(nextSibling, frac.nextSibling);
-        }
-
-        const newRange = document.createRange();
-
-        if (nextSibling.nodeType === Node.TEXT_NODE) {
-            newRange.setStart(nextSibling, 0);
-        } else {
-            newRange.selectNodeContents(nextSibling);
-            newRange.collapse(true);
-        }
-
-        sel.removeAllRanges();
-        sel.addRange(newRange);
-        return;
-    }
-
-    // ПЕРЕХОД ИЗ ЧИСЛИТЕЛЯ В ЗНАМЕНАТЕЛЬ
-    if (field.classList.contains('math-num')) {
-        e.preventDefault();
-
-        const frac = field.closest('.math-frac');
-        const denSpan = frac?.querySelector('.math-den');
-
-        if (denSpan) {
+        if (isAtEnd) {
             const newRange = document.createRange();
-            newRange.selectNodeContents(denSpan);
-            newRange.collapse(true);
 
-            sel.removeAllRanges();
-            sel.addRange(newRange);
+            // А. Выход из знаменателя — за пределы всей дроби
+            if (field.classList.contains('math-den')) {
+                const frac = field.closest('.math-frac');
+
+                if (frac) {
+                    e.preventDefault();
+                    newRange.setStartAfter(frac);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                    return;
+                }
+            }
+
+            // Б. Переход из числителя в знаменатель
+            if (field.classList.contains('math-num')) {
+                const frac = field.closest('.math-frac');
+                const denSpan = frac?.querySelector('.math-den');
+
+                if (denSpan) {
+                    e.preventDefault();
+                    newRange.selectNodeContents(denSpan);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                    return;
+                }
+            }
+
+            // В. Выход из верхнего или нижнего индекса
+            if (
+                field.classList.contains('math-sup') ||
+                field.classList.contains('math-sub')
+            ) {
+                e.preventDefault();
+                newRange.setStartAfter(field);
+                newRange.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(newRange);
+                return;
+            }
         }
-
-        return;
-    }
-
-    // ВЫХОД ИЗ ВЕРХНЕГО ИЛИ НИЖНЕГО ИНДЕКСА
-    if (
-        field.classList.contains('math-sup') ||
-        field.classList.contains('math-sub')
-    ) {
-        e.preventDefault();
-
-        let nextSibling = field.nextSibling;
-
-        if (!nextSibling) {
-            nextSibling = document.createTextNode('\u200B');
-            field.parentNode.insertBefore(nextSibling, field.nextSibling);
-        }
-
-        const newRange = document.createRange();
-
-        if (nextSibling.nodeType === Node.TEXT_NODE) {
-            newRange.setStart(nextSibling, 0);
-        } else {
-            newRange.selectNodeContents(nextSibling);
-            newRange.collapse(true);
-        }
-
-        sel.removeAllRanges();
-        sel.addRange(newRange);
-        return;
     }
 }
+ 
 
 
         if (e.key === 'ArrowLeft') {
