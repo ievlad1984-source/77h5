@@ -2082,77 +2082,81 @@ function startTextEdit(obj) {
        
 
 if (e.key === 'ArrowRight') {
-    // Работаем только с установленным курсором, а не с выделенным текстом
-    if (!range.collapsed) return;
+    const selection = window.getSelection();
 
-    // Находим ближайшее математическое поле, даже если внутри есть
-    // дополнительные вложенные HTML-элементы
-    const field = (
-        node.nodeType === Node.ELEMENT_NODE
-            ? node
-            : node.parentElement
-    )?.closest('.math-den, .math-num, .math-sup, .math-sub');
-
-    if (field) {
-        // Проверяем, находится ли курсор в конце ВСЕГО поля
-        const endRange = document.createRange();
-        endRange.selectNodeContents(field);
-        endRange.collapse(false);
-
-        const isAtEnd =
-            range.compareBoundaryPoints(
-                Range.START_TO_START,
-                endRange
-            ) === 0;
-
-        if (isAtEnd) {
-            const newRange = document.createRange();
-
-            // А. Выход из знаменателя — за пределы всей дроби
-            if (field.classList.contains('math-den')) {
-                const frac = field.closest('.math-frac');
-
-                if (frac) {
-                    e.preventDefault();
-                    newRange.setStartAfter(frac);
-                    newRange.collapse(true);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                    return;
-                }
-            }
-
-            // Б. Переход из числителя в знаменатель
-            if (field.classList.contains('math-num')) {
-                const frac = field.closest('.math-frac');
-                const denSpan = frac?.querySelector('.math-den');
-
-                if (denSpan) {
-                    e.preventDefault();
-                    newRange.selectNodeContents(denSpan);
-                    newRange.collapse(true);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                    return;
-                }
-            }
-
-            // В. Выход из верхнего или нижнего индекса
-            if (
-                field.classList.contains('math-sup') ||
-                field.classList.contains('math-sub')
-            ) {
-                e.preventDefault();
-                newRange.setStartAfter(field);
-                newRange.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(newRange);
-                return;
-            }
-        }
+    if (!selection || !selection.rangeCount || !selection.isCollapsed) {
+        return;
     }
+
+    const currentRange = selection.getRangeAt(0);
+    const currentNode = currentRange.startContainer;
+
+    // Ищем математическое поле, в котором находится курсор
+    let field = currentNode.nodeType === Node.TEXT_NODE
+        ? currentNode.parentElement
+        : currentNode;
+
+    while (
+        field &&
+        field !== editorDiv &&
+        !field.classList.contains('math-den') &&
+        !field.classList.contains('math-num') &&
+        !field.classList.contains('math-sup') &&
+        !field.classList.contains('math-sub')
+    ) {
+        field = field.parentElement;
+    }
+
+    if (!field || field === editorDiv) return;
+
+    // Проверяем, что курсор действительно в конце поля
+    const endRange = document.createRange();
+    endRange.selectNodeContents(field);
+    endRange.collapse(false);
+
+    if (
+        currentRange.compareBoundaryPoints(
+            Range.START_TO_START,
+            endRange
+        ) !== 0
+    ) {
+        return;
+    }
+
+    const newRange = document.createRange();
+
+    // Выход из знаменателя
+    if (field.classList.contains('math-den')) {
+        const fraction = field.closest('.math-frac');
+        if (!fraction) return;
+
+        e.preventDefault();
+        newRange.setStartAfter(fraction);
+    }
+    // Из числителя в знаменатель
+    else if (field.classList.contains('math-num')) {
+        const denominator = field.closest('.math-frac')
+            ?.querySelector('.math-den');
+
+        if (!denominator) return;
+
+        e.preventDefault();
+        newRange.selectNodeContents(denominator);
+        newRange.collapse(true);
+    }
+    // Выход из верхнего или нижнего индекса
+    else {
+        e.preventDefault();
+        newRange.setStartAfter(field);
+    }
+
+    newRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    return;
 }
- 
+
+
 
 
         if (e.key === 'ArrowLeft') {
