@@ -552,7 +552,6 @@ let syncState = {
 let scale = 1.0, offsetX = 0, offsetY = 0;
 let objects = {}; // Змінено на Map для швидкого доступу
 let objectsArray = []; // Для зворотньої сумісності
-const imageCache = {}; // Кеш для завантажених зображень
 let currentTool = 'select';
 let selectedObjects = []; 
 let isDragging = false, isResizing = false, resizeHandle = null, isRotating = false;
@@ -611,10 +610,10 @@ function updateConnectionStatus(status, text) {
 function sendOperation(type, data) {
     if (!syncState.connected) return;
     
-    // 1. Локальне застосування змін (використовуємо вже існуючу функцію applyOperation)
+    // Локальне застосування
     applyOperation({ type, data, id: Date.now(), timestamp: Date.now() });
     
-    // 2. Відправка на сервер
+    // Відправка на сервер
     switch (type) {
         case 'add':
             socket.emit('object:add', data);
@@ -629,50 +628,31 @@ function sendOperation(type, data) {
 }
 
 function applyOperation(operation) {
-    // Визначаємо ID об'єкта
-    const objId = operation.data?.id || operation.objectId;
-    if (!objId) return;
-
     switch (operation.type) {
         case 'add':
-            if (!objects[objId]) {
-                objects[objId] = operation.data;
+            if (!objects[operation.data.id]) {
+                objects[operation.data.id] = operation.data;
                 objectsArray.push(operation.data);
             }
             break;
         case 'update':
-            if (!objects[objId]) {
-                // КРИТИЧНА ЗМІНА: Не створюємо об'єкт з дельти!
-                // Якщо об'єкта немає, ми не можемо його відновити з {x, y}.
-                // Просто ігноруємо або можна додати socket.emit('request-full-sync')
-                console.warn(`[SYNC] Отримано update для відсутнього об'єкта ${objId}. Ігноруємо.`);
-                return; 
-            } else {
-                const localObj = objects[objId];
-                const isEditingLocally = (editingObject && editingObject.id === objId);
-                
-                // Перевіряємо, чи дані новіші (якщо є timestamp)
-                const isNewer = !localObj.lastModified || 
-                                (operation.data?.lastModified && operation.data.lastModified >= localObj.lastModified);
-
-                if (!isEditingLocally || isNewer) {
-                    // Просто оновлюємо дані. Картинки тепер беруться з imageCache, тому _img не потрібен
-                    objects[objId] = {
-                        ...localObj,
-                        ...operation.data
-                    };
-                    const idx = objectsArray.findIndex(o => o.id === objId);
-                    if (idx !== -1) {
-                        objectsArray[idx] = objects[objId];
-                    }
+            if (objects[operation.data.id]) {
+                objects[operation.data.id] = {
+                    ...objects[operation.data.id],
+                    ...operation.data
+                };
+                // Оновлюємо в масиві
+                const idx = objectsArray.findIndex(o => o.id === operation.data.id);
+                if (idx !== -1) {
+                    objectsArray[idx] = objects[operation.data.id];
                 }
             }
             break;
         case 'delete':
-            if (objects[objId]) {
-                delete objects[objId];
-                objectsArray = objectsArray.filter(o => o.id !== objId);
-                selectedObjects = selectedObjects.filter(o => o.id !== objId);
+            if (objects[operation.data.id]) {
+                delete objects[operation.data.id];
+                objectsArray = objectsArray.filter(o => o.id !== operation.data.id);
+                selectedObjects = selectedObjects.filter(o => o.id !== operation.data.id);
             }
             break;
         case 'clear':
@@ -1749,21 +1729,13 @@ function drawObject(obj, isTemp = false) {
     } else if (obj.type === 'grid') {
         drawCoordinateGrid(obj);
     } else if (obj.type === 'image') {
-        const src = obj.src;
-        // Перевіряємо, чи картинка вже є в кеші
-        if (!imageCache[src]) {
-            const img = new Image();
-            img.src = src;
-            img.onload = () => {
-                imageCache[src] = img;
-                requestDraw();
-            };
-            imageCache[src] = null; // Позначаємо, що завантаження розпочато
+        if (!obj._img) {
+            obj._img = new Image();
+            obj._img.src = obj.src;
+            obj._img.onload = () => requestDraw();
         }
-        
-        const cachedImg = imageCache[src];
-        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
-            ctx.drawImage(cachedImg, sx, sy, obj.w * scale, obj.h * scale);
+        if (obj._img && obj._img.complete && obj._img.naturalWidth > 0) {
+            ctx.drawImage(obj._img, sx, sy, obj.w * scale, obj.h * scale);
         }
     }
     ctx.restore();
@@ -2011,7 +1983,6 @@ function startTextEdit(obj) {
     const editorDiv = document.createElement('div');
     editorDiv.className = 'text-edit-content';
     editorDiv.contentEditable = true;
-    editorDiv.spellcheck = false;
     editorDiv.style.color = obj.color;
     editorDiv.style.fontWeight = obj.isBold ? 'bold' : 'normal';
     editorDiv.style.fontSize = (obj.size * scale) + 'px';
@@ -2079,45 +2050,39 @@ function startTextEdit(obj) {
             updateSize();
             return;
         }
+        
         if (e.key === 'ArrowRight') {
-            const sel = window.getSelection();
-            const range = sel.getRangeAt(0);
-            const node = range.startContainer;
-            const parent = node.parentElement;
-
-            // 1. Определяем, находится ли курсор в самом конце текстового узла
-            const isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
-                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
-
-            if (isAtEnd && parent) {
-                // СЛУЧАЙ А: Выход из знаменателя (math-den) -> выход за пределы всей дроби
-                if (parent.classList.contains('math-den')) {
-                    e.preventDefault();
-                    const frac = parent.parentElement;
-                    const nextSibling = frac.nextSibling;
-                    
-                    if (nextSibling) {
-                        const newRange = document.createRange();
-                        if (nextSibling.nodeType === Node.TEXT_NODE) {
-                            newRange.setStart(nextSibling, 0);
-                        } else {
-                            newRange.selectNodeContents(nextSibling);
-                            newRange.collapse(true);
-                        }
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const textNode = document.createTextNode('\u200B');
-                        frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                        const newRange = document.createRange();
-                        newRange.setStart(textNode, 0);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
+            let parent = node.parentElement;
+            
+            if (parent && parent.classList.contains('math-den')) {
+                e.preventDefault();
+                const frac = parent.parentElement;
+                const nextSibling = frac.nextSibling;
+                if (nextSibling) {
+                    const newRange = document.createRange();
+                    if (nextSibling.nodeType === Node.TEXT_NODE) {
+                        newRange.setStart(nextSibling, 0);
+                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        newRange.selectNodeContents(nextSibling);
+                        newRange.collapse(true);
                     }
-                    return;
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    const textNode = document.createTextNode('\u200B');
+                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(textNode, 0);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
                 }
-                
-                // СЛУЧАЙ Б: Переход из числителя (math-num) -> в знаменатель
+                return;
+            }
+            
+            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+            
+            if (isAtEnd && parent) {
                 if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const denSpan = parent.parentElement.querySelector('.math-den');
@@ -2130,16 +2095,14 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
-                
-                // СЛУЧАЙ В: Выход из индекса (math-sup или math-sub)
-                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
                     e.preventDefault();
                     const nextSibling = parent.nextSibling;
                     if (nextSibling) {
                         const newRange = document.createRange();
                         if (nextSibling.nodeType === Node.TEXT_NODE) {
                             newRange.setStart(nextSibling, 0);
-                        } else {
+                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
                             newRange.selectNodeContents(nextSibling);
                             newRange.collapse(true);
                         }
@@ -2156,7 +2119,7 @@ function startTextEdit(obj) {
                     return;
                 }
             }
-        } // <--- Конец блока ArrowRight. СРАЗУ после этого должен идти if (e.key === 'ArrowLeft')
+        }
         
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
@@ -2241,18 +2204,9 @@ function startTextEdit(obj) {
     editorDiv.addEventListener('input', () => {
         updateSize();
         if (editingObject) {
-            // Оновлюємо і текст, і сегменти (для математичних полів) у реальному часі
-            const html = editorDiv.innerHTML;
-            const segments = htmlToSegments(html);
-            
-            if (segments && segments.length > 0) {
-                editingObject.segments = segments;
-            } else {
-                delete editingObject.segments;
-            }
-            
             editingObject.text = editorDiv.innerText;
             editingObject.lastModified = Date.now();
+            // Інкрементальне оновлення
             sendOperation('update', editingObject);
         }
     });
@@ -2683,33 +2637,12 @@ canvas.addEventListener('mouseup', () => {
     }
     
     if (isDrawing && currentPath) {
-        if (currentPath.type === 'pen') {
-            if (currentPath.points.length > 1) {
-                // Обычная линия (если было перемещение)
-                saveHistory();
-                currentPath.id = generateId();
-                objects[currentPath.id] = currentPath;
-                objectsArray.push(currentPath);
-                sendOperation('add', currentPath);
-            } else {
-                // Одиночный клик -> Точка среднего размера
-                saveHistory();
-                const dot = {
-                    type: 'shape',
-                    shapeType: 'circle',
-                    id: generateId(),
-                    x: currentPath.x - 1, 
-                    y: currentPath.y - 1,
-                    w: 1,
-                    h: 1,
-                    color: currentPath.color,
-                    width: currentPath.width,
-                    rotation: 0
-                };
-                objects[dot.id] = dot;
-                objectsArray.push(dot);
-                sendOperation('add', dot);
-            }
+        if (currentPath.type === 'pen' && currentPath.points.length > 1) {
+            saveHistory();
+            currentPath.id = generateId();
+            objects[currentPath.id] = currentPath;
+            objectsArray.push(currentPath);
+            sendOperation('add', currentPath);
         } else if (currentPath.type === 'shape') {
             if (Math.abs(currentPath.w) > 10 && Math.abs(currentPath.h) > 10) {
                 saveHistory();
@@ -2991,6 +2924,9 @@ function createNewText(coords) {
         rotation: 0
     };
     saveHistory();
+    objects[id] = obj;
+    objectsArray.push(obj);
+    selectedObjects = [obj];
     sendOperation('add', obj);
     requestDraw();
     startTextEdit(obj);
@@ -3117,16 +3053,11 @@ window.addEventListener('paste', (e) => {
                         h: img.height/2, 
                         rotation: 0 
                     };
-                    
-                    // Сначала добавляем в локальный стейт
+                    saveHistory();
                     objects[id] = obj;
                     objectsArray.push(obj);
                     selectedObjects = [obj];
-                    
-                    // Затем отправляем на сервер
                     sendOperation('add', obj);
-                    
-                    saveHistory();
                     requestDraw();
                 };
             };
@@ -3155,7 +3086,6 @@ socket.on('connect_error', () => {
 });
 
 // Повна синхронізація при підключенні
-// Повна синхронізація при підключенні
 socket.on('full-sync', (data) => {
     console.log('[CLIENT] Отримано повну синхронізацію:', data.objects?.length, 'об\'єктів');
     
@@ -3178,7 +3108,7 @@ socket.on('full-sync', (data) => {
     historyStack = [{ objects: JSON.parse(JSON.stringify(objectsArray)), view: { scale, offsetX, offsetY } }];
     historyIndex = 0;
     
-    // Завантажуємо зображення в кеш
+    // Завантажуємо зображення
     let imagesLoaded = 0;
     const totalImages = objectsArray.filter(o => o.type === 'image').length;
     
@@ -3189,17 +3119,16 @@ socket.on('full-sync', (data) => {
         updateConnectionStatus('syncing', `Завантаження зображень...`);
         objectsArray.forEach(obj => {
             if (obj.type === 'image') {
-                const img = new Image();
-                img.src = obj.src;
-                img.onload = () => {
-                    imageCache[obj.src] = img;
+                obj._img = new Image();
+                obj._img.src = obj.src;
+                obj._img.onload = () => {
                     imagesLoaded++;
                     if (imagesLoaded >= totalImages) {
                         updateConnectionStatus('connected', 'Підключено');
                         requestDraw();
                     }
                 };
-                img.onerror = () => {
+                obj._img.onerror = () => {
                     imagesLoaded++;
                     if (imagesLoaded >= totalImages) {
                         updateConnectionStatus('connected', 'Підключено');
@@ -3209,9 +3138,9 @@ socket.on('full-sync', (data) => {
             }
         });
     }
-}); // <--- ОСЬ ЦЯ ДУЖКА МАЄ БУТИ ТУТ, ПІСЛЯ ЦИКЛУ
+});
 
-// Обробка інкрементальних операцій (рухи, додавання, видалення в реальному часі)
+// Обробка інкрементальних операцій
 socket.on('operation', (op) => {
     console.log('[CLIENT] Отримано операцію:', op.type, op.objectId);
     
@@ -3223,7 +3152,7 @@ socket.on('operation', (op) => {
     // Застосовуємо операцію
     applyOperation(op);
 });
-// Повна синхронізація при підключенні
+
 socket.on('operations-batch', (data) => {
     console.log('[CLIENT] Отримано пакет операцій:', data.operations?.length);
     
