@@ -2079,39 +2079,45 @@ function startTextEdit(obj) {
             updateSize();
             return;
         }
-        
         if (e.key === 'ArrowRight') {
-            let parent = node.parentElement;
-            
-            if (parent && parent.classList.contains('math-den')) {
-                e.preventDefault();
-                const frac = parent.parentElement;
-                const nextSibling = frac.nextSibling;
-                if (nextSibling) {
-                    const newRange = document.createRange();
-                    if (nextSibling.nodeType === Node.TEXT_NODE) {
-                        newRange.setStart(nextSibling, 0);
-                    } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
-                        newRange.selectNodeContents(nextSibling);
-                        newRange.collapse(true);
-                    }
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                } else {
-                    const textNode = document.createTextNode('\u200B');
-                    frac.parentNode.insertBefore(textNode, frac.nextSibling);
-                    const newRange = document.createRange();
-                    newRange.setStart(textNode, 0);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
-                return;
-            }
-            
-            let isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
-                          (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
-            
+            const sel = window.getSelection();
+            const range = sel.getRangeAt(0);
+            const node = range.startContainer;
+            const parent = node.parentElement;
+
+            // 1. Определяем, находится ли курсор в самом конце текстового узла
+            const isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset === node.textContent.length) || 
+                            (node.nodeType === Node.ELEMENT_NODE && range.startOffset === node.childNodes.length);
+
             if (isAtEnd && parent) {
+                // СЛУЧАЙ А: Выход из знаменателя (math-den) -> выход за пределы всей дроби
+                if (parent.classList.contains('math-den')) {
+                    e.preventDefault();
+                    const frac = parent.parentElement;
+                    const nextSibling = frac.nextSibling;
+                    
+                    if (nextSibling) {
+                        const newRange = document.createRange();
+                        if (nextSibling.nodeType === Node.TEXT_NODE) {
+                            newRange.setStart(nextSibling, 0);
+                        } else {
+                            newRange.selectNodeContents(nextSibling);
+                            newRange.collapse(true);
+                        }
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const textNode = document.createTextNode('\u200B');
+                        frac.parentNode.insertBefore(textNode, frac.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.setStart(textNode, 0);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    return;
+                }
+                
+                // СЛУЧАЙ Б: Переход из числителя (math-num) -> в знаменатель
                 if (parent.classList.contains('math-num')) {
                     e.preventDefault();
                     const denSpan = parent.parentElement.querySelector('.math-den');
@@ -2124,14 +2130,16 @@ function startTextEdit(obj) {
                     }
                     return;
                 }
-                else if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
+                
+                // СЛУЧАЙ В: Выход из индекса (math-sup или math-sub)
+                if (parent.classList.contains('math-sup') || parent.classList.contains('math-sub')) {
                     e.preventDefault();
                     const nextSibling = parent.nextSibling;
                     if (nextSibling) {
                         const newRange = document.createRange();
                         if (nextSibling.nodeType === Node.TEXT_NODE) {
                             newRange.setStart(nextSibling, 0);
-                        } else if (nextSibling.nodeType === Node.ELEMENT_NODE) {
+                        } else {
                             newRange.selectNodeContents(nextSibling);
                             newRange.collapse(true);
                         }
@@ -2148,7 +2156,7 @@ function startTextEdit(obj) {
                     return;
                 }
             }
-        }
+        } // <--- Конец блока ArrowRight. СРАЗУ после этого должен идти if (e.key === 'ArrowLeft')
         
         if (e.key === 'ArrowLeft') {
             let parent = node.parentElement;
